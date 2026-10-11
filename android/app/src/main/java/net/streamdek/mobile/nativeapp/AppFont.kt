@@ -57,9 +57,9 @@ enum class AppFont(
   @StringRes val labelRes: Int,
   @StringRes val descriptionRes: Int,
 ) {
+  System("system", R.string.app_font_system, R.string.app_font_system_description),
   StreamDekSans("streamdek_sans", R.string.app_font_streamdek_sans, R.string.app_font_streamdek_sans_description),
-  StreamDekSansRounded("streamdek_sans_rounded", R.string.app_font_streamdek_sans_rounded, R.string.app_font_streamdek_sans_rounded_description),
-  System("system", R.string.app_font_system, R.string.app_font_system_description);
+  StreamDekSansRounded("streamdek_sans_rounded", R.string.app_font_streamdek_sans_rounded, R.string.app_font_streamdek_sans_rounded_description);
 
   /** The family this choice sets text in. Built once per family and shared. */
   val fontFamily: FontFamily get() = when (this) {
@@ -69,8 +69,11 @@ enum class AppFont(
   }
 
   companion object {
-    /** Everyone who has not chosen, new or existing, gets StreamDek's own face. */
-    val Default = StreamDekSans
+    /**
+     * Everyone who has not chosen, new or existing, keeps the device's own font, as the app has
+     * always looked. The StreamDek faces are there to opt into.
+     */
+    val Default = System
 
     /** Anything missing, misspelt or from a newer build falls back to [Default]. */
     fun fromKey(key: String?): AppFont {
