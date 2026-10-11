@@ -307,5 +307,6 @@ private fun GateTheme(content: @Composable () -> Unit) {
   val context = LocalContext.current.applicationContext
   val systemDarkMode = deviceInDarkTheme()
   val colorScheme = remember(context, systemDarkMode) { savedAppColorScheme(context, systemDarkMode) }
-  MaterialTheme(colorScheme = colorScheme, content = content)
+  val typography = remember(context) { appTypography(savedAppFont(context)) }
+  MaterialTheme(colorScheme = colorScheme, typography = typography, content = content)
 }

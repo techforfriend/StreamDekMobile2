@@ -850,7 +850,7 @@ private fun DockingSectionTitle(
   ) {
     Text(
       title,
-      style = androidx.compose.ui.text.TextStyle(fontSize = 22.sp, fontWeight = FontWeight.Bold),
+      style = appTextStyle(androidx.compose.ui.text.TextStyle(fontSize = 22.sp, fontWeight = FontWeight.Bold)),
       color = MaterialTheme.colorScheme.onBackground,
       maxLines = 1,
       modifier = Modifier

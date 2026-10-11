@@ -99,7 +99,9 @@ class AppSettingsLifecycleTest {
     val before = state(first)
     restart()
     val after = state(store())
-    val fields = SettingsSyncRegistry.keysByField.keys - setOf("homeCatalogRowsJson", "homeRowMode", "homeRowSourceOrder", "visualEffects", "navigationBehaviour", "mdblistApiKey")
+    // The media server order is held by MediaServerManager rather than the UI state, so it has no
+    // state property to compare; it is saved and reloaded through the store like the rest.
+    val fields = SettingsSyncRegistry.keysByField.keys - setOf("homeCatalogRowsJson", "homeRowMode", "homeRowSourceOrder", "visualEffects", "navigationBehaviour", "mdblistApiKey", "mediaServerOrder", "mediaServerLibraryOrder")
     fields.forEach { name -> assertEquals(name, value(before, name), value(after, name)) }
   }
 

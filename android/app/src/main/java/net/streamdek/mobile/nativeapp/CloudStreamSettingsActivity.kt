@@ -268,6 +268,7 @@ class CloudStreamSettingsActivity : AppCompatActivity() {
   private fun PluginSettingsScreen(sourceName: String) {
     MaterialTheme(
       colorScheme = PluginSettingsTheme.colorScheme ?: darkColorScheme(),
+      typography = appTypography(savedAppFont(applicationContext)),
       shapes = Shapes(
         extraSmall = StreamDekRadius.controlShape,
         small = StreamDekRadius.thumbShape,

@@ -2005,4 +2005,11 @@
   <string name="settings_dest_emby_description">Verbinde deinen Emby-Server und wähle die angezeigten Mediatheken</string>
   <string name="settings_m_prefer_media_server_source">Medienserver-Quelle bevorzugen</string>
   <string name="settings_m_prefer_media_server_source_description">Kompatible Direct-Play- oder Direct-Stream-Quellen deiner verbundenen Plex-, Jellyfin- und Emby-Server zuerst verwenden. Gibt es keine, wird automatisch die beste Quelle deiner Add-ons und Plugins genutzt.</string>
+  <string name="settings_typography">Typografie</string>
+  <string name="app_font">App-Schrift</string>
+  <string name="app_font_description">Die Schrift, die StreamDek überall verwendet. Eine Änderung gilt sofort und folgt deinem Konto auf deine anderen Geräte.</string>
+  <string name="app_font_streamdek_sans_description">StreamDeks charakteristische klare, moderne Schrift für einen edlen, hochwertigen Auftritt.</string>
+  <string name="app_font_streamdek_sans_rounded_description">StreamDeks weichere, abgerundete Schrift für einen sanften, freundlichen Auftritt.</string>
+  <string name="app_font_system">Systemschrift</string>
+  <string name="app_font_system_description">Die Standardschrift deines Geräts für ein vertrautes, natives Erlebnis.</string>
 </resources>

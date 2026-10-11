@@ -2057,4 +2057,11 @@
   <string name="settings_dest_emby_description">Connectez votre serveur Emby et choisissez les bibliothèques affichées</string>
   <string name="settings_m_prefer_media_server_source">Privilégier la source du serveur multimédia</string>
   <string name="settings_m_prefer_media_server_source_description">Privilégie les sources Direct Play ou Direct Stream compatibles de vos serveurs Plex, Jellyfin et Emby connectés. Si aucune n’est disponible, la meilleure source de vos add-ons et plugins est utilisée automatiquement.</string>
+  <string name="settings_typography">Typographie</string>
+  <string name="app_font">Police de l\'app</string>
+  <string name="app_font_description">La police utilisée partout dans StreamDek. Le changement s\'applique immédiatement et suit votre compte sur vos autres appareils.</string>
+  <string name="app_font_streamdek_sans_description">Utilisez la police emblématique de StreamDek, nette et moderne, pour un rendu raffiné et haut de gamme.</string>
+  <string name="app_font_streamdek_sans_rounded_description">Utilisez la police plus douce et arrondie de StreamDek pour un rendu fluide et convivial.</string>
+  <string name="app_font_system">Police du système</string>
+  <string name="app_font_system_description">Utilisez la police par défaut de votre appareil pour une expérience native et familière.</string>
 </resources>

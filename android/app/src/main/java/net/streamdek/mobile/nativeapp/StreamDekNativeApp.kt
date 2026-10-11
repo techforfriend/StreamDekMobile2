@@ -1120,6 +1120,8 @@ private data class AppearanceUiSettings(
   /** Either [AppLanguage.SystemSelection] or a supported language tag. */
   val appLanguage: String = AppLanguage.DefaultSelection,
   val themePreset: AppThemePreset = AppThemePreset.Default,
+  /** The typeface the app is set in; synced under `app.appFont` and shared with the TV. See AppFont.kt. */
+  val appFont: AppFont = AppFont.Default,
   val headerStyle: HeaderStyle = HeaderStyle.Classic,
   val detailPageStyle: DetailPageStyle = DetailPageStyle.Classic,
   val seasonTabStyle: SeasonTabStyle = SeasonTabStyle.Regular,
@@ -1553,6 +1555,7 @@ private data class AppUiState(
   val animationSpeed: AnimationSpeed get() = appearanceSettings.animationSpeed
   val appLanguage: String get() = appearanceSettings.appLanguage
   val themePreset: AppThemePreset get() = appearanceSettings.themePreset
+  val appFont: AppFont get() = appearanceSettings.appFont
   val headerStyle: HeaderStyle get() = appearanceSettings.headerStyle
   val detailPageStyle: DetailPageStyle get() = appearanceSettings.detailPageStyle
   val seasonTabStyle: SeasonTabStyle get() = appearanceSettings.seasonTabStyle
@@ -2298,6 +2301,9 @@ private class AppSettingsStore(
       animationSpeed = AnimationSpeed.fromKey(prefs.getString(ANIMATION_SPEED_PREFERENCE, null)),
       appLanguage = normalizeAppLanguageSelection(prefs.getString(APP_LANGUAGE_PREFERENCE, null)),
       themePreset = AppThemePreset.fromName(prefs.getString("theme_preset", null)) ?: AppThemePreset.Default,
+      // Read with the rest of the appearance before the first frame, so the app never draws a
+      // screen in one font and then redraws it in another.
+      appFont = AppFont.fromKey(prefs.getString(APP_FONT_PREFERENCE, null)),
       headerStyle = runCatching { HeaderStyle.valueOf(prefs.getString("header_style", HeaderStyle.Classic.name) ?: HeaderStyle.Classic.name) }.getOrDefault(HeaderStyle.Classic),
       detailPageStyle = runCatching { DetailPageStyle.valueOf(profilePrefs.getString("detail_page_style", DetailPageStyle.Classic.name) ?: DetailPageStyle.Classic.name) }.getOrDefault(DetailPageStyle.Classic),
       seasonTabStyle = runCatching { SeasonTabStyle.valueOf(profilePrefs.getString("season_tab_style", SeasonTabStyle.Regular.name) ?: SeasonTabStyle.Regular.name) }.getOrDefault(SeasonTabStyle.Regular),
@@ -2380,6 +2386,7 @@ private class AppSettingsStore(
   }
   fun saveAppLanguage(value: String) { prefs.edit().putString(APP_LANGUAGE_PREFERENCE, normalizeAppLanguageSelection(value)).apply() }
   fun saveThemePreset(value: AppThemePreset) { prefs.edit().putString("theme_preset", value.name).apply() }
+  fun saveAppFont(value: AppFont) { prefs.edit().putString("app_font", value.key).apply() }
   fun saveHeaderStyle(value: HeaderStyle) { prefs.edit().putString("header_style", value.name).apply() }
   fun savePictureInPictureEnabled(value: Boolean) { prefs.edit().putBoolean("pip_enabled", value).apply() }
   fun saveDecoderMode(value: String) { prefs.edit().putString("decoder_mode", normalizeDecoderModeSetting(value)).apply() }
@@ -3270,6 +3277,23 @@ private fun AddonManifest.providesMetaFor(type: String): Boolean {
  * competing with the page's own artwork and layout.
  */
 private const val DETAIL_SOURCES_DELAY_MS = 450L
+
+/**
+ * How long a title page waits for the add-on that made the card to describe it.
+ *
+ * GRACE applies once TMDB has already described the title: the add-on's answer then only adds its
+ * own artwork and ids, so it is not worth holding the page for. TIMEOUT applies when the add-on's
+ * answer is what the page is built from (its ids mean nothing to TMDB). Either way the page is no
+ * longer held for the full request timeout by a slow add-on host.
+ */
+private const val DETAIL_ADDON_META_GRACE_MS = 1_200L
+private const val DETAIL_ADDON_META_TIMEOUT_MS = 6_000L
+
+/** A small, thread-safe, least-recently-used map for title pages built this session. */
+private fun <V> boundedDetailCache(capacity: Int = 48): MutableMap<String, V> =
+  java.util.Collections.synchronizedMap(object : LinkedHashMap<String, V>(capacity, 0.75f, true) {
+    override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, V>?): Boolean = size > capacity
+  })
 
 /** Measured from the page having content, not from navigation — see the gate in MediaDetailScreen. */
 /**
@@ -4424,6 +4448,15 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
   private var playbackRequestGeneration: Long = 0L
   private var watchlistMutationGeneration: Long = 0L
   private var addonMutationGeneration: Long = 0L
+
+  /**
+   * Title pages already built this session, so going back into one is immediate rather than another
+   * round of lookups. Small and least-recently-used: the point is the titles just visited.
+   * [addonDetailCache] holds the add-on's own description alongside TMDB's, for cards whose add-on
+   * describes them.
+   */
+  private val detailCache = boundedDetailCache<MediaDetail>()
+  private val addonDetailCache = boundedDetailCache<Pair<LocalAddonMeta?, MediaDetail?>>()
   private val latestAddonMutation = mutableMapOf<String, Long>()
   private var liveChannelCatalogGeneration: Long = 0L
   private var m3uLoadGeneration: Long = 0L
@@ -6568,22 +6601,54 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
         block = {
           val addon = uiState.addons.firstOrNull { it.id == metaAddon.id }
             ?: return@launchWork Result.failure(IllegalStateException("That add-on is no longer installed."))
-          val rawMeta = apiClient
-            .fetchAddonMeta(uiState.session, uiState.activeProfileId, addon, metaRequestType, id)
-            .getOrNull()
-          // An add-on that advertises `meta` but cannot describe this item is treated as though it
-          // had not answered: the card's own id is what TMDB and the stream add-ons get.
-          val bridgeMeta = rawMeta?.takeIf { isUsableAddonMeta(it, id, isLocalMetaAddon) }
-          val lookupId = bridgeMeta?.let { meta -> meta.tmdbId?.let { "tmdb:$it" } ?: meta.imdbId ?: meta.id } ?: id
-          val resolvedType = bridgeMeta?.type?.takeIf { it != "unknown" }
-            ?: MediaClassification.canonical(type)
-          val enriched = if (MetadataLookupIdentity.supportsType(resolvedType)) {
-            apiClient.fetchDetails(
-              resolvedType, lookupId, bridgeMeta?.title ?: fallbackItem.title,
-              bridgeMeta?.year ?: fallbackItem.year, providerOwned = true,
-            ).getOrNull()
-          } else null
-          Result.success(bridgeMeta to enriched)
+          // The language is part of the key: titles and overviews come back in the app's language.
+          val cacheKey = "${uiState.appLanguage}|${addon.id}|$metaRequestType|$id"
+          addonDetailCache[cacheKey]?.let { return@launchWork Result.success(it) }
+          val session = uiState.session
+          val profileId = uiState.activeProfileId
+          val cardType = MediaClassification.canonical(type)
+          // The card's own id, when it is one TMDB answers to (an IMDb or TMDB id - most add-on
+          // catalogues, TopX among them). Then the add-on's meta only adds to the page, so the two
+          // are asked at once and the page waits for TMDB, not for the add-on. They used to be asked
+          // one after the other, and a slow add-on host held the page on its skeleton for up to the
+          // full 30-second request timeout before TMDB was even asked.
+          val cardLookupId = if (isLocalMetaAddon) null else MediaClassification.enrichmentId(id, providerOwned = true)
+          val result = coroutineScope {
+            // Not a child of this scope: a request still running when its wait runs out is left to
+            // finish in the background (the HTTP call cannot be interrupted part-way), rather than
+            // holding this scope - and the page - open until it does.
+            val metaRequest = viewModelScope.async(Dispatchers.IO) { apiClient.fetchAddonMeta(session, profileId, addon, metaRequestType, id).getOrNull() }
+            val earlyEnrichment = if (cardLookupId != null && MetadataLookupIdentity.supportsType(cardType)) {
+              async { apiClient.fetchDetails(cardType, id, fallbackItem.title, fallbackItem.year, providerOwned = true).getOrNull() }
+            } else null
+            val early = earlyEnrichment?.await()
+            // With TMDB's answer in hand the add-on gets a short grace to add its own touches;
+            // without one, its answer is what the page is built from, so it gets longer - but never
+            // the whole request timeout. A local bridge on the same network keeps the longer wait.
+            val metaWaitMs = if (early != null) DETAIL_ADDON_META_GRACE_MS else DETAIL_ADDON_META_TIMEOUT_MS
+            val rawMeta = withTimeoutOrNull(metaWaitMs) { metaRequest.await() }
+            metaRequest.cancel()
+            // An add-on that advertises `meta` but cannot describe this item is treated as though it
+            // had not answered: the card's own id is what TMDB and the stream add-ons get.
+            val bridgeMeta = rawMeta?.takeIf { isUsableAddonMeta(it, id, isLocalMetaAddon) }
+            val enriched = early ?: run {
+              val lookupId = bridgeMeta?.let { meta -> meta.tmdbId?.let { "tmdb:$it" } ?: meta.imdbId ?: meta.id } ?: id
+              val resolvedType = bridgeMeta?.type?.takeIf { it != "unknown" } ?: cardType
+              // Already asked with exactly this, and refused: asking again would only repeat it.
+              val alreadyTried = earlyEnrichment != null && lookupId == id && resolvedType == cardType
+              if (!alreadyTried && MetadataLookupIdentity.supportsType(resolvedType)) {
+                apiClient.fetchDetails(
+                  resolvedType, lookupId, bridgeMeta?.title ?: fallbackItem.title,
+                  bridgeMeta?.year ?: fallbackItem.year, providerOwned = true,
+                ).getOrNull()
+              } else null
+            }
+            bridgeMeta to enriched
+          }
+          // Remembered for the session when it is complete, so opening the same card again is
+          // immediate. A partial answer (no TMDB details) is asked for afresh next time.
+          if (result.second != null) addonDetailCache[cacheKey] = result
+          Result.success(result)
         },
         onSuccess = { (bridgeMeta, enriched) ->
           if (detailGeneration != detailRequestGeneration) return@launchWork
@@ -6636,7 +6701,13 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
     }
     launchWork(
       onStart = { uiState = uiState.copy(detailLoading = true, detail = null, detailIsLive = detailIsLive, detailFallbackItem = fallbackItem, selectedPerson = null, personLoading = false, selectedSeasonEpisodes = emptyList(), selectedSeasonNumber = null, selectedEpisode = null, detailSelectedTab = null, pendingStreamSources = 0, totalStreamSources = 0, searchingStreamSources = emptyList(), failedStreamSources = emptyList(), streamRefreshing = false, streamSearchStarted = false, availableStreams = emptyList(), errorMessage = null) },
-      block = { apiClient.fetchDetails(type, id, fallbackItem?.title, fallbackItem?.year, providerOwned = fallbackItem?.sourceAddonId != null) },
+      block = {
+        val providerOwned = fallbackItem?.sourceAddonId != null
+        val cacheKey = "${uiState.appLanguage}|$providerOwned|$type|$id"
+        detailCache[cacheKey]?.let { return@launchWork Result.success(it) }
+        apiClient.fetchDetails(type, id, fallbackItem?.title, fallbackItem?.year, providerOwned = providerOwned)
+          .onSuccess { detailCache[cacheKey] = it }
+      },
       onSuccess = { detail ->
         if (detailGeneration != detailRequestGeneration) return@launchWork
         val resolvedDetail = detail.withCatalogFallback(fallbackItem)
@@ -8344,21 +8415,7 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
         apiClient.fetchAddons(uiState.session, uiState.activeProfileId)
       },
       onSuccess = { addons ->
-        val merged = mergeWithLocalAddons(addons)
-        val homeAddonsChanged = addonHomeSignature(merged) != addonHomeSignature(uiState.addons)
-        val mergedRows = mergeHomeCatalogRows(uiState.homeCatalogRows, merged, uiState.catalogDefinitions, cloudStreamHomeCatalogCandidates(loadedCloudStreamProviders()))
-        uiState = uiState.copy(
-          addonsLoading = false,
-          addons = merged,
-          homeCatalogRows = mergedRows,
-          homeSections = homeLayoutSections(rows = mergedRows),
-        )
-        appSettingsStore.saveHomeCatalogRows(mergedRows)
-        // Only when the add-ons behind Home's rows actually changed. This runs on every profile
-        // switch and most screen changes, and reloading regardless queued a second full Home load
-        // behind the one the switch had just started — the whole screen fetched, published and
-        // recomposed again a moment after it first appeared, identical to what was already there.
-        if (homeAddonsChanged) loadHome(force = true)
+        publishAddonList(addons, homeLoadSilent = false)
         pendingStreamLoad?.let { pending ->
           val currentDetail = uiState.detail
           if (currentDetail?.id == pending.detailId) loadStreamsForCurrentDetail(pending.episode)
@@ -8377,6 +8434,52 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
       },
     )
   }
+
+  /**
+   * Publishes the add-on list the server returned, with the local ones merged in, and the Home rows
+   * that depend on it. Home reloads only when the add-ons behind its rows actually changed: this
+   * runs on every profile switch and most screen changes, and reloading regardless queued a second
+   * full Home load behind the one the switch had just started.
+   */
+  private fun publishAddonList(addons: List<InstalledAddon>, homeLoadSilent: Boolean) {
+    val merged = mergeWithLocalAddons(addons)
+    val homeAddonsChanged = addonHomeSignature(merged) != addonHomeSignature(uiState.addons)
+    val mergedRows = mergeHomeCatalogRows(uiState.homeCatalogRows, merged, uiState.catalogDefinitions, cloudStreamHomeCatalogCandidates(loadedCloudStreamProviders()))
+    uiState = uiState.copy(
+      addonsLoading = false,
+      addons = merged,
+      homeCatalogRows = mergedRows,
+      homeSections = homeLayoutSections(rows = mergedRows),
+    )
+    appSettingsStore.saveHomeCatalogRows(mergedRows)
+    if (homeAddonsChanged) loadHome(force = true, silent = homeLoadSilent)
+  }
+
+  /**
+   * Brings the list back in line with the server after a change already shown on screen (removed,
+   * favourited, moved). Unlike [refreshAddons] it neither re-fetches every local add-on's manifest
+   * from the device first - one unreachable local add-on held every one of these changes up for
+   * its full timeout - nor shows the loading state, nor reloads Home visibly. A change made since
+   * this started owns the screen, so an older answer is dropped rather than undoing it.
+   */
+  private fun reconcileAddons() {
+    val generation = addonMutationGeneration
+    val profileId = uiState.activeProfileId
+    val session = uiState.session
+    launchWork(
+      onStart = {},
+      block = { apiClient.fetchAddons(session, profileId) },
+      onSuccess = { addons ->
+        if (generation == addonMutationGeneration && uiState.activeProfileId == profileId) publishAddonList(addons, homeLoadSilent = true)
+      },
+      // The change itself succeeded and is on screen; a failed re-read is not worth an error.
+      onFailure = {},
+    )
+  }
+
+  /** The add-on list with [addonId]'s entry changed, or removed when [change] returns null. */
+  private fun withAddonChanged(addonId: String, change: (InstalledAddon) -> InstalledAddon?): List<InstalledAddon> =
+    uiState.addons.mapNotNull { if (it.id == addonId) change(it) else it }.mapIndexed { index, addon -> addon.copy(position = index) }
 
   fun installAddon(url: String) {
     val manifestUrl = normalizeAddonManifestUrl(url)
@@ -8457,22 +8560,66 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
       },
     )
   }
+  /**
+   * Shown at once, then saved. Both used to wait for the request and then a full [refreshAddons],
+   * which re-fetched every local add-on's manifest before publishing anything - so the star or the
+   * removal could take many seconds to appear, longer still with a local add-on that was offline.
+   */
   fun toggleAddonFavourite(addon: InstalledAddon) {
     val favourite = !addon.favourite
+    val before = uiState.addons
+    ++addonMutationGeneration
+    uiState = uiState.copy(addons = before.map { if (it.id == addon.id) it.copy(favourite = favourite) else it })
     if (LocalAddonManager.isLocalAddonId(addon.id)) {
       LocalAddonManager.setFavourite(addon.id, favourite)
-      refreshAddons()
+      uiState = uiState.copy(addons = mergeWithLocalAddons(uiState.addons.filterNot { LocalAddonManager.isLocalAddonId(it.id) }))
       return
     }
-    launchWork(onStart = {}, block = { apiClient.setAddonFavourite(uiState.session, addon.id, favourite, uiState.activeProfileId) }, onSuccess = { refreshAddons() })
+    val profileId = uiState.activeProfileId
+    launchWork(
+      onStart = {},
+      block = { apiClient.setAddonFavourite(uiState.session, addon.id, favourite, profileId) },
+      // The server orders favourites first; the re-read picks that order up.
+      onSuccess = { reconcileAddons() },
+      onFailure = { message ->
+        if (uiState.activeProfileId != profileId) return@launchWork
+        uiState = uiState.copy(addons = uiState.addons.map { if (it.id == addon.id) it.copy(favourite = addon.favourite) else it }, errorMessage = message)
+      },
+    )
   }
   fun uninstallAddon(addonId: String) {
+    val removed = uiState.addons.firstOrNull { it.id == addonId } ?: return
+    val before = uiState.addons
+    ++addonMutationGeneration
+    val remaining = withAddonChanged(addonId) { null }
+    // Its rows leave Home with it, now rather than after the request.
+    val rows = mergeHomeCatalogRows(uiState.homeCatalogRows, remaining, uiState.catalogDefinitions, cloudStreamHomeCatalogCandidates(loadedCloudStreamProviders()))
+    uiState = uiState.copy(addons = remaining, homeCatalogRows = rows, homeSections = homeLayoutSections(rows = rows))
     if (LocalAddonManager.isLocalAddonId(addonId)) {
       LocalAddonManager.remove(addonId)
-      refreshAddons()
+      appSettingsStore.saveHomeCatalogRows(rows)
+      loadHome(force = true, silent = true)
       return
     }
-    launchWork(onStart = {}, block = { apiClient.uninstallAddon(uiState.session, addonId, uiState.activeProfileId) }, onSuccess = { refreshAddons() })
+    val profileId = uiState.activeProfileId
+    launchWork(
+      onStart = {},
+      block = { apiClient.uninstallAddon(uiState.session, addonId, profileId) },
+      onSuccess = {
+        appSettingsStore.saveHomeCatalogRows(uiState.homeCatalogRows)
+        if (uiState.activeProfileId == profileId) loadHome(force = true, silent = true)
+        reconcileAddons()
+      },
+      onFailure = { message ->
+        if (uiState.activeProfileId != profileId) return@launchWork
+        // Put it back where it was, unless the list has since been replaced from the server.
+        if (uiState.addons.none { it.id == removed.id }) {
+          val restoredRows = mergeHomeCatalogRows(uiState.homeCatalogRows, before, uiState.catalogDefinitions, cloudStreamHomeCatalogCandidates(loadedCloudStreamProviders()))
+          uiState = uiState.copy(addons = before, homeCatalogRows = restoredRows, homeSections = homeLayoutSections(rows = restoredRows))
+        }
+        uiState = uiState.copy(errorMessage = message)
+      },
+    )
   }
   fun moveAddon(addonId: String, delta: Int) {
     val selected = uiState.addons.firstOrNull { it.id == addonId } ?: return
@@ -8487,7 +8634,7 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
     // Local/backend and favourite/standard add-ons are persisted as separate priority groups.
     if (movingLocal) {
       LocalAddonManager.move(addonId, delta)
-      refreshAddons()
+      uiState = uiState.copy(addons = mergeWithLocalAddons(uiState.addons.filterNot { LocalAddonManager.isLocalAddonId(it.id) }))
       return
     }
     val backendList = current.toMutableList()
@@ -8501,7 +8648,8 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
       (if (addon.favourite == selected.favourite) reorderedGroup.next() else addon).copy(position = position)
     }
     uiState = uiState.copy(addons = mergeWithLocalAddons(reordered))
-    launchWork(onStart = {}, block = { apiClient.reorderAddons(uiState.session, reordered.map { it.id }, uiState.activeProfileId) }, onSuccess = { refreshAddons() })
+    ++addonMutationGeneration
+    launchWork(onStart = {}, block = { apiClient.reorderAddons(uiState.session, reordered.map { it.id }, uiState.activeProfileId) }, onSuccess = { reconcileAddons() })
   }
 
   private fun publishM3uProgress(generation: Long, progress: M3uLoadProgress, aggregateFraction: Float? = progress.fraction) {
@@ -10109,6 +10257,8 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
   private fun applyCloudPlaybackPreferences(preferences: CloudPlaybackPreferences) {
     val appAppearance = preferences.appAppearance?.let { runCatching { AppAppearance.valueOf(it) }.getOrNull() }
     val themePreset = AppThemePreset.fromName(preferences.themePreset)
+    // A key this build does not know (a font added in a later version) leaves the current choice alone.
+    val appFont = preferences.appFont?.let { key -> AppFont.entries.firstOrNull { it.key == key } }
     val headerStyle = preferences.headerStyle?.let { runCatching { HeaderStyle.valueOf(it) }.getOrNull() }
     val detailPageStyle = preferences.detailPageStyle?.let { runCatching { DetailPageStyle.valueOf(it) }.getOrNull() }
     val continueWatchingStyle = preferences.continueWatchingStyle?.let { runCatching { ContinueWatchingStyle.valueOf(it) }.getOrNull() }
@@ -10153,6 +10303,7 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
       applyAppNightMode(getApplication())
     }
     themePreset?.let(appSettingsStore::saveThemePreset)
+    appFont?.let(appSettingsStore::saveAppFont)
     headerStyle?.let(appSettingsStore::saveHeaderStyle)
     preferences.showNavLabels?.let(appSettingsStore::saveShowNavLabels)
     preferences.collapsibleNavigationEnabled?.let(appSettingsStore::saveCollapsibleNavigationEnabled)
@@ -10297,6 +10448,7 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
       appearanceSettings = uiState.appearanceSettings.copy(
         appAppearance = appAppearance ?: uiState.appAppearance,
         themePreset = themePreset ?: uiState.themePreset,
+        appFont = appFont ?: uiState.appFont,
         headerStyle = headerStyle ?: uiState.headerStyle,
         showNavLabels = preferences.showNavLabels ?: uiState.showNavLabels,
         collapsibleNavigationEnabled = preferences.collapsibleNavigationEnabled ?: uiState.collapsibleNavigationEnabled,
@@ -11595,6 +11747,7 @@ private fun watchedOwnerKey(session: AuthSession?, activeProfileId: String?): St
     return CloudPlaybackPreferences(
       appAppearance = uiState.appAppearance.name,
       themePreset = uiState.themePreset.name,
+      appFont = uiState.appFont.key,
       headerStyle = uiState.headerStyle.name,
       showNavLabels = uiState.showNavLabels,
       collapsibleNavigationEnabled = uiState.collapsibleNavigationEnabled,
@@ -11749,6 +11902,13 @@ private fun watchedOwnerKey(session: AuthSession?, activeProfileId: String?): St
     syncCloudPreferences()
   }
   fun setThemePreset(value: AppThemePreset) { appSettingsStore.saveThemePreset(value); uiState = uiState.copy(appearanceSettings = uiState.appearanceSettings.copy(themePreset = value)); syncCloudPreferences() }
+  /** Applies at once: the theme's type scale changes in place, so scroll, focus and playback carry on. */
+  fun setAppFont(value: AppFont) {
+    if (value == uiState.appFont) return
+    appSettingsStore.saveAppFont(value)
+    uiState = uiState.copy(appearanceSettings = uiState.appearanceSettings.copy(appFont = value))
+    syncCloudPreferences()
+  }
   fun setHeaderStyle(value: HeaderStyle) { appSettingsStore.saveHeaderStyle(value); uiState = uiState.copy(appearanceSettings = uiState.appearanceSettings.copy(headerStyle = value)); syncCloudPreferences() }
   fun setPictureInPictureEnabled(value: Boolean) { appSettingsStore.savePictureInPictureEnabled(value); uiState = uiState.copy(playbackSettings = uiState.playbackSettings.copy(pictureInPictureEnabled = value)); syncCloudPreferences() }
   fun setDecoderMode(value: String) { appSettingsStore.saveDecoderMode(value); uiState = uiState.copy(playbackSettings = uiState.playbackSettings.copy(decoderMode = value)); syncCloudPreferences() }
@@ -14449,6 +14609,9 @@ private fun StreamDekNativeAppContent(
 
   MaterialTheme(
     colorScheme = colorScheme,
+    // The App Font. One shared Typography per font (see AppFont.kt), so this only ever changes when
+    // the viewer picks another font.
+    typography = appTypography(uiState.appFont),
     shapes = Shapes(
       extraSmall = StreamDekRadius.controlShape,
       small = StreamDekRadius.thumbShape,
@@ -19451,13 +19614,19 @@ private fun CardActionsAmbientScaffold(
   onDismiss: () -> Unit,
   actions: @Composable ColumnScope.() -> Unit,
 ) {
-  val ambientArt = item.backdrop ?: item.poster
+  // Blank strings count as missing: some sources send "" rather than leaving the field out.
+  val ambientArt = item.backdrop?.takeIf(String::isNotBlank) ?: item.poster?.takeIf(String::isNotBlank)
+  val cardArt = item.poster?.takeIf(String::isNotBlank) ?: item.backdrop?.takeIf(String::isNotBlank)
+  val ambientSeed = item.title.ifBlank { item.id }
   Box(
     modifier = Modifier
       .fillMaxSize()
       .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }, onClick = onDismiss),
     contentAlignment = Alignment.BottomCenter,
   ) {
+    // Always underneath. A title with no artwork gets this wash instead of bare black, and one whose
+    // artwork is slow or fails to load shows it until (or instead of) the blurred picture.
+    GenericAmbientBackground(seed = ambientSeed, modifier = Modifier.fillMaxSize())
     if (ambientArt != null) {
       AsyncImage(
         model = ambientArt,
@@ -19492,12 +19661,26 @@ private fun CardActionsAmbientScaffold(
         shadowElevation = 24.dp,
         color = MaterialTheme.colorScheme.surface,
       ) {
-        AsyncImage(
-          model = item.poster ?: item.backdrop,
-          contentDescription = item.title,
-          modifier = Modifier.fillMaxSize(),
-          contentScale = ContentScale.Crop,
-        )
+        if (cardArt != null) {
+          AsyncImage(
+            model = cardArt,
+            contentDescription = item.title,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+          )
+        } else {
+          // No picture at all: the same wash, with the title's initial, so the card is not an
+          // empty grey slab in the middle of the screen.
+          Box(contentAlignment = Alignment.Center) {
+            GenericAmbientBackground(seed = ambientSeed, modifier = Modifier.fillMaxSize())
+            Text(
+              ambientSeed.trim().take(1).uppercase(),
+              color = Color.White.copy(alpha = 0.85f),
+              style = MaterialTheme.typography.displayMedium,
+              fontWeight = FontWeight.Bold,
+            )
+          }
+        }
       }
       Spacer(modifier = Modifier.height(16.dp))
       Text(
@@ -20899,10 +21082,11 @@ private fun PinnedSectionChrome(
   val heading by animateFloatAsState(((target - 0.64f) / 0.36f).coerceIn(0f, 1f), springSpec, label = "pinnedHeading")
   val across = (phases.firstOrNull()?.value ?: target).coerceIn(0f, 1f)
   val up = if (title == null) 0f else minOf(heading.coerceIn(0f, 1f), across)
-  val titleStyle = androidx.compose.ui.text.TextStyle(fontSize = 22.sp, fontWeight = FontWeight.Bold)
+  val titleStyle = appTextStyle(androidx.compose.ui.text.TextStyle(fontSize = 22.sp, fontWeight = FontWeight.Bold))
   val measurer = rememberTextMeasurer()
   // Measured rather than guessed, so a longer heading in another language is not cut off in the row.
-  val titleWidthPx = remember(title, measurer) { title?.let { measurer.measure(it, titleStyle, maxLines = 1).size.width } ?: 0 }
+  // Keyed on the style too, so choosing another App Font measures the heading again.
+  val titleWidthPx = remember(title, measurer, titleStyle) { title?.let { measurer.measure(it, titleStyle, maxLines = 1).size.width } ?: 0 }
   // Eased, so a heading changing to a longer or shorter one moves the filters along rather than
   // making them jump. A heading that never changes is unaffected.
   val animatedTitleWidthPx by animateFloatAsState(titleWidthPx.toFloat(), springSpec, label = "pinnedTitleWidth")
@@ -22683,6 +22867,13 @@ private fun SettingsTab(
                 optionLabel = rememberAppLanguageOptionLabel(),
                 onSelected = onAppLanguageChange,
               )
+            }
+          }
+          item {
+            SettingsSection(stringResource(R.string.settings_typography)) {
+              // Straight to the view model, like the Visual Effects row: SettingsTab's own call is at
+              // the JVM's method-size limit.
+              AppFontPicker(selected = uiState.appFont, onSelected = playerSettingsViewModel::setAppFont)
             }
           }
           item {

@@ -8,6 +8,7 @@ internal fun cloudPreferencesPayload(preferences: CloudPlaybackPreferences): JSO
   val app = JSONObject()
     .put("appAppearance", preferences.appAppearance)
     .put("themePreset", preferences.themePreset)
+    .put("appFont", preferences.appFont)
     .put("headerStyle", preferences.headerStyle)
     .put("showNavLabels", preferences.showNavLabels)
     .put("collapsibleNavigationEnabled", preferences.collapsibleNavigationEnabled)
@@ -278,6 +279,7 @@ internal fun parseCloudSettings(accountPreferences: JSONObject, profilePreferenc
   return CloudPlaybackPreferences(
     appAppearance = optionalString(app, "appAppearance"),
     themePreset = optionalString(app, "themePreset"),
+    appFont = optionalString(app, "appFont"),
     headerStyle = optionalString(app, "headerStyle"),
     showNavLabels = optionalBoolean(app, "showNavLabels"),
     collapsibleNavigationEnabled = optionalBoolean(app, "collapsibleNavigationEnabled"),

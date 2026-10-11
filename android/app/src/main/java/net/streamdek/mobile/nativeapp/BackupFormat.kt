@@ -150,7 +150,7 @@ internal object BackupSettingsRegistry {
         "app_appearance", "theme_preset", "header_style", "show_nav_labels", "collapsible_navigation_enabled",
         "navigation_auto_collapse_seconds", ANIMATION_SPEED_PREFERENCE, APP_LANGUAGE_PREFERENCE,
         NavigationBehaviour.TRIGGER_PREFERENCE, NavigationBehaviour.EXPANDED_HEADERS_PREFERENCE,
-        VISUAL_EFFECTS_PREFERENCE, HOME_DENSITY_PREFERENCE, MEDIA_HUB_PREFERENCE,
+        VISUAL_EFFECTS_PREFERENCE, HOME_DENSITY_PREFERENCE, MEDIA_HUB_PREFERENCE, APP_FONT_PREFERENCE,
       ),
     )
     addAll(
@@ -178,7 +178,7 @@ internal object BackupSettingsRegistry {
         "ratings_enabled", "external_ratings_enabled", "enabled_rating_providers", "show_new_episodes_row",
         "new_episodes_landscape", "default_app_catalogs_enabled", "home_catalog_rows", HOME_ROW_MODE_PREFERENCE,
         "plex_continue_watching_location", "jellyfin_continue_watching_location", "emby_continue_watching_location",
-        HOME_ROW_SOURCE_ORDER_PREFERENCE,
+        HOME_ROW_SOURCE_ORDER_PREFERENCE, "media_server_order", "media_server_library_order",
       ),
     )
     addAll(
