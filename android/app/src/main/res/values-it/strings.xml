@@ -2028,4 +2028,7 @@
   <string name="app_font_streamdek_sans_rounded_description">Usa il carattere più morbido e arrotondato di StreamDek per un aspetto fluido e amichevole.</string>
   <string name="app_font_system">Carattere di sistema</string>
   <string name="app_font_system_description">Usa il carattere predefinito del dispositivo per un\'esperienza nativa e familiare.</string>
+  <string name="settings_section_notifications">Notifiche</string>
+  <string name="settings_in_app_action_notifications">Notifiche delle azioni nell\'app</string>
+  <string name="settings_in_app_action_notifications_description">Mostra notifiche per le azioni di routine, come l\'aggiornamento dei contenuti, la gestione dei server multimediali e la modifica delle impostazioni.</string>
 </resources>

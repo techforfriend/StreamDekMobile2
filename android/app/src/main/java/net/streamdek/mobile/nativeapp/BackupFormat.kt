@@ -164,7 +164,7 @@ internal object BackupSettingsRegistry {
         "torrent_enabled", "torrent_streaming_mode", "torrent_profile", "torrent_cache_size_gb", "torrent_port", "torrent_run_foreground",
       ),
     )
-    addAll(device(BackupCategory.General, "remember_last_profile_at_startup", "sync_on_cellular", "debrid_cloud_sync", "auto_update_checks"))
+    addAll(device(BackupCategory.General, "remember_last_profile_at_startup", "sync_on_cellular", "debrid_cloud_sync", "auto_update_checks", "in_app_action_notifications"))
     listOf("doh_enabled", "doh_provider", "doh_custom_endpoint").forEach {
       add(BackupSettingSpec(it, BackupSettingScope.Device, BackupCategory.General, store = BACKUP_NETWORK_STORE))
     }

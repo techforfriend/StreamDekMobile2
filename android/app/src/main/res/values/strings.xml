@@ -2183,4 +2183,7 @@
   <string name="app_font_system">System Font</string>
   <string name="app_font_system_description">Use your device\'s default font for a familiar, native experience.</string>
   <string name="app_font_preview">The quick brown fox jumps over the lazy dog. 0123456789</string>
+  <string name="settings_section_notifications">Notifications</string>
+  <string name="settings_in_app_action_notifications">In-App Action Notifications</string>
+  <string name="settings_in_app_action_notifications_description">Show notifications for routine actions such as refreshing content, managing media servers, and updating settings.</string>
 </resources>

@@ -219,6 +219,9 @@ private fun MediaBrowserSettingsPage(
   val restored by accounts.restored.collectAsState()
   val scope = rememberCoroutineScope()
   val resources = LocalContext.current.resources
+  // "Connected", "Refreshed", "Signed out": shown only with In-App Action Notifications on.
+  // Failures and anything that asks for something still go through onMessage and always show.
+  val routineNotice = LocalRoutineNotice.current
 
   var adding by remember { mutableStateOf(false) }
   var searching by remember { mutableStateOf(false) }
@@ -314,7 +317,7 @@ private fun MediaBrowserSettingsPage(
           connectSignIn = null
           connectUser = ""
           reset()
-          onMessage(result.accountName?.let { resources.getString(R.string.plex_connected_as, it) } ?: resources.getString(R.string.plex_connected))
+          routineNotice(result.accountName?.let { resources.getString(R.string.plex_connected_as, it) } ?: resources.getString(R.string.plex_connected))
         }
         else -> onMessage(resources.getString(R.string.emby_connect_add_failed, name))
       }
@@ -356,7 +359,7 @@ private fun MediaBrowserSettingsPage(
     when (result) {
       is MediaServerLinkStatus.Linked -> {
         reset()
-        onMessage(result.accountName?.let { resources.getString(R.string.plex_connected_as, it) } ?: resources.getString(R.string.plex_connected))
+        routineNotice(result.accountName?.let { resources.getString(R.string.plex_connected_as, it) } ?: resources.getString(R.string.plex_connected))
       }
       MediaServerLinkStatus.Failed -> onMessage(resources.getString(text.signInFailed))
       else -> Unit
@@ -602,7 +605,7 @@ private fun MediaBrowserSettingsPage(
       SettingsSection(stringResource(R.string.plex_manage)) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
           OutlinedButton(
-            onClick = { if (!state.refreshing) scope.launch { accounts.refresh(force = true); onMessage(resources.getString(text.refreshed)) } },
+            onClick = { if (!state.refreshing) scope.launch { accounts.refresh(force = true); routineNotice(resources.getString(text.refreshed)) } },
             modifier = Modifier.weight(1f),
           ) { Text(stringResource(if (state.refreshing) R.string.plex_status_connecting else R.string.plex_refresh), maxLines = 1) }
           OutlinedButton(onClick = { adding = true; chosen = null }, modifier = Modifier.weight(1f)) {
@@ -628,7 +631,7 @@ private fun MediaBrowserSettingsPage(
           confirmSignOut = false
           scope.launch {
             accounts.disconnect()
-            onMessage(resources.getString(text.signedOut))
+            routineNotice(resources.getString(text.signedOut))
           }
         }) { Text(stringResource(text.signOut)) }
       },

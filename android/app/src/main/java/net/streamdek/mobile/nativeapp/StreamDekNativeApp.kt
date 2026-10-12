@@ -245,6 +245,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -750,6 +751,13 @@ private val LocalStreamDekHazeState = compositionLocalOf<HazeState?> { null }
 private val LocalCardRatingsEnabled = compositionLocalOf { true }
 
 /**
+ * Where a screen sends a routine notice ("Refreshed", "Saved", "Connected as…"). It appears only
+ * when In-App Action Notifications is on; see NativeAppViewModel.showRoutineNotice. Errors and
+ * notices that ask for something go through the screen's own message callback and always show.
+ */
+internal val LocalRoutineNotice = staticCompositionLocalOf<(String) -> Unit> { {} }
+
+/**
  * Settings pages, grouped the way the settings home lists them: what plays, how it looks, where
  * it comes from, what it is connected to, then the account.
  *
@@ -1135,6 +1143,12 @@ private data class AppearanceUiSettings(
   val navigationAutoCollapseSeconds: Int = 5,
   /** Device-local, like [animationSpeed]: see `VisualEffects.kt`. */
   val visualEffectsMode: VisualEffectsMode = VisualEffectsMode.Default,
+  /**
+   * Device-local and off by default: whether routine "done" notices (refreshed, saved, connected,
+   * marked as watched) appear as banners. Errors, warnings that ask for something, downloads and
+   * episode notifications always show. See NativeAppViewModel.routineNotice.
+   */
+  val inAppActionNotifications: Boolean = false,
   val showStreamsList: Boolean = true,
   /** Plex, Jellyfin and Emby Direct Play, then Direct Stream, ahead of add-ons; see rankedStreams. Off by default. */
   val preferMediaServerSource: Boolean = false,
@@ -1566,6 +1580,7 @@ private data class AppUiState(
   val expandedHeadersScrollAware: Boolean get() = appearanceSettings.expandedHeadersScrollAware
   val navigationAutoCollapseSeconds: Int get() = appearanceSettings.navigationAutoCollapseSeconds
   val visualEffectsMode: VisualEffectsMode get() = appearanceSettings.visualEffectsMode
+  val inAppActionNotifications: Boolean get() = appearanceSettings.inAppActionNotifications
   val showStreamsList: Boolean get() = appearanceSettings.showStreamsList
   val preferMediaServerSource: Boolean get() = appearanceSettings.preferMediaServerSource
   val heroTrailerAutoplay: Boolean get() = appearanceSettings.heroTrailerAutoplay
@@ -2315,6 +2330,8 @@ private class AppSettingsStore(
     // app does, and only a viewer who has deliberately asked for fixed headers gets them.
     expandedHeadersScrollAware = prefs.getString(NavigationBehaviour.EXPANDED_HEADERS_PREFERENCE, null) != NavigationBehaviour.EXPANDED_HEADERS_FIXED,
       visualEffectsMode = VisualEffectsMode.fromKey(prefs.getString(VISUAL_EFFECTS_PREFERENCE, null)),
+      // Absent means off: routine notices are an opt-in, for new and existing installs alike.
+      inAppActionNotifications = prefs.getBoolean("in_app_action_notifications", false),
       navigationAutoCollapseSeconds = prefs.getInt("navigation_auto_collapse_seconds", 5).coerceIn(2, 15),
       showStreamsList = profilePrefs.getBoolean("show_streams_list", true),
       preferMediaServerSource = profilePrefs.getBoolean("prefer_media_server_source", false),
@@ -2420,6 +2437,8 @@ private class AppSettingsStore(
   }
   /** Device prefs: the choice describes this phone's hardware, not the account. */
   fun saveVisualEffectsMode(value: VisualEffectsMode) { prefs.edit().putString(VISUAL_EFFECTS_PREFERENCE, value.key).apply() }
+  /** Device prefs, not synced: how chatty this phone is is a choice about this phone. */
+  fun saveInAppActionNotifications(value: Boolean) { prefs.edit().putBoolean("in_app_action_notifications", value).apply() }
   fun saveDownloadsEnabled(value: Boolean) { prefs.edit().putBoolean("downloads_enabled", value).apply() }
   fun saveNavigationAutoCollapseSeconds(value: Int) { prefs.edit().putInt("navigation_auto_collapse_seconds", value.coerceIn(2, 15)).apply() }
   fun saveShowStreamsList(value: Boolean) { profilePrefs.edit().putBoolean("show_streams_list", value).apply() }
@@ -4098,6 +4117,24 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
     uiState = uiState.copy(infoMessage = message, errorMessage = null)
   }
 
+  /**
+   * A routine notice - something finished as asked (refreshed, saved, connected, marked) - shown
+   * only when In-App Action Notifications is on. Everything that is not routine keeps using
+   * infoMessage / errorMessage directly and always shows: errors, warnings that need the viewer to
+   * do something, downloads, and the episode and system notifications, which are not banners at all.
+   */
+  fun showRoutineNotice(message: String) {
+    if (uiState.inAppActionNotifications) uiState = uiState.copy(infoMessage = message, errorMessage = null)
+  }
+
+  /** For `infoMessage = routineNotice(...)` inside a state copy: the message when wanted, else null. */
+  private fun routineNotice(message: String): String? = message.takeIf { uiState.inAppActionNotifications }
+
+  fun setInAppActionNotifications(value: Boolean) {
+    appSettingsStore.saveInAppActionNotifications(value)
+    uiState = uiState.copy(appearanceSettings = uiState.appearanceSettings.copy(inAppActionNotifications = value))
+  }
+
   fun setMediaServerRemoteQualityKbps(kbps: Int?) {
     mediaServerPrefs.edit().putInt("remoteMaxKbps", kbps ?: 0).apply()
   }
@@ -4677,11 +4714,13 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
       // whether the tap registered — the whole reason they are on this screen is that trailers are
       // not playing, and "nothing appeared to happen" is the worst possible response to that.
       uiState = uiState.copy(
-        infoMessage = if (freed > 0L) {
-          strings.getString(R.string.trailer_cache_cleared_freed, formatBytesLabel(freed))
-        } else {
-          strings.getString(R.string.trailer_cache_cleared)
-        },
+        infoMessage = routineNotice(
+          if (freed > 0L) {
+            strings.getString(R.string.trailer_cache_cleared_freed, formatBytesLabel(freed))
+          } else {
+            strings.getString(R.string.trailer_cache_cleared)
+          },
+        ),
       )
     }
   }
@@ -4796,7 +4835,7 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
       onStart = { uiState = uiState.copy(errorMessage = null, infoMessage = null) },
       block = { apiClient.confirmPasswordReset(email, token, newPassword) },
       onSuccess = {
-        uiState = uiState.copy(infoMessage = strings.getString(R.string.notice_password_updated))
+        uiState = uiState.copy(infoMessage = routineNotice(strings.getString(R.string.notice_password_updated)))
         signIn(email, newPassword, true)
       },
     )
@@ -8314,7 +8353,7 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
       val profiles = uiState.profiles + profile
       guestProfileStore.save(profiles)
       profileSelectionStore.save(GUEST_OWNER_KEY, profile.id)
-      uiState = uiState.copy(profiles = profiles, activeProfileId = profile.id, showProfilePicker = false, infoMessage = strings.getString(R.string.notice_local_profile_created))
+      uiState = uiState.copy(profiles = profiles, activeProfileId = profile.id, showProfilePicker = false, infoMessage = routineNotice(strings.getString(R.string.notice_local_profile_created)))
       refreshProfileScopedData()
       return
     }
@@ -8495,7 +8534,7 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
         onStart = { uiState = uiState.copy(addonsLoading = true, errorMessage = null) },
         block = { LocalAddonManager.install(manifestUrl) },
         onSuccess = {
-          uiState = uiState.copy(infoMessage = strings.getString(R.string.notice_addon_installed_network))
+          uiState = uiState.copy(infoMessage = routineNotice(strings.getString(R.string.notice_addon_installed_network)))
           refreshAddons()
         },
       )
@@ -8505,7 +8544,7 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
       onStart = { uiState = uiState.copy(addonsLoading = true, errorMessage = null) },
       block = { apiClient.installAddon(uiState.session, manifestUrl, uiState.activeProfileId) },
       onSuccess = {
-        uiState = uiState.copy(infoMessage = strings.getString(R.string.notice_addon_installed))
+        uiState = uiState.copy(infoMessage = routineNotice(strings.getString(R.string.notice_addon_installed)))
         refreshAddons()
       },
     )
@@ -10105,7 +10144,7 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
       traktContinueWatching = emptyList(),
       traktWatchlist = emptyList(),
       mergedWatchlist = mergeWatchlistWithLocal(emptyList()),
-      infoMessage = strings.getString(R.string.notice_service_now_feeds_home, syncServiceLabel(normalized)),
+      infoMessage = routineNotice(strings.getString(R.string.notice_service_now_feeds_home, syncServiceLabel(normalized))),
     )
     syncCloudPreferences()
     refreshTraktData()
@@ -10165,7 +10204,7 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
       onStart = { uiState = uiState.copy(syncServiceLoading = serviceId) },
       block = { apiClient.connectSyncServiceApiKey(session, profileId, serviceId, trimmed) },
       onSuccess = { status ->
-        uiState = uiState.copy(syncServiceLoading = null, infoMessage = strings.getString(R.string.notice_connected_to_service, syncServiceLabel(serviceId)))
+        uiState = uiState.copy(syncServiceLoading = null, infoMessage = routineNotice(strings.getString(R.string.notice_connected_to_service, syncServiceLabel(serviceId))))
         if (serviceId == SyncService.Mdblist.id) {
           // The same key answers for ratings, and the backend saves it as this account's
           // MDBList content-service credential in the same step — so rather than keeping a
@@ -10242,7 +10281,7 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
         }
       },
       onSuccess = {
-        uiState = uiState.copy(syncRefreshing = false, infoMessage = strings.getString(R.string.notice_cloud_settings_refreshed))
+        uiState = uiState.copy(syncRefreshing = false, infoMessage = routineNotice(strings.getString(R.string.notice_cloud_settings_refreshed)))
         refreshProfiles(showLoading = false, refreshScopedData = false)
         refreshAddons()
         loadDebridAccounts()
@@ -10864,7 +10903,7 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
       localContinueWatching = loadLocalContinueWatching(),
       localResumeEntries = loadResumeEntries(),
       traktContinueWatching = emptyList(),
-      infoMessage = strings.getString(R.string.notice_continue_watching_cleared),
+      infoMessage = routineNotice(strings.getString(R.string.notice_continue_watching_cleared)),
     )
   }
 
@@ -11109,7 +11148,7 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
         (it.tmdbId?.toString() ?: it.id) == item.id && normalizedMediaType(it.type) == normalizedMediaType(item.type) &&
           (seasonNumber == null || episodeNumber == null || (it.seasonNumber == seasonNumber && it.episodeNumber == episodeNumber))
       },
-      infoMessage = strings.getString(R.string.notice_title_marked_watched, item.title),
+      infoMessage = routineNotice(strings.getString(R.string.notice_title_marked_watched, item.title)),
     )
 
     val session = uiState.session
@@ -11217,7 +11256,7 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
       localContinueWatching = loadLocalContinueWatching(),
       localResumeEntries = loadResumeEntries(),
       watchedEpisodeRevision = uiState.watchedEpisodeRevision + 1,
-      infoMessage = if (targetWatched) "Episode marked as watched." else "Episode marked as unwatched.",
+      infoMessage = routineNotice(if (targetWatched) "Episode marked as watched." else "Episode marked as unwatched."),
     )
     /**
      * Ticking an episode does not move the viewer to another season.
@@ -11320,7 +11359,7 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
       localContinueWatching = loadLocalContinueWatching(),
       localResumeEntries = loadResumeEntries(),
       watchedEpisodeRevision = uiState.watchedEpisodeRevision + 1,
-      infoMessage = if (watched) "Season marked as watched." else "Season marked as unwatched.",
+      infoMessage = routineNotice(if (watched) "Season marked as watched." else "Season marked as unwatched."),
     )
     // A bulk watched-state action must not navigate. The series resume policy may now point at
     // the next season, but that target belongs to a later Play/Continue Watching action; while
@@ -11372,7 +11411,7 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
             (episode.seasonNumber == selected.seasonNumber && episode.episodeNumber < selected.episodeNumber))
       }
       if (previous.isEmpty()) {
-        uiState = uiState.copy(infoMessage = strings.getString(R.string.notice_no_previous_episodes))
+        uiState = uiState.copy(infoMessage = routineNotice(strings.getString(R.string.notice_no_previous_episodes)))
         return@launch
       }
       val keys = previous.map { watchedEpisodeKey(detail.id, it.seasonNumber, it.episodeNumber) }
@@ -11406,7 +11445,7 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
         localContinueWatching = loadLocalContinueWatching(),
         localResumeEntries = loadResumeEntries(),
         watchedEpisodeRevision = uiState.watchedEpisodeRevision + 1,
-        infoMessage = strings.getString(R.string.notice_previous_episodes_watched),
+        infoMessage = routineNotice(strings.getString(R.string.notice_previous_episodes_watched)),
       )
       val session = uiState.session ?: return@launch
       val profileId = uiState.activeProfileId ?: return@launch
@@ -11422,7 +11461,7 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
     val seasonNumber = item.resumeSeasonNumber
     val episodeNumber = item.resumeEpisodeNumber
     if (seasonNumber == null || episodeNumber == null || (seasonNumber == 1 && episodeNumber == 1)) {
-      uiState = uiState.copy(infoMessage = strings.getString(R.string.notice_no_earlier_episodes))
+      uiState = uiState.copy(infoMessage = routineNotice(strings.getString(R.string.notice_no_earlier_episodes)))
       return
     }
     viewModelScope.launch {
@@ -11515,7 +11554,7 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
           removedIdentity,
         ) && removalCoversEpisode(seasonNumber, episodeNumber, provider.seasonNumber, provider.episodeNumber)
       },
-      infoMessage = strings.getString(R.string.notice_title_removed_from_continue, item.title),
+      infoMessage = routineNotice(strings.getString(R.string.notice_title_removed_from_continue, item.title)),
     )
     val session = uiState.session ?: return
     viewModelScope.launch {
@@ -11580,7 +11619,7 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
       traktContinueWatching = uiState.traktContinueWatching.filterNot {
         (it.tmdbId?.toString() ?: it.id) == item.id && normalizedMediaType(it.type) == normalizedMediaType(item.type)
       },
-      infoMessage = strings.getString(R.string.notice_title_restart, item.title),
+      infoMessage = routineNotice(strings.getString(R.string.notice_title_restart, item.title)),
     )
   }
   fun setAutoUpdateChecks(enabled: Boolean) {
@@ -12596,11 +12635,11 @@ private fun watchedOwnerKey(session: AuthSession?, activeProfileId: String?): St
         val remainingLabel = formatBytesLabel(result.remainingBytes).removeSuffix(" used")
         uiState = when {
           result.freedBytes <= 0L && result.isEmpty ->
-            uiState.copy(infoMessage = strings.getString(R.string.notice_no_peer_storage))
+            uiState.copy(infoMessage = routineNotice(strings.getString(R.string.notice_no_peer_storage)))
           result.isEmpty ->
-            uiState.copy(infoMessage = strings.getString(R.string.notice_cleared_peer_storage, freedLabel))
+            uiState.copy(infoMessage = routineNotice(strings.getString(R.string.notice_cleared_peer_storage, freedLabel)))
           result.freedBytes > 0L ->
-            uiState.copy(infoMessage = strings.getString(R.string.notice_cleared_peer_partial, freedLabel, remainingLabel))
+            uiState.copy(infoMessage = routineNotice(strings.getString(R.string.notice_cleared_peer_partial, freedLabel, remainingLabel)))
           // Nothing went, and something is still there. Said as a failure, because it is one.
           else ->
             uiState.copy(errorMessage = strings.getString(R.string.error_clear_peer_storage_failed, remainingLabel))
@@ -13234,7 +13273,7 @@ private fun watchedOwnerKey(session: AuthSession?, activeProfileId: String?): St
         } else if (StreamDekPlugins.manager.state.repos.isNotEmpty() || StreamDekPlugins.manager.state.updatedAt > 0L) {
           apiClient.putProfilePlugins(session, profileId, profilePluginDocument())
         }
-        if (manual) uiState = uiState.copy(infoMessage = strings.getString(R.string.notice_plugins_up_to_date))
+        if (manual) uiState = uiState.copy(infoMessage = routineNotice(strings.getString(R.string.notice_plugins_up_to_date)))
       }
       uiState = uiState.copy(pluginsLoading = false)
     }
@@ -14628,6 +14667,9 @@ private fun StreamDekNativeAppContent(
      LocalDarkColorScheme provides darkColorScheme,
      LocalStreamDekThemeColors provides themeColors,
      LocalCardRatingsEnabled provides uiState.ratingsEnabled,
+     // Remembered: a fresh function reference on every recomposition would change this static local
+     // and recompose the whole tree with it.
+     LocalRoutineNotice provides remember(viewModel) { viewModel::showRoutineNotice },
    ) {
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
       Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -15521,7 +15563,8 @@ private fun MainScene(
   var selectedTab by rememberSaveable { mutableStateOf(MainTab.Home) }
   var previousTab by rememberSaveable { mutableStateOf(MainTab.Home) }
   val plexNavigationVisible = uiState.mediaNavigationVisible
-  // One entry for the viewer's own servers: Plex's mark and name, Jellyfin's, or both marks and "My Media".
+  // One entry for the viewer's own servers: one server's mark and name, or the marks of every server
+  // switched on and "My Media".
   val mediaTabProviders = buildList {
     if (uiState.mediaServerState.navigationVisible) add(net.streamdek.mobile.nativeapp.mediaserver.PLEX_PROVIDER_ID)
     if (uiState.jellyfinServerState.navigationVisible) add(net.streamdek.mobile.nativeapp.mediaserver.JELLYFIN_PROVIDER_ID)
@@ -16128,7 +16171,8 @@ private fun MainScene(
                       MainTab.Home to StreamDekNavIcons.HomeOutline,
                       MainTab.Search to StreamDekNavIcons.SearchOutline,
                       MainTab.Plex to when {
-                        mediaTabProviders.size > 1 -> JellyfinIcons.Stack
+                        // The marks of exactly the servers switched on: two overlapping, or three in a triangle.
+                        mediaTabProviders.size > 1 -> MediaServerStackMark.forProviders(mediaTabProviders)
                         else -> mediaServerBrand(mediaTabProviders.firstOrNull()).mark
                       },
                       MainTab.Library to StreamDekNavIcons.LibraryOutline,
@@ -22879,6 +22923,19 @@ private fun SettingsTab(
           item {
             SettingsSection(stringResource(R.string.settings_m_motion)) {
               AnimationSpeedRow(selected = uiState.animationSpeed, onSelected = onAnimationSpeedChange)
+            }
+          }
+          item {
+            SettingsSection(stringResource(R.string.settings_section_notifications)) {
+              // Straight to the view model, like the rows above: SettingsTab's own call is at the JVM's
+              // method-size limit.
+              SettingsSwitchRow(
+                "APP", Color(0xFF0EA5E9),
+                stringResource(R.string.settings_in_app_action_notifications),
+                stringResource(R.string.settings_in_app_action_notifications_description),
+                uiState.inAppActionNotifications,
+                playerSettingsViewModel::setInAppActionNotifications,
+              )
             }
           }
           item {
@@ -35599,6 +35656,16 @@ fun MediaHubPortal(items: List<MediaItem>, onClick: () -> Unit) {
 private data class MediaHubGroup(val sourceKey: String, val items: List<MediaItem>)
 
 /** What the grid shows, and the filters it was worked out for. */
+/**
+ * The Media Hub page's last catalogues and view, kept for the process so returning to the page shows
+ * what it showed - see MediaHubScreen. One profile's at a time; another profile's is never shown.
+ */
+private object MediaHubScreenMemory {
+  @Volatile var owner: String? = null
+  @Volatile var catalogs: List<MediaHubCatalog>? = null
+  @Volatile var view: MediaHubView? = null
+}
+
 private data class MediaHubView(
   val identity: List<Any?>,
   val items: List<MediaItem>,
@@ -35631,11 +35698,21 @@ fun MediaHubScreen(
   onToggleFavourite: (MediaItem) -> Unit,
   onToggleWatchlist: (MediaItem) -> Unit,
 ) {
-  var catalogs by remember { mutableStateOf<List<MediaHubCatalog>>(emptyList()) }
-  var catalogsReady by remember { mutableStateOf(false) }
+  // What the page last showed, for this profile, so coming back to it - from a live channel, a title
+  // page, another tab - draws the same list on its first frame. The list's scroll position is
+  // restored on that frame too, and it used to land on a page that was still empty while the
+  // catalogues were worked out again, so it could only fall back to the top.
+  val memoryOwner = "${state.session?.user?.uid}:${state.activeProfileId}"
+  val remembered = MediaHubScreenMemory.takeIf { it.owner == memoryOwner }
+  var catalogs by remember { mutableStateOf<List<MediaHubCatalog>>(remembered?.catalogs ?: emptyList()) }
+  var catalogsReady by remember { mutableStateOf(remembered?.catalogs != null) }
   LaunchedEffect(state.addons, state.homeCatalogRows, state.m3uChannels, state.m3uVodItems) {
-    catalogs = withContext(Dispatchers.Default) { mediaHubCatalogs(state) }
+    val next = withContext(Dispatchers.Default) { mediaHubCatalogs(state) }
+    // An identical answer keeps the same list, so nothing downstream starts over for it.
+    if (next != catalogs) catalogs = next
     catalogsReady = true
+    MediaHubScreenMemory.owner = memoryOwner
+    MediaHubScreenMemory.catalogs = next
   }
   // "all", "live", "favourites" or "vod". Favourites is a view of its own rather than a filter that
   // only appeared under Live TV: it is where a viewer most often starts, and a chip that showed only
@@ -35707,7 +35784,7 @@ fun MediaHubScreen(
   // Everything that decides which titles match. While the grid still shows an older answer to these,
   // it shows that it is working instead, so choosing a filter never looks like it did nothing.
   val filterIdentity = listOf(mode, sourceKey, catalogKey, category, settledQuery, favouritesOnly, state.liveCategoriesEnabled, requestIdentity.first)
-  var view by remember { mutableStateOf<MediaHubView?>(null) }
+  var view by remember { mutableStateOf<MediaHubView?>(remembered?.view?.takeIf { it.identity == filterIdentity }) }
   LaunchedEffect(filterIdentity, state.mediaHubPages, favouriteKeys) {
     view = withContext(Dispatchers.Default) {
       val owners = HashMap<String, String>()
@@ -35750,6 +35827,12 @@ fun MediaHubScreen(
     }
   }
   val currentView = view
+  LaunchedEffect(currentView) {
+    if (currentView != null) {
+      MediaHubScreenMemory.owner = memoryOwner
+      MediaHubScreenMemory.view = currentView
+    }
+  }
   val filtering = currentView == null || currentView.identity != filterIdentity
   val categories = currentView?.categories.orEmpty()
   val liveKeys = currentView?.liveKeys.orEmpty()
@@ -35879,6 +35962,13 @@ fun MediaHubScreen(
    * crashed mid-scroll ("Place was called on a node which was placed already"); a list of lines has
    * no spans to go wrong. Each line is keyed on its first title, which only that line starts with.
    */
+  /**
+   * The card shape a title keeps here: the one its add-on or plugin asked for, as on Home - square or
+   * landscape when it says so, otherwise a poster. Channels keep their own tiles.
+   */
+  fun tileShape(item: MediaItem): PosterShape = if (isLive(item)) PosterShape.Poster else item.posterShape ?: PosterShape.Poster
+  /** Fewer, wider landscape tiles to a line, so a wide card is not shrunk to a sliver. */
+  fun columnsFor(shape: PosterShape): Int = if (shape == PosterShape.Landscape && gridColumns >= 3) gridColumns - 1 else gridColumns
   fun androidx.compose.foundation.lazy.LazyListScope.hubItems(items: List<MediaItem>) {
     val lines = ArrayList<List<MediaItem>>()
     var tiles = ArrayList<MediaItem>(gridColumns)
@@ -35887,8 +35977,10 @@ fun MediaHubScreen(
         if (tiles.isNotEmpty()) { lines += tiles; tiles = ArrayList(gridColumns) }
         lines += listOf(item)
       } else {
+        // A line holds one shape, so its tiles share a height and a bottom edge.
+        if (tiles.isNotEmpty() && tileShape(tiles.first()) != tileShape(item)) { lines += tiles; tiles = ArrayList(gridColumns) }
         tiles += item
-        if (tiles.size == gridColumns) { lines += tiles; tiles = ArrayList(gridColumns) }
+        if (tiles.size == columnsFor(tileShape(item))) { lines += tiles; tiles = ArrayList(gridColumns) }
       }
     }
     if (tiles.isNotEmpty()) lines += tiles
@@ -35904,15 +35996,16 @@ fun MediaHubScreen(
           onOpenDetails = { onOpen(first) },
         )
       } else {
+        val lineShape = tileShape(first)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(tileGap)) {
           line.forEach { item ->
             Box(Modifier.weight(1f)) {
               // A tile has no star of its own, so holding a channel's stars it; the badge shows the result.
               if (isLive(item)) LibraryPosterTile(item = item, modifier = Modifier.fillMaxWidth(), showMeta = false, favourite = item.id in favouriteKeys, onClick = { onOpen(item) }, onLongPress = { onToggleFavourite(item) })
-              else LibraryPosterTile(item = item, modifier = Modifier.fillMaxWidth(), showMeta = true, onClick = { onOpen(item) }, onLongPress = { onToggleWatchlist(item) })
+              else LibraryPosterTile(item = item, modifier = Modifier.fillMaxWidth(), showMeta = true, shape = lineShape, onClick = { onOpen(item) }, onLongPress = { onToggleWatchlist(item) })
             }
           }
-          repeat(gridColumns - line.size) { Spacer(Modifier.weight(1f)) }
+          repeat(columnsFor(lineShape) - line.size) { Spacer(Modifier.weight(1f)) }
         }
       }
     }

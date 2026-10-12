@@ -168,6 +168,9 @@ internal fun MediaServerSettingsPage(
   val scope = rememberCoroutineScope()
   val context = LocalContext.current
   val resources = context.resources
+  // "Connected", "Saved", "Refreshed": shown only with In-App Action Notifications on. Failures and
+  // anything that asks for something still go through onMessage and always show.
+  val routineNotice = LocalRoutineNotice.current
   var linkCode by remember { mutableStateOf<MediaServerLinkCode?>(null) }
   var linkExpired by remember { mutableStateOf(false) }
   var starting by remember { mutableStateOf(false) }
@@ -207,7 +210,7 @@ internal fun MediaServerSettingsPage(
         }
         is MediaServerLinkStatus.Linked -> {
           linkCode = null
-          onMessage(result.accountName?.let { resources.getString(R.string.plex_connected_as, it) } ?: resources.getString(R.string.plex_connected))
+          routineNotice(result.accountName?.let { resources.getString(R.string.plex_connected_as, it) } ?: resources.getString(R.string.plex_connected))
           return@LaunchedEffect
         }
       }
@@ -220,7 +223,7 @@ internal fun MediaServerSettingsPage(
     scope.launch {
       val ok = work()
       busy = false
-      onMessage(resources.getString(if (ok) success ?: R.string.plex_saved else R.string.plex_saving_failed))
+      if (ok) routineNotice(resources.getString(success ?: R.string.plex_saved)) else onMessage(resources.getString(R.string.plex_saving_failed))
     }
   }
 
@@ -301,7 +304,7 @@ internal fun MediaServerSettingsPage(
       SettingsSection(stringResource(R.string.plex_manage)) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
           OutlinedButton(
-            onClick = { if (!state.refreshing) scope.launch { manager.refresh(force = true); onMessage(resources.getString(R.string.plex_refreshed)) } },
+            onClick = { if (!state.refreshing) scope.launch { manager.refresh(force = true); routineNotice(resources.getString(R.string.plex_refreshed)) } },
             modifier = Modifier.weight(1f),
           ) { Text(stringResource(if (state.refreshing) R.string.plex_status_connecting else R.string.plex_refresh), maxLines = 1) }
           OutlinedButton(onClick = { if (!busy) startLink() }, modifier = Modifier.weight(1f)) {
@@ -440,6 +443,7 @@ internal fun MediaServerGroups(
   val libraryOrder by manager.libraryOrder.collectAsState()
   val scope = rememberCoroutineScope()
   val resources = LocalContext.current.resources
+  val routineNotice = LocalRoutineNotice.current
   var working by remember { mutableStateOf(false) }
   var removingServer by remember { mutableStateOf<MediaServerView?>(null) }
   var removingLibrary by remember { mutableStateOf<MediaServerLibrary?>(null) }
@@ -456,7 +460,7 @@ internal fun MediaServerGroups(
     scope.launch {
       val ok = work()
       working = false
-      onMessage(if (ok) resources.getString(doneRes, name) else resources.getString(R.string.plex_saving_failed))
+      if (ok) routineNotice(resources.getString(doneRes, name)) else onMessage(resources.getString(R.string.plex_saving_failed))
     }
   }
 

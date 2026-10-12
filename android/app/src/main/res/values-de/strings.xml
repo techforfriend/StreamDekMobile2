@@ -2012,4 +2012,7 @@
   <string name="app_font_streamdek_sans_rounded_description">StreamDeks weichere, abgerundete Schrift für einen sanften, freundlichen Auftritt.</string>
   <string name="app_font_system">Systemschrift</string>
   <string name="app_font_system_description">Die Standardschrift deines Geräts für ein vertrautes, natives Erlebnis.</string>
+  <string name="settings_section_notifications">Benachrichtigungen</string>
+  <string name="settings_in_app_action_notifications">Hinweise zu App-Aktionen</string>
+  <string name="settings_in_app_action_notifications_description">Hinweise für Routineaktionen anzeigen, etwa beim Aktualisieren von Inhalten, Verwalten von Medienservern und Ändern von Einstellungen.</string>
 </resources>

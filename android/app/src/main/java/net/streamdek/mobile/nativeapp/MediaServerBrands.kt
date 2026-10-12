@@ -122,14 +122,16 @@ internal fun Modifier.mediaServerAmbientGlow(provider: String?): Modifier = when
 }
 
 /**
- * Emby's colour wash: green fields of light rising out of black, drifting as the others do. Quieter
- * on a light theme, and still when the app's reduced-motion setting is on.
+ * Emby's colour wash, drifting as the others do. Emby's green leads, but no longer alone: it sits
+ * with a soft teal and a muted slate blue, over a deep blue-slate, so the page reads as Emby's
+ * without the whole screen turning green. Quieter on a light theme, and still when the app's
+ * reduced-motion setting is on.
  */
 @Composable
 internal fun Modifier.embyAmbientGlow(): Modifier {
     val motionless = LocalMotionSettings.current.motionless
     val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    val strength = if (dark) 0.32f else 0.16f
+    val strength = if (dark) 0.30f else 0.15f
     val drift: State<Float> = if (motionless) {
         remember { mutableFloatStateOf(0.5f) }
     } else {
@@ -154,24 +156,24 @@ internal fun Modifier.embyAmbientGlow(): Modifier {
                 center = center,
             )
         }
-        glow(EmbyAmbientGreen, 0.12f + 0.10f * d, 0.08f + 0.05f * d, 1.05f)
-        glow(EmbyAmbientTeal, 0.90f - 0.08f * d, 0.16f + 0.08f * d, 1f, 0.8f)
-        glow(EmbyAmbientLime, 0.20f + 0.06f * d, 0.62f - 0.07f * d, 0.9f, 0.7f)
-        glow(EmbyAmbientForest, 0.84f - 0.10f * d, 0.82f - 0.05f * d, 0.95f)
+        glow(EmbyAmbientGreen, 0.12f + 0.10f * d, 0.08f + 0.05f * d, 1.0f, 0.8f)
+        glow(EmbyAmbientSoftTeal, 0.90f - 0.08f * d, 0.16f + 0.08f * d, 1f, 0.85f)
+        glow(EmbyAmbientSlateBlue, 0.20f + 0.06f * d, 0.62f - 0.07f * d, 0.95f, 0.9f)
+        glow(EmbyAmbientDeepSlate, 0.84f - 0.10f * d, 0.82f - 0.05f * d, 0.95f)
     }
 }
 
 private val EmbyAmbientGreen = Color(0xFF52B54B)
-private val EmbyAmbientTeal = Color(0xFF14B8A6)
-private val EmbyAmbientLime = Color(0xFF84CC16)
-private val EmbyAmbientForest = Color(0xFF15803D)
+private val EmbyAmbientSoftTeal = Color(0xFF4FB8AC)
+private val EmbyAmbientSlateBlue = Color(0xFF5B7A9D)
+private val EmbyAmbientDeepSlate = Color(0xFF2C4A63)
 
 /**
  * Emby's logo as a single-colour mark, the play symbol cut out of it, so it takes the same tint and
  * focus treatment as the other destination marks. The full-colour logo is R.drawable.emby_logo.
  */
 internal object EmbyIcons {
-    private const val SHAPE = "M97.1,132.4l26.5,26.5L0,282.5l132.4,132.4l26.5,-26.5L282.5,512l141.2,-141.2l-26.5,-26.5L512,229.5L379.6,97.1l-26.5,26.5L229.5,0z" +
+    internal const val SHAPE = "M97.1,132.4l26.5,26.5L0,282.5l132.4,132.4l26.5,-26.5L282.5,512l141.2,-141.2l-26.5,-26.5L512,229.5L379.6,97.1l-26.5,26.5L229.5,0z" +
         "M196.8,351.2V158.2L366,254.7L281.4,303z"
 
     val Mark: ImageVector by lazy {

@@ -2126,4 +2126,7 @@
   <string name="app_font_streamdek_sans_rounded_description">Łagodniejszy, zaokrąglony krój StreamDek dla płynnego i przyjaznego wyglądu.</string>
   <string name="app_font_system">Czcionka systemowa</string>
   <string name="app_font_system_description">Domyślna czcionka urządzenia dla znajomego, natywnego wyglądu.</string>
+  <string name="settings_section_notifications">Powiadomienia</string>
+  <string name="settings_in_app_action_notifications">Powiadomienia o działaniach w aplikacji</string>
+  <string name="settings_in_app_action_notifications_description">Pokazuj powiadomienia o rutynowych działaniach, takich jak odświeżanie treści, zarządzanie serwerami multimediów i zmiana ustawień.</string>
 </resources>

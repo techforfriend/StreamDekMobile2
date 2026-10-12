@@ -2012,4 +2012,7 @@
   <string name="app_font_streamdek_sans_rounded_description">Gebruik het zachtere, afgeronde lettertype van StreamDek voor een vloeiende, vriendelijke uitstraling.</string>
   <string name="app_font_system">Systeemlettertype</string>
   <string name="app_font_system_description">Gebruik het standaardlettertype van je apparaat voor een vertrouwde, native ervaring.</string>
+  <string name="settings_section_notifications">Meldingen</string>
+  <string name="settings_in_app_action_notifications">Meldingen bij app-acties</string>
+  <string name="settings_in_app_action_notifications_description">Toon meldingen voor routinehandelingen, zoals inhoud vernieuwen, mediaservers beheren en instellingen wijzigen.</string>
 </resources>

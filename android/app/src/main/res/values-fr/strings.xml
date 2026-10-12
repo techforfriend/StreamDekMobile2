@@ -2064,4 +2064,7 @@
   <string name="app_font_streamdek_sans_rounded_description">Utilisez la police plus douce et arrondie de StreamDek pour un rendu fluide et convivial.</string>
   <string name="app_font_system">Police du système</string>
   <string name="app_font_system_description">Utilisez la police par défaut de votre appareil pour une expérience native et familière.</string>
+  <string name="settings_section_notifications">Notifications</string>
+  <string name="settings_in_app_action_notifications">Notifications d\'actions dans l\'app</string>
+  <string name="settings_in_app_action_notifications_description">Affiche des notifications pour les actions courantes, comme l\'actualisation du contenu, la gestion des serveurs multimédias et la modification des paramètres.</string>
 </resources>
