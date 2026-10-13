@@ -122,16 +122,21 @@ internal fun Modifier.mediaServerAmbientGlow(provider: String?): Modifier = when
 }
 
 /**
- * Emby's colour wash, drifting as the others do. Emby's green leads, but no longer alone: it sits
- * with a soft teal and a muted slate blue, over a deep blue-slate, so the page reads as Emby's
- * without the whole screen turning green. Quieter on a light theme, and still when the app's
- * reduced-motion setting is on.
+ * Emby's colour wash: an aurora. Emby's green rises in one corner and turns through aqua into a
+ * soft violet, with a mint glow underneath - the colours of northern lights, which keeps the page
+ * unmistakably Emby's (green leads) while being bright and clean rather than muddy. Drifts as Plex
+ * and Jellyfin do; quieter on a light theme, and still with reduced motion.
+ *
+ * Every colour here is bright and saturated on purpose. Dark, desaturated tones at low opacity over
+ * near-black are exactly where 8-bit gradients band into visible rings, which is what made the
+ * previous slate wash look coarser than the other two. Each glow also fades along an eased curve
+ * rather than in a straight line, so there is no edge where it meets the dark.
  */
 @Composable
 internal fun Modifier.embyAmbientGlow(): Modifier {
     val motionless = LocalMotionSettings.current.motionless
     val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    val strength = if (dark) 0.30f else 0.15f
+    val strength = if (dark) 0.34f else 0.16f
     val drift: State<Float> = if (motionless) {
         remember { mutableFloatStateOf(0.5f) }
     } else {
@@ -150,23 +155,34 @@ internal fun Modifier.embyAmbientGlow(): Modifier {
         val radius = maxOf(w, h) * 0.55f
         fun glow(color: Color, x: Float, y: Float, scale: Float = 1f, weight: Float = 1f) {
             val center = Offset(x * w, y * h)
+            val a = strength * weight
             drawCircle(
-                brush = Brush.radialGradient(listOf(color.copy(alpha = strength * weight), color.copy(alpha = 0f)), center = center, radius = radius * scale),
+                // An eased fall-off (close to smoothstep) instead of a straight line to transparent.
+                brush = Brush.radialGradient(
+                    0.00f to color.copy(alpha = a),
+                    0.30f to color.copy(alpha = a * 0.78f),
+                    0.55f to color.copy(alpha = a * 0.42f),
+                    0.78f to color.copy(alpha = a * 0.14f),
+                    1.00f to color.copy(alpha = 0f),
+                    center = center,
+                    radius = radius * scale,
+                ),
                 radius = radius * scale,
                 center = center,
             )
         }
-        glow(EmbyAmbientGreen, 0.12f + 0.10f * d, 0.08f + 0.05f * d, 1.0f, 0.8f)
-        glow(EmbyAmbientSoftTeal, 0.90f - 0.08f * d, 0.16f + 0.08f * d, 1f, 0.85f)
-        glow(EmbyAmbientSlateBlue, 0.20f + 0.06f * d, 0.62f - 0.07f * d, 0.95f, 0.9f)
-        glow(EmbyAmbientDeepSlate, 0.84f - 0.10f * d, 0.82f - 0.05f * d, 0.95f)
+        glow(EmbyAmbientGreen, 0.12f + 0.10f * d, 0.08f + 0.05f * d, 1.08f)
+        glow(EmbyAmbientAqua, 0.90f - 0.08f * d, 0.18f + 0.08f * d, 1f, 0.85f)
+        glow(EmbyAmbientViolet, 0.22f + 0.06f * d, 0.64f - 0.07f * d, 0.95f, 0.8f)
+        glow(EmbyAmbientMint, 0.84f - 0.10f * d, 0.84f - 0.05f * d, 1f, 0.75f)
     }
 }
 
+/** Emby's own green, which leads. */
 private val EmbyAmbientGreen = Color(0xFF52B54B)
-private val EmbyAmbientSoftTeal = Color(0xFF4FB8AC)
-private val EmbyAmbientSlateBlue = Color(0xFF5B7A9D)
-private val EmbyAmbientDeepSlate = Color(0xFF2C4A63)
+private val EmbyAmbientAqua = Color(0xFF22D3EE)
+private val EmbyAmbientViolet = Color(0xFFA78BFA)
+private val EmbyAmbientMint = Color(0xFF6EE7B7)
 
 /**
  * Emby's logo as a single-colour mark, the play symbol cut out of it, so it takes the same tint and

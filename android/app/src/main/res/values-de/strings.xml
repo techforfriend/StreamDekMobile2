@@ -2009,7 +2009,6 @@
   <string name="app_font">App-Schrift</string>
   <string name="app_font_description">Die Schrift, die StreamDek überall verwendet. Eine Änderung gilt sofort und folgt deinem Konto auf deine anderen Geräte.</string>
   <string name="app_font_streamdek_sans_description">StreamDeks charakteristische klare, moderne Schrift für einen edlen, hochwertigen Auftritt.</string>
-  <string name="app_font_streamdek_sans_rounded_description">StreamDeks weichere, abgerundete Schrift für einen sanften, freundlichen Auftritt.</string>
   <string name="app_font_system">Systemschrift</string>
   <string name="app_font_system_description">Die Standardschrift deines Geräts für ein vertrautes, natives Erlebnis.</string>
   <string name="settings_section_notifications">Benachrichtigungen</string>

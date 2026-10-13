@@ -2025,7 +2025,6 @@
   <string name="app_font">Fuente de la app</string>
   <string name="app_font_description">La tipografía que StreamDek usa en todas partes. El cambio se aplica al instante y te acompaña en tus otros dispositivos.</string>
   <string name="app_font_streamdek_sans_description">Usa la tipografía característica de StreamDek, limpia y moderna, para un aspecto refinado y premium.</string>
-  <string name="app_font_streamdek_sans_rounded_description">Usa la tipografía más suave y redondeada de StreamDek para un aspecto fluido y cercano.</string>
   <string name="app_font_system">Fuente del sistema</string>
   <string name="app_font_system_description">Usa la fuente predeterminada de tu dispositivo para una experiencia nativa y familiar.</string>
   <string name="settings_section_notifications">Notificaciones</string>

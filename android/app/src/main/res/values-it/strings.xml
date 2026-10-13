@@ -2025,7 +2025,6 @@
   <string name="app_font">Carattere dell\'app</string>
   <string name="app_font_description">Il carattere usato ovunque in StreamDek. La modifica si applica subito e segue il tuo account sugli altri dispositivi.</string>
   <string name="app_font_streamdek_sans_description">Usa il carattere distintivo di StreamDek, pulito e moderno, per un aspetto raffinato e premium.</string>
-  <string name="app_font_streamdek_sans_rounded_description">Usa il carattere più morbido e arrotondato di StreamDek per un aspetto fluido e amichevole.</string>
   <string name="app_font_system">Carattere di sistema</string>
   <string name="app_font_system_description">Usa il carattere predefinito del dispositivo per un\'esperienza nativa e familiare.</string>
   <string name="settings_section_notifications">Notifiche</string>

@@ -10297,7 +10297,7 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
     val appAppearance = preferences.appAppearance?.let { runCatching { AppAppearance.valueOf(it) }.getOrNull() }
     val themePreset = AppThemePreset.fromName(preferences.themePreset)
     // A key this build does not know (a font added in a later version) leaves the current choice alone.
-    val appFont = preferences.appFont?.let { key -> AppFont.entries.firstOrNull { it.key == key } }
+    val appFont = AppFont.fromKnownKey(preferences.appFont)
     val headerStyle = preferences.headerStyle?.let { runCatching { HeaderStyle.valueOf(it) }.getOrNull() }
     val detailPageStyle = preferences.detailPageStyle?.let { runCatching { DetailPageStyle.valueOf(it) }.getOrNull() }
     val continueWatchingStyle = preferences.continueWatchingStyle?.let { runCatching { ContinueWatchingStyle.valueOf(it) }.getOrNull() }

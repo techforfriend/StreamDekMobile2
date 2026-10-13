@@ -35,14 +35,14 @@ import net.streamdek.mobile.R
 /*
  * The App Font setting and the type the whole app is set in.
  *
- * Two StreamDek families ship in res/font, each in its six real weights (Light to ExtraBold), so a
+ * StreamDek Sans (the Clean edition) ships in res/font in its six real weights (Light to ExtraBold), so a
  * SemiBold title is the SemiBold the family was drawn with rather than a Regular the renderer has
- * thickened. The third choice is the phone's own font.
+ * thickened. The other choice is the phone's own font.
  *
  * The choice reaches every screen through MaterialTheme.typography: the app sets almost all of its
  * text from those styles, and a Text with only a size or weight of its own still takes its family
  * from the theme's text style. Only the family changes between choices; sizes, line heights and
- * weights stay the theme's, so the hierarchy reads the same in all three. Glyphs a StreamDek family
+ * weights stay the theme's, so the hierarchy reads the same in both. Glyphs a StreamDek family
  * does not have (other scripts, emoji) fall back to the system font character by character.
  *
  * Shared with the TV app, which reads the same setting from the same place under the same keys.
@@ -58,32 +58,41 @@ enum class AppFont(
   @StringRes val descriptionRes: Int,
 ) {
   System("system", R.string.app_font_system, R.string.app_font_system_description),
-  StreamDekSans("streamdek_sans", R.string.app_font_streamdek_sans, R.string.app_font_streamdek_sans_description),
-  StreamDekSansRounded("streamdek_sans_rounded", R.string.app_font_streamdek_sans_rounded, R.string.app_font_streamdek_sans_rounded_description);
+  StreamDekSans("streamdek_sans", R.string.app_font_streamdek_sans, R.string.app_font_streamdek_sans_description);
 
   /** The family this choice sets text in. Built once per family and shared. */
   val fontFamily: FontFamily get() = when (this) {
     StreamDekSans -> StreamDekFonts.sans
-    StreamDekSansRounded -> StreamDekFonts.sansRounded
     System -> FontFamily.Default
   }
 
   companion object {
     /**
      * Everyone who has not chosen, new or existing, keeps the device's own font, as the app has
-     * always looked. The StreamDek faces are there to opt into.
+     * always looked. StreamDek Sans is there to opt into.
      */
     val Default = System
 
-    /** Anything missing, misspelt or from a newer build falls back to [Default]. */
-    fun fromKey(key: String?): AppFont {
+    /**
+     * StreamDek Sans Rounded was offered by an earlier build and has since been retired. Anyone who
+     * chose it asked for a StreamDek face, so they get StreamDek Sans rather than being put back on
+     * the system font.
+     */
+    private const val RETIRED_ROUNDED_KEY = "streamdek_sans_rounded"
+
+    /** The font a stored key names, the retired rounded face included, or null for a key this build does not know. */
+    fun fromKnownKey(key: String?): AppFont? {
       val normalized = key?.trim()?.lowercase().orEmpty()
-      return entries.firstOrNull { it.key == normalized } ?: Default
+      if (normalized == RETIRED_ROUNDED_KEY) return StreamDekSans
+      return entries.firstOrNull { it.key == normalized }
     }
+
+    /** Anything missing, misspelt or from a newer build falls back to [Default]. */
+    fun fromKey(key: String?): AppFont = fromKnownKey(key) ?: Default
   }
 }
 
-/** The two bundled families, created once for the life of the process. */
+/** The bundled family, created once for the life of the process. */
 internal object StreamDekFonts {
   val sans: FontFamily = FontFamily(
     Font(R.font.streamdek_sans_light, FontWeight.Light),
@@ -92,15 +101,6 @@ internal object StreamDekFonts {
     Font(R.font.streamdek_sans_semibold, FontWeight.SemiBold),
     Font(R.font.streamdek_sans_bold, FontWeight.Bold),
     Font(R.font.streamdek_sans_extrabold, FontWeight.ExtraBold),
-  )
-
-  val sansRounded: FontFamily = FontFamily(
-    Font(R.font.streamdek_sans_rounded_light, FontWeight.Light),
-    Font(R.font.streamdek_sans_rounded_regular, FontWeight.Normal),
-    Font(R.font.streamdek_sans_rounded_medium, FontWeight.Medium),
-    Font(R.font.streamdek_sans_rounded_semibold, FontWeight.SemiBold),
-    Font(R.font.streamdek_sans_rounded_bold, FontWeight.Bold),
-    Font(R.font.streamdek_sans_rounded_extrabold, FontWeight.ExtraBold),
   )
 }
 

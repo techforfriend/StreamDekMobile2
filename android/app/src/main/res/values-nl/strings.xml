@@ -2009,7 +2009,6 @@
   <string name="app_font">App-lettertype</string>
   <string name="app_font_description">Het lettertype dat StreamDek overal gebruikt. Een wijziging geldt meteen en volgt je account naar je andere apparaten.</string>
   <string name="app_font_streamdek_sans_description">Gebruik het kenmerkende strakke, moderne lettertype van StreamDek voor een verfijnde, hoogwaardige uitstraling.</string>
-  <string name="app_font_streamdek_sans_rounded_description">Gebruik het zachtere, afgeronde lettertype van StreamDek voor een vloeiende, vriendelijke uitstraling.</string>
   <string name="app_font_system">Systeemlettertype</string>
   <string name="app_font_system_description">Gebruik het standaardlettertype van je apparaat voor een vertrouwde, native ervaring.</string>
   <string name="settings_section_notifications">Meldingen</string>

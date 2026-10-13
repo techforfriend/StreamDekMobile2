@@ -309,7 +309,7 @@ data class CloudPlaybackPreferences(
   val favoriteSourceKeys: List<String>? = null,
   val appAppearance: String? = null,
   val themePreset: String? = null,
-  /** The App Font key (`streamdek_sans`, `streamdek_sans_rounded`, `system`); shared with the TV under `app`. */
+  /** The App Font key (`system` or `streamdek_sans`); shared with the TV under `app`. */
   val appFont: String? = null,
   val headerStyle: String? = null,
   val showNavLabels: Boolean? = null,

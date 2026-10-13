@@ -2178,8 +2178,6 @@
   <string name="app_font_description">The typeface StreamDek uses everywhere. A change applies straight away and follows your account to your other devices.</string>
   <string name="app_font_streamdek_sans">StreamDek Sans</string>
   <string name="app_font_streamdek_sans_description">Use StreamDek\'s signature clean, modern typeface for a refined and premium appearance.</string>
-  <string name="app_font_streamdek_sans_rounded">StreamDek Sans Rounded</string>
-  <string name="app_font_streamdek_sans_rounded_description">Use StreamDek\'s softer, rounded typeface for a smooth and friendly appearance.</string>
   <string name="app_font_system">System Font</string>
   <string name="app_font_system_description">Use your device\'s default font for a familiar, native experience.</string>
   <string name="app_font_preview">The quick brown fox jumps over the lazy dog. 0123456789</string>
