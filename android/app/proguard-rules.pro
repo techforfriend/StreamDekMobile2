@@ -137,3 +137,7 @@
 -keepclassmembers class androidx.media3.decoder.ffmpeg.FfmpegAudioDecoder {
     private java.nio.ByteBuffer growOutputBuffer(androidx.media3.decoder.SimpleDecoderOutputBuffer, int);
 }
+
+# Suppress R8 Kotlin metadata parsing warnings
+-dontwarn kotlin.Metadata
+-dontwarn kotlin.**
