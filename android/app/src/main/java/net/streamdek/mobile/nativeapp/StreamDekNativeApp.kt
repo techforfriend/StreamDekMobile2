@@ -7587,7 +7587,7 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
       val nativeId = episode?.sourceStreamId?.takeIf { it.isNotBlank() }
         ?: baseId?.let { base -> episode?.let { "$base:${it.seasonNumber}:${it.episodeNumber}" } ?: base }
       if (nativeId != null) {
-        async(Dispatchers.IO) {
+        async<Result<List<AddonStream>>>(Dispatchers.IO) {
           fetchAddonStreamsWithRetry(owner, ownerType, nativeId)
         }
       } else null
@@ -7605,7 +7605,7 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
     }
 
     val pluginJob = if (!live) {
-      async(Dispatchers.IO) {
+      async<List<AddonStream>>(Dispatchers.IO) {
         runCatching {
           val pluginType = if (type == "series") "tv" else type
           val pluginCandidate = candidates.firstOrNull()?.substringBefore(":").orEmpty()
