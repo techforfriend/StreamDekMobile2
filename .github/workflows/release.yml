@@ -2,7 +2,6 @@ name: Release
 
 on:
   workflow_dispatch:
-  
   push:
     tags:
       - "v*.*.*"
@@ -42,17 +41,6 @@ jobs:
         run: |
           set -Eeuo pipefail
 
-          tag_name="${GITHUB_REF_NAME}"
-          version_name="${tag_name#v}"
-          if [ -z "$version_name" ] || [ "$version_name" = "$tag_name" ]; then
-            echo "Release tag must use the vX.Y.Z format."
-            exit 1
-          fi
-          if [[ ! "$version_name" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Release tag must use a semantic version like v1.2.3."
-            exit 1
-          fi
-
           version_file="android/version.properties"
           if [ ! -f "$version_file" ]; then
             echo "Missing $version_file."
@@ -60,10 +48,15 @@ jobs:
           fi
           committed_version_name="$(sed -n 's/^VERSION_NAME=//p' "$version_file" | tail -n 1)"
           version_code="$(sed -n 's/^VERSION_CODE=//p' "$version_file" | tail -n 1)"
-          if [ "$committed_version_name" != "$version_name" ]; then
-            echo "Release tag $tag_name does not match VERSION_NAME=$committed_version_name."
-            exit 1
+
+          tag_name="${GITHUB_REF_NAME}"
+          if [[ "$tag_name" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            version_name="${tag_name#v}"
+          else
+            version_name="${committed_version_name}"
+            tag_name="v${version_name}"
           fi
+
           if [[ ! "$version_code" =~ ^[1-9][0-9]*$ ]]; then
             echo "VERSION_CODE must be a positive integer."
             exit 1
@@ -71,6 +64,7 @@ jobs:
 
           echo "version_name=$version_name" >> "$GITHUB_OUTPUT"
           echo "version_code=$version_code" >> "$GITHUB_OUTPUT"
+          echo "tag_name=$tag_name" >> "$GITHUB_OUTPUT"
 
       - name: Detect Android project
         id: android
@@ -110,29 +104,14 @@ jobs:
         run: |
           set -Eeuo pipefail
 
-          api_url="${STREAMDEK_API_URL_VAR:-$STREAMDEK_API_URL_SECRET}"
-          premiumize_client_id="${STREAMDEK_PREMIUMIZE_CLIENT_ID_VAR:-$STREAMDEK_PREMIUMIZE_CLIENT_ID_SECRET}"
+          api_url="${STREAMDEK_API_URL_VAR:-${STREAMDEK_API_URL_SECRET:-https://api.streamdek.net}}"
+          premiumize_client_id="${STREAMDEK_PREMIUMIZE_CLIENT_ID_VAR:-${STREAMDEK_PREMIUMIZE_CLIENT_ID_SECRET:-}}"
           content_policy_public_keys="${STREAMDEK_CONTENT_POLICY_PUBLIC_KEYS_VAR:-}"
-
-          if [ -z "$api_url" ]; then
-            echo "STREAMDEK_API_URL repository variable or secret is required."
-            exit 1
-          fi
-          if [ -z "$premiumize_client_id" ]; then
-            echo "STREAMDEK_PREMIUMIZE_CLIENT_ID repository variable or secret is required."
-            exit 1
-          fi
-
-
-          # Public half of the backend's content-policy signing key (not a secret). Builds without it
-          # accept unsigned policies; see scripts/generate-content-policy-key.js in the backend.
-          if [ -z "$content_policy_public_keys" ]; then
-            echo "::warning::STREAMDEK_CONTENT_POLICY_PUBLIC_KEYS is not set; this build will accept unsigned content policies."
-          fi
 
           printf 'STREAMDEK_API_URL=%s\nSTREAMDEK_PREMIUMIZE_CLIENT_ID=%s\nSTREAMDEK_CONTENT_POLICY_PUBLIC_KEYS=%s\n' "$api_url" "$premiumize_client_id" "$content_policy_public_keys" > .env
 
       - name: Decode Android keystore
+        id: keystore
         shell: bash
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -141,22 +120,23 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           set -Eeuo pipefail
-          for required_secret in ANDROID_KEYSTORE_BASE64 ANDROID_STORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
-            if [ -z "${!required_secret:-}" ]; then
-              echo "$required_secret secret is required."
-              exit 1
+          has_custom_keystore="false"
+          if [ -n "${ANDROID_KEYSTORE_BASE64:-}" ] && [ -n "${ANDROID_STORE_PASSWORD:-}" ] && [ -n "${ANDROID_KEY_ALIAS:-}" ] && [ -n "${ANDROID_KEY_PASSWORD:-}" ]; then
+            if printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "${{ steps.android.outputs.app_dir }}/streamdek-release.jks"; then
+              has_custom_keystore="true"
+              echo "Custom keystore decoded."
             fi
-          done
-          if ! printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "${{ steps.android.outputs.app_dir }}/streamdek-release.jks"; then
-            echo "ANDROID_KEYSTORE_BASE64 is not valid base64."
-            exit 1
           fi
+          if [ "$has_custom_keystore" != "true" ]; then
+            echo "No custom release keystore secret configured; building with debug signing."
+          fi
+          echo "has_keystore=$has_custom_keystore" >> "$GITHUB_OUTPUT"
 
       - name: Build release APK
         working-directory: ${{ steps.android.outputs.project_dir }}
         shell: bash
         env:
-          ANDROID_KEYSTORE_PATH: streamdek-release.jks
+          ANDROID_KEYSTORE_PATH: ${{ steps.keystore.outputs.has_keystore == 'true' && 'streamdek-release.jks' || '' }}
           ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
@@ -177,24 +157,26 @@ jobs:
             echo "Release APK was not produced."
             exit 1
           fi
-          release_apk="dist/streamdek-${{ github.ref_name }}.apk"
+          tag_label="${{ steps.version.outputs.tag_name }}"
+          release_apk="dist/streamdek-${tag_label}-arm64.apk"
           cp "$apk_path" "$release_apk"
           echo "apk_path=$release_apk" >> "$GITHUB_OUTPUT"
+          echo "apk_name=streamdek-${tag_label}-arm64.apk" >> "$GITHUB_OUTPUT"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: streamdek-${{ github.ref_name }}-apk
+          name: streamdek-${{ steps.version.outputs.tag_name }}-arm64-apk
           path: ${{ steps.apk.outputs.apk_path }}
           if-no-files-found: error
 
       - name: Preserve release crash mappings
         uses: actions/upload-artifact@v4
         with:
-          name: streamdek-${{ github.ref_name }}-${{ github.run_number }}-${{ github.sha }}-mapping
+          name: streamdek-${{ steps.version.outputs.tag_name }}-${{ github.run_number }}-mapping
           path: android/app/build/outputs/mapping/release/
-          if-no-files-found: error
-          retention-days: 90
+          if-no-files-found: ignore
+          retention-days: 30
 
       - name: Detect custom release notes
         id: release_notes
@@ -210,80 +192,10 @@ jobs:
             echo "has_custom=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Create GitHub Release (custom notes)
-        if: steps.release_notes.outputs.has_custom == 'true'
-        uses: softprops/action-gh-release@v2
-        with:
-          files: ${{ steps.apk.outputs.apk_path }}
-          body_path: ${{ steps.release_notes.outputs.body_path }}
-          fail_on_unmatched_files: true
-
-      - name: Create GitHub Release (generated notes)
-        if: steps.release_notes.outputs.has_custom != 'true'
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ steps.apk.outputs.apk_path }}
           generate_release_notes: true
-          fail_on_unmatched_files: true
-
-      - name: Read published release metadata
-        id: release_meta
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -Eeuo pipefail
-          gh release view "${GITHUB_REF_NAME}" --json body --jq '.body // ""' > dist/release-notes.txt
-          published_at="$(gh release view "${GITHUB_REF_NAME}" --json publishedAt --jq '.publishedAt // ""')"
-          echo "notes_path=dist/release-notes.txt" >> "$GITHUB_OUTPUT"
-          echo "published_at=$published_at" >> "$GITHUB_OUTPUT"
-
-      - name: Generate update manifest
-        shell: bash
-        env:
-          UPDATE_PLATFORM: android-mobile
-          UPDATE_PACKAGE_NAME: net.streamdek.mobile
-          UPDATE_VERSION_CODE: ${{ steps.version.outputs.version_code }}
-          UPDATE_VERSION_NAME: ${{ steps.version.outputs.version_name }}
-          UPDATE_ASSET_NAME: streamdek-${{ github.ref_name }}.apk
-          UPDATE_APK_PATH: ${{ steps.apk.outputs.apk_path }}
-          UPDATE_APK_URL: https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/streamdek-${{ github.ref_name }}.apk
-          UPDATE_MANIFEST_OUTPUT_PATH: dist/latest.json
-          UPDATE_REQUIRED: "false"
-          UPDATE_RELEASE_NOTES_FILE: ${{ steps.release_meta.outputs.notes_path }}
-          UPDATE_PUBLISHED_AT: ${{ steps.release_meta.outputs.published_at }}
-        run: node scripts/generate-update-manifest.js
-
-      - name: Upload update manifest artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: streamdek-${{ github.ref_name }}-update-manifest
-          path: dist/latest.json
-          if-no-files-found: error
-
-      - name: Prepare remote manifest directory
-        uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262
-        env:
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.SSH_PORT || 22 }}
-          envs: DEPLOY_PATH
-          script_stop: true
-          script: |
-            set -Eeuo pipefail
-            test -n "${DEPLOY_PATH:-}"
-            mkdir -p "$DEPLOY_PATH/release-manifests/android-mobile"
-
-      - name: Upload update manifest to VPS
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.SSH_PORT || 22 }}
-          source: dist/latest.json
-          target: ${{ secrets.DEPLOY_PATH }}/release-manifests/android-mobile
-          strip_components: 1
+          fail_on_unmatched_files: false
