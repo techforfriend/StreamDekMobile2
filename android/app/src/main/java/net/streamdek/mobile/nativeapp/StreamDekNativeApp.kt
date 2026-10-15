@@ -17340,7 +17340,7 @@ private fun HomeTab(uiState: AppUiState, scrollToTopSignal: Int, onReload: () ->
  * carry its colour across that line.
  */
 @Composable
-private fun homeHeroHeight(): Dp = minOf(640.dp, LocalWindowSize.current.heightDp * 0.72f)
+private fun homeHeroHeight(): Dp = minOf(520.dp, LocalWindowSize.current.heightDp * 0.58f)
 
 /** The strip the carousel dots sit in, below the artwork and inside the same list item. */
 private val HomeHeroDotsLaneHeight = 26.dp
@@ -23008,7 +23008,7 @@ private fun SettingsTab(
                 Color(0xFFA78BFA),
                 stringResource(R.string.settings_row_preferred_subtitle_language),
                 stringResource(R.string.settings_m_the_subtitle_language_to_choose_first),
-                Languages.subtitleOptions(includeNone = false),
+                Languages.subtitleOptions(includeNone = true),
                 uiState.preferredSubtitleLanguage,
                 onPreferredSubtitleLanguageChange,
               )
@@ -32906,7 +32906,7 @@ private fun PosterCard(
       // height than a straight multiplier would give it, and its two lines come down by 8% instead
       // of 20%, because a card that fits more titles on screen is no use if the titles cannot be
       // read. The block still has a fixed height, so a row's cards keep one bottom edge.
-      Column(modifier = Modifier.height(home.cardMetaHeight), verticalArrangement = Arrangement.spacedBy(home.card(4.dp))) {
+      Column(modifier = Modifier.heightIn(min = home.cardMetaHeight), verticalArrangement = Arrangement.spacedBy(home.card(3.dp))) {
         Text(
           item.title,
           maxLines = 2,
@@ -33025,7 +33025,7 @@ private fun ContinueWatchingCard(item: MediaItem, style: ContinueWatchingStyle, 
       Box(
         modifier = Modifier
           .width(home.card(240.dp))
-          .height(home.card(68.dp))
+          .height(home.card(76.dp))
           .clip(StreamDekRadius.thumbShape)
           .background(Color(0xFF121212))
           .border(1.dp, Color.White.copy(alpha = 0.10f), StreamDekRadius.thumbShape)
@@ -33049,17 +33049,25 @@ private fun ContinueWatchingCard(item: MediaItem, style: ContinueWatchingStyle, 
     ContinueWatchingStyle.Mini -> {
       Row(
         modifier = Modifier
-          .width(home.card(224.dp))
-          .height(home.card(62.dp))
+          .width(home.card(236.dp))
+          .height(home.card(76.dp))
           .clip(StreamDekRadius.controlShape)
           .background(Color(0xFF121218))
           .border(1.dp, Color.White.copy(alpha = 0.12f), StreamDekRadius.controlShape)
           .pressable(item.id, item.type, style, onClick = onClick, onLongPress = onLongPress),
       ) {
-        AsyncImage(model = imageModel, contentDescription = item.title, modifier = Modifier.width(home.card(92.dp)).fillMaxSize(), contentScale = ContentScale.Crop)
-        Column(modifier = Modifier.weight(1f).padding(horizontal = home.card(8.dp), vertical = home.card(7.dp)), verticalArrangement = Arrangement.SpaceBetween) {
-          Text(item.title, maxLines = 2, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Bold, fontSize = home.text(12.sp), lineHeight = home.text(16.sp), color = Color.White)
-          Text(subtitle, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = home.text(10.sp), color = Color.White.copy(alpha = 0.66f))
+        AsyncImage(model = imageModel, contentDescription = item.title, modifier = Modifier.width(home.card(98.dp)).fillMaxSize(), contentScale = ContentScale.Crop)
+        Column(
+          modifier = Modifier
+            .weight(1f)
+            .fillMaxHeight()
+            .padding(horizontal = home.card(10.dp), vertical = home.card(8.dp)),
+          verticalArrangement = Arrangement.SpaceBetween,
+        ) {
+          Column(verticalArrangement = Arrangement.spacedBy(home.card(2.dp))) {
+            Text(item.title, maxLines = 2, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Bold, fontSize = home.text(12.sp), lineHeight = home.text(15.sp), color = Color.White)
+            Text(subtitle, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = home.text(10.5.sp), color = Color.White.copy(alpha = 0.66f))
+          }
           progressBar()
         }
       }

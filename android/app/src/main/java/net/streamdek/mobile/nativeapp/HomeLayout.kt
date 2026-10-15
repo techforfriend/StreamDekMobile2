@@ -179,7 +179,7 @@ data class HomeLayoutMetrics(
     fun forDensity(density: HomeDensity): HomeLayoutMetrics = when (density) {
       HomeDensity.Relaxed -> HomeLayoutMetrics(
         density = HomeDensity.Relaxed,
-        cardScale = 0.80f,
+        cardScale = 0.88f,
         textScale = 0.88f,
         rowGap = 18.dp,
         heroToRowGap = 10.dp,
@@ -190,12 +190,12 @@ data class HomeLayoutMetrics(
         cardGap = 10.dp,
         rowTitleSize = 18.sp,
         addonRowTitleSize = 16.sp,
-        cardMetaGap = 6.dp,
-        cardMetaHeight = 44.dp,
+        cardMetaGap = 5.dp,
+        cardMetaHeight = 56.dp,
       )
       HomeDensity.Compact -> HomeLayoutMetrics(
         density = HomeDensity.Compact,
-        cardScale = 0.65f,
+        cardScale = 0.76f,
         textScale = 0.78f,
         rowGap = 12.dp,
         heroToRowGap = 6.dp,
@@ -207,7 +207,7 @@ data class HomeLayoutMetrics(
         rowTitleSize = 15.5.sp,
         addonRowTitleSize = 14.sp,
         cardMetaGap = 4.dp,
-        cardMetaHeight = 38.dp,
+        cardMetaHeight = 48.dp,
       )
     }
   }

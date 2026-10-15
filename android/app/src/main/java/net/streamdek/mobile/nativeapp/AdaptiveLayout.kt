@@ -214,9 +214,9 @@ val LandscapeCardWidth: Dp = 180.dp
  */
 @Composable
 fun homeRowPosterWidth(): Dp = when (LocalWindowSize.current.widthClass) {
-  WindowWidthClass.Compact -> 108.dp
-  WindowWidthClass.Medium -> 118.dp
-  WindowWidthClass.Expanded -> 128.dp
+  WindowWidthClass.Compact -> 116.dp
+  WindowWidthClass.Medium -> 124.dp
+  WindowWidthClass.Expanded -> 132.dp
 }
 
 /**

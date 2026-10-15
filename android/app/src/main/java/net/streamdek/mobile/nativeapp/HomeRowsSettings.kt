@@ -198,8 +198,6 @@ internal fun CatalogHomeLayoutSettings(
 
   Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
     SettingsSection(stringResource(R.string.settings_m_home_rows)) {
-      SettingsSwitchRow("GRID", Color(0xFF22C55E), stringResource(R.string.settings_m_streamdek_home_rows), stringResource(R.string.settings_m_show_the_rows_that_come_with_streamdek), defaultAppCatalogsEnabled, onDefaultAppCatalogsEnabledChange)
-      SettingsDivider()
       SettingsChoiceRow(
         icon = "ORD",
         iconColor = Color(0xFF8B5CF6),

@@ -770,25 +770,35 @@ fun NativePlayerScreen(
     val maximum = manager.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
     return manager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat() / maximum.toFloat()
   }
+  var lastVolumeStep by remember { mutableIntStateOf(-1) }
   fun applyBrightness(level: Float) {
     val target = level.coerceIn(0.02f, 1f)
-    activity?.window?.let { window ->
-      val attributes = window.attributes
-      attributes.screenBrightness = target
-      window.attributes = attributes
+    if (kotlin.math.abs(target - adjustmentLevel) > 0.005f || adjustmentKind != PlayerAdjustmentKind.Brightness) {
+      activity?.window?.let { window ->
+        val attributes = window.attributes
+        attributes.screenBrightness = target
+        window.attributes = attributes
+      }
+      adjustmentKind = PlayerAdjustmentKind.Brightness
+      adjustmentLevel = target
+      adjustmentFeedbackVersion += 1
     }
-    adjustmentKind = PlayerAdjustmentKind.Brightness
-    adjustmentLevel = target
-    adjustmentFeedbackVersion += 1
   }
   fun applyMediaVolume(level: Float) {
     val manager = audioManager ?: return
     val maximum = manager.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
     val target = (level.coerceIn(0f, 1f) * maximum).roundToInt().coerceIn(0, maximum)
-    manager.setStreamVolume(AudioManager.STREAM_MUSIC, target, 0)
     adjustmentKind = PlayerAdjustmentKind.Volume
     adjustmentLevel = target.toFloat() / maximum.toFloat()
     adjustmentFeedbackVersion += 1
+    if (target != lastVolumeStep) {
+      lastVolumeStep = target
+      playerScope.launch(Dispatchers.IO) {
+        runCatching {
+          manager.setStreamVolume(AudioManager.STREAM_MUSIC, target, 0)
+        }
+      }
+    }
   }
   fun progressPercent(): Double =
     if (duration > 0.0) ((currentTime / duration) * 100.0).coerceIn(0.0, 100.0) else 0.0
@@ -2534,7 +2544,11 @@ private fun PlayerBottomControls(
   ) {
     if (!error.isNullOrBlank()) Text(error, color = Color(0xFFFF9A9A), style = MaterialTheme.typography.bodySmall)
     if (showProgressRow) {
-      Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+      ) {
         Box(
           modifier = Modifier
             .width(62.dp)
@@ -2555,9 +2569,8 @@ private fun PlayerBottomControls(
           )
           Text(formatClock(currentTime), color = Color.White.copy(alpha = 0.95f), fontWeight = FontWeight.SemiBold, fontSize = 11.sp)
         }
-        Spacer(Modifier.weight(0.075f))
         if (liveWithoutWindow) {
-          Box(modifier = Modifier.weight(0.85f).height(48.dp), contentAlignment = Alignment.Center) {
+          Box(modifier = Modifier.weight(1f).height(48.dp), contentAlignment = Alignment.Center) {
             Box(modifier = Modifier.fillMaxWidth().height(2.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.22f)))
           }
         } else {
@@ -2578,18 +2591,17 @@ private fun PlayerBottomControls(
                 progress = progress,
                 onProgressChange = onProgressChange,
                 onProgressFinished = onProgressFinished,
-                modifier = Modifier.weight(0.85f),
+                modifier = Modifier.weight(1f),
                 buffered = buffered,
                 bufferedColor = bufferedColor,
               )
             } else {
-              // Normal and Compact retain the original Material player progress bar. The
-              // surrounding 7.5% spacers shorten it by 15% while keeping it exactly centred.
+              // Normal and Compact retain the original Material player progress bar.
               Slider(
                 value = progress,
                 onValueChange = onProgressChange,
                 onValueChangeFinished = onProgressFinished,
-                modifier = Modifier.weight(0.85f).graphicsLayer { scaleY = if (layout == "Compact") 0.92f else 1f },
+                modifier = Modifier.weight(1f).graphicsLayer { scaleY = if (layout == "Compact") 0.92f else 1f },
                 // The bar draws no handle: the end of the watched fill is the position, and a
                 // handle sat exactly where the buffered stretch begins and hid it. The whole bar
                 // still takes the drag, so seeking is unchanged.
@@ -2601,7 +2613,6 @@ private fun PlayerBottomControls(
         }
         // With the badge switched off a window-less channel has nothing to put in this pill, so the
         // pill goes too and the rule takes its room, rather than leaving an empty capsule behind.
-        if (!liveWithoutWindow || badge.visible) Spacer(Modifier.weight(0.075f))
         if (!liveWithoutWindow || badge.visible) Box(
           modifier = Modifier
             .width(76.dp)

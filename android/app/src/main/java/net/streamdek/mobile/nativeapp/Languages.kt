@@ -138,8 +138,9 @@ object Languages {
     return a.isNotEmpty() && a == b
   }
 
-  /** Choices for an audio preference: leave it alone, or pick a language. */
-  fun audioOptions(): List<String> = listOf(ORIGINAL) + all.map { it.code }
+  /** Choices for an audio preference: leave it alone, pick a language, or none. */
+  fun audioOptions(includeNone: Boolean = true): List<String> =
+    (if (includeNone) listOf(NONE) else emptyList()) + listOf(ORIGINAL) + all.map { it.code }
 
   /** Choices for a subtitle preference; the secondary one may also be "None". */
   fun subtitleOptions(includeNone: Boolean): List<String> =

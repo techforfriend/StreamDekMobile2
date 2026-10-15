@@ -74,19 +74,19 @@ enum class AnimationSpeed(
   Fast(
     key = "fast",
     labelRes = R.string.animation_speed_fast,
-    scale = 0.7f,
+    scale = 0.55f,
     descriptionRes = R.string.animation_speed_fast_description,
   ),
   Standard(
     key = "standard",
     labelRes = R.string.animation_speed_standard,
-    scale = 1f,
+    scale = 0.85f,
     descriptionRes = R.string.animation_speed_standard_description,
   ),
   Cinematic(
     key = "cinematic",
     labelRes = R.string.animation_speed_cinematic,
-    scale = 1.45f,
+    scale = 1.25f,
     descriptionRes = R.string.animation_speed_cinematic_description,
   );
 
@@ -116,22 +116,22 @@ enum class AnimationSpeed(
  */
 object MotionDuration {
   /** Press and focus acknowledgement. Anything slower than this reads as a missed input. */
-  const val instant = 90
+  const val instant = 60
 
   /** Small swaps in place: a badge changing, a label crossfading, a chip selecting. */
-  const val short = 150
+  const val short = 110
 
   /** The default. Content appearing, a panel expanding, most state changes. */
-  const val standard = 250
+  const val standard = 190
 
   /** Whole screens, sheets, the player - larger travel needs longer to stay legible. */
-  const val long = 380
+  const val long = 270
 
   /** The offset between neighbours in a staggered sequence, per step. */
-  const val stagger = 60
+  const val stagger = 50
 
   /** One thing replacing another in the same place. */
-  const val crossfade = 220
+  const val crossfade = 160
 
   /**
    * What a crossfade collapses to when motion is off, rather than to zero.
@@ -139,7 +139,7 @@ object MotionDuration {
    * An instant swap of a full-screen image is its own kind of jarring, and reduce-motion guidance
    * treats a short opacity change as the accessible replacement for movement, not as movement.
    */
-  const val motionlessCrossfade = 90
+  const val motionlessCrossfade = 70
 }
 
 /**
