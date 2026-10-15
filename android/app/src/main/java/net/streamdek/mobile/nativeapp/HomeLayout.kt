@@ -88,8 +88,8 @@ enum class HomeDensity(
   );
 
   companion object {
-    /** The existing home screen, so nobody's Home changes because this setting arrived. */
-    val Default = Relaxed
+    /** Default density set to Compact for a cleaner, smaller card experience across the UI. */
+    val Default = Compact
 
     /** Accepts the stored key and the enum name; anything else is the default. */
     fun fromKey(key: String?): HomeDensity {
@@ -177,47 +177,37 @@ data class HomeLayoutMetrics(
 
   companion object {
     fun forDensity(density: HomeDensity): HomeLayoutMetrics = when (density) {
-      // Exactly what Home already measured. Nothing here is a new decision.
       HomeDensity.Relaxed -> HomeLayoutMetrics(
         density = HomeDensity.Relaxed,
-        cardScale = 1f,
-        textScale = 1f,
-        rowGap = 26.dp,
-        heroToRowGap = 12.dp,
-        rowHeaderGap = 14.dp,
-        rowHeaderTitleGap = 6.dp,
+        cardScale = 0.80f,
+        textScale = 0.88f,
+        rowGap = 18.dp,
+        heroToRowGap = 10.dp,
+        rowHeaderGap = 10.dp,
+        rowHeaderTitleGap = 4.dp,
         showRowAccentBar = true,
         rowSideInset = 16.dp,
-        cardGap = 14.dp,
-        rowTitleSize = 22.5.sp,
-        addonRowTitleSize = 20.sp,
-        cardMetaGap = 8.dp,
-        cardMetaHeight = 56.dp,
+        cardGap = 10.dp,
+        rowTitleSize = 18.sp,
+        addonRowTitleSize = 16.sp,
+        cardMetaGap = 6.dp,
+        cardMetaHeight = 44.dp,
       )
-      // Cards a fifth smaller, and the space around them brought in to match. The accent bar goes
-      // rather than shrinking: at this row height a title with no rule under it already reads as a
-      // heading, and keeping a seven-pixel bar between every row is most of what made the tighter
-      // spacing feel crowded rather than dense.
-      //
-      // The caption block is 48dp rather than the 44.8dp a straight 0.8 would give, because the two
-      // lines inside it are only shrunk by 8%: type that follows the artwork down 20% stops being
-      // comfortably readable at arm's length, which is the opposite of what fitting more on screen
-      // is for.
       HomeDensity.Compact -> HomeLayoutMetrics(
         density = HomeDensity.Compact,
-        cardScale = 0.8f,
-        textScale = 0.92f,
-        rowGap = 16.dp,
-        heroToRowGap = 8.dp,
-        rowHeaderGap = 9.dp,
+        cardScale = 0.65f,
+        textScale = 0.78f,
+        rowGap = 12.dp,
+        heroToRowGap = 6.dp,
+        rowHeaderGap = 7.dp,
         rowHeaderTitleGap = 0.dp,
         showRowAccentBar = false,
         rowSideInset = 16.dp,
-        cardGap = 10.dp,
-        rowTitleSize = 18.5.sp,
-        addonRowTitleSize = 17.sp,
-        cardMetaGap = 6.dp,
-        cardMetaHeight = 48.dp,
+        cardGap = 8.dp,
+        rowTitleSize = 15.5.sp,
+        addonRowTitleSize = 14.sp,
+        cardMetaGap = 4.dp,
+        cardMetaHeight = 38.dp,
       )
     }
   }

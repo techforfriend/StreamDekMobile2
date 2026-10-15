@@ -7,9 +7,9 @@ package net.streamdek.mobile.nativeapp
  * StreamDekNativeApp.kt's is at the JVM's class-size limit.
  */
 internal fun settingsRouteKeywords(route: SettingsRoute): String = when (route) {
-  SettingsRoute.MediaServers -> "plex media server personal library libraries own nas home server link account plex.tv remote quality transcode"
-  SettingsRoute.Emby -> "emby media server personal library libraries own nas home server self hosted address emby connect sign in"
-  SettingsRoute.Jellyfin -> "jellyfin media server personal library libraries own nas home server self hosted address quick connect sign in"
+  SettingsRoute.MediaServers -> ""
+  SettingsRoute.Emby -> ""
+  SettingsRoute.Jellyfin -> ""
   SettingsRoute.Player -> "player engine mpv media3 exoplayer pip picture in picture floating " +
     "gesture gestures hold speed swipe seek scrub brightness volume level dim loudness " +
     "controls labels layout status bar title"
@@ -22,7 +22,7 @@ internal fun settingsRouteKeywords(route: SettingsRoute): String = when (route) 
   SettingsRoute.Audio -> "audio sound language languages spoken dub dubbed preferred secondary delay sync synchronisation synchronization " +
     "lip sync lag latency bluetooth headphones soundbar speakers offset early late"
   SettingsRoute.Streams -> "streams stream results source quality resolution 4k 1080p size limit filter badges labels " +
-    "formatting remember last source list prefer media server plex jellyfin emby direct play direct stream"
+    "formatting remember last source list"
   SettingsRoute.Downloads -> "download downloads offline saved save storage remove delete watch offline"
   SettingsRoute.Appearance -> "appearance language theme colour color dark light mode header navigation labels collapse scroll scrolling behaviour behavior font motion animation animations speed transitions reduce reduced cinematic visual effects glass blur transparency performance battery"
   SettingsRoute.HomeScreen -> "streamdek fuse media hub unified live vod home screen rows spotlight hero synopsis continue watching streaming networks network cards branded logo ambient glow background " +
@@ -34,7 +34,7 @@ internal fun settingsRouteKeywords(route: SettingsRoute): String = when (route) 
   SettingsRoute.Addons -> "addon add-on catalog channel provider install configure source manifest stremio"
   SettingsRoute.Plugins -> "plugin source provider repository javascript cloudstream cs3 extension collection scraper"
   SettingsRoute.M3uPlaylists -> "m3u m3u8 iptv playlist url link xtream provider channels live vod refresh import"
-  SettingsRoute.Debrid -> "premium debrid real debrid alldebrid premiumize torbox debrid-link deepbrid account cached api key keys cloud sync store device only"
+  SettingsRoute.Debrid -> ""
   SettingsRoute.ContentServices -> "content services tmdb mdblist introdb theintrodb api key keys metadata artwork posters ratings timing intro recap credits outro enrichment own key personal key device only save to streamdek account credential"
   SettingsRoute.PeerToPeer -> "peer to peer p2p torrent magnet seed cache storage engine background service"
   SettingsRoute.SyncServices -> "sync services tracking tracker trakt simkl mdblist scrobble watchlist history connect cellular mobile data"

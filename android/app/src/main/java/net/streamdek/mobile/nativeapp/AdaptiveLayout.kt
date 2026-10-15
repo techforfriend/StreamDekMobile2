@@ -201,24 +201,22 @@ fun adaptiveMediaColumns(compactColumns: Int, landscapeArtwork: Boolean = false)
  * These two widths are what "three across" and "two across" already come out as on a phone, which
  * is what keeps the density on a tablet recognisably the same choice rather than a new one.
  */
-val PosterCardWidth: Dp = 100.dp
-val RoomyPosterCardWidth: Dp = 150.dp
+val PosterCardWidth: Dp = 80.dp
+val RoomyPosterCardWidth: Dp = 115.dp
 
 /** Backdrop and channel artwork is 16:9 and needs roughly twice the width to read. */
-val LandscapeCardWidth: Dp = 240.dp
+val LandscapeCardWidth: Dp = 180.dp
 
 /**
  * Card width for the horizontally scrolling rows on Home.
  *
- * These rows need the least help of anything in the app: a wider window already reveals more of the
- * row without any change at all, which is exactly the behaviour wanted. The small step up stops
- * artwork looking undersized on a large screen without turning a browsing row into a showcase.
+ * Scaled down so cards are more compact and fit more titles comfortably on screen.
  */
 @Composable
 fun homeRowPosterWidth(): Dp = when (LocalWindowSize.current.widthClass) {
-  WindowWidthClass.Compact -> 138.dp
-  WindowWidthClass.Medium -> 150.dp
-  WindowWidthClass.Expanded -> 164.dp
+  WindowWidthClass.Compact -> 108.dp
+  WindowWidthClass.Medium -> 118.dp
+  WindowWidthClass.Expanded -> 128.dp
 }
 
 /**

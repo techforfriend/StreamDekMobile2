@@ -422,7 +422,7 @@ private enum class MainTab(@StringRes val labelRes: Int) {
   /** Continue Watching and Watchlist together, in their place while [Plex] is shown. */
   Library(R.string.nav_library),
 }
-private enum class LibraryTab { Continue, Watchlist, Profiles, Addons, Debrid, Trakt }
+private enum class LibraryTab { Continue, Watchlist, Profiles, Addons, Trakt }
 private enum class DetailTab { About, Episodes, Streams }
 private enum class DetailPageStyle { Classic, Centered }
 private enum class SeasonTabStyle { Regular, Posters }
@@ -976,9 +976,8 @@ private val AppUiState.jellyfinServerState: MediaServerUiState get() = MediaServ
 private val AppUiState.embyServerState: MediaServerUiState get() = MediaServerAppStore.value.emby
 /** Plex, Jellyfin or Emby linked on this profile. */
 private val AppUiState.anyMediaServerLinked: Boolean get() = mediaServerState.linked || jellyfinServerState.linked || embyServerState.linked
-/** The media destination is offered: a server linked with a library switched on. */
-private val AppUiState.mediaNavigationVisible: Boolean get() =
-  mediaServerState.navigationVisible || jellyfinServerState.navigationVisible || embyServerState.navigationVisible
+/** The media destination is disabled. */
+private val AppUiState.mediaNavigationVisible: Boolean get() = false
 @Suppress("UnusedReceiverParameter")
 private val AppUiState.mediaServerContinueWatching: List<MediaServerResume> get() = MediaServerAppStore.value.continueWatching
 /** The part of [mediaServerContinueWatching] that StreamDek's own Continue Watching shows; see [MediaServerContinueLocation]. */
@@ -15048,7 +15047,7 @@ private fun HomeSkeletonRow(metrics: HomeLayoutMetrics, accentWidth: Dp, cards: 
 @Composable
 private fun HomeSkeletonPosterCard(metrics: HomeLayoutMetrics, width: Dp) {
   Column(modifier = Modifier.width(metrics.card(width)), verticalArrangement = Arrangement.spacedBy(metrics.cardMetaGap)) {
-    SkeletonBlock(modifier = Modifier.fillMaxWidth().height(metrics.card(204.dp)), radius = StreamDekRadius.card)
+    SkeletonBlock(modifier = Modifier.fillMaxWidth().height(metrics.card(156.dp)), radius = StreamDekRadius.card)
     Column(modifier = Modifier.height(metrics.cardMetaHeight), verticalArrangement = Arrangement.spacedBy(metrics.card(6.dp))) {
       SkeletonBlock(modifier = Modifier.fillMaxWidth(0.82f).height(metrics.card(14.dp)), radius = 999.dp)
       SkeletonBlock(modifier = Modifier.fillMaxWidth(0.4f).height(metrics.card(12.dp)), radius = 999.dp)
@@ -15442,7 +15441,7 @@ private fun NavSelectionHighlight(selectedIndex: Int, count: Int, color: Color) 
         // Read in the layout phase, so the slide moves the shape without recomposing the bar.
         .offset { IntOffset((position * slotPx).roundToInt(), 0) }
         .width(maxWidth / slots)
-        .height(60.dp)
+        .height(48.dp)
         .graphicsLayer { alpha = visibility }
         .clip(StreamDekRadius.panelShape)
         .background(color),
@@ -16003,7 +16002,7 @@ private fun MainScene(
           modifier = Modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 4.dp),
           contentAlignment = Alignment.BottomEnd,
         ) {
           val lightNavigation = MaterialTheme.colorScheme.background.luminance() > 0.5f
@@ -16011,11 +16010,11 @@ private fun MainScene(
           val darkGlassNavigation = !lightNavigation &&
             (uiState.headerStyle != HeaderStyle.Modern || !uiState.navigationBehaviour.headersScrollAware)
           val activeProfile = uiState.profiles.firstOrNull { it.id == uiState.activeProfileId }
-          val expandedNavIconSize by animateDpAsState(if (uiState.showNavLabels) 24.dp else 36.dp, label = "expanded_nav_icon_size")
-          val expandedNavProfileSize by animateDpAsState(if (uiState.showNavLabels) 28.dp else 38.dp, label = "expanded_nav_profile_size")
+          val expandedNavIconSize by animateDpAsState(if (uiState.showNavLabels) 20.dp else 28.dp, label = "expanded_nav_icon_size")
+          val expandedNavProfileSize by animateDpAsState(if (uiState.showNavLabels) 22.dp else 30.dp, label = "expanded_nav_profile_size")
           val compactWindow = LocalWindowSize.current.widthClass == WindowWidthClass.Compact
           BoxWithConstraints(
-            modifier = Modifier.fillMaxWidth().height(74.dp),
+            modifier = Modifier.fillMaxWidth().height(56.dp),
             // On a phone the bar fills the width, so where it is anchored only matters while it is
             // collapsed — and there the end edge is the reachable one. Once it stops growing it is
             // an object on the screen rather than an edge of it, and the middle is where it belongs.
@@ -16054,12 +16053,12 @@ private fun MainScene(
               minOf(maxWidth, MaxFloatingNavigationWidth)
             }
             val navigationWidth by animateDpAsState(
-              targetValue = if (expanded) expandedNavigationWidth else 74.dp,
+              targetValue = if (expanded) expandedNavigationWidth else 56.dp,
               animationSpec = navigationSizeSpec,
               label = "floating_navigation_width",
             )
             val navigationCornerRadius by animateDpAsState(
-              targetValue = if (expanded) 30.dp else 37.dp,
+              targetValue = if (expanded) 24.dp else 28.dp,
               animationSpec = navigationSizeSpec,
               label = "floating_navigation_corner",
             )
@@ -16076,7 +16075,7 @@ private fun MainScene(
               Box(
                 modifier = Modifier
                   .width(navigationWidth)
-                  .height(74.dp)
+                  .height(56.dp)
                   .blur(18.dp, BlurredEdgeTreatment.Unbounded)
                   .background(LocalStreamDekThemeColors.current.glow, RoundedCornerShape(navigationCornerRadius)),
               )
@@ -16084,7 +16083,7 @@ private fun MainScene(
             FrostedGlassSurface(
               modifier = Modifier
                 .width(navigationWidth)
-                .height(74.dp)
+                .height(56.dp)
                 .then(
                   if (uiState.updateDownloading) {
                     Modifier.border(1.5.dp, LocalStreamDekThemeColors.current.navSelectionBorder, RoundedCornerShape(navigationCornerRadius))
@@ -16095,7 +16094,7 @@ private fun MainScene(
               shape = RoundedCornerShape(navigationCornerRadius),
               hazeStateOverride = hazeState,
               blurRadius = 68f,
-              contentPadding = PaddingValues(7.dp),
+              contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
               contrastZone = GlassContrastZone.BottomChrome,
               // The Default header style's dark glass, matching its condensed header chrome
               // (see [HeaderGlassSurface]); Modern keeps its light frost in both themes.
@@ -16200,7 +16199,7 @@ private fun MainScene(
                       Column(
                         modifier = Modifier
                           .weight(1f)
-                          .height(60.dp)
+                          .height(48.dp)
                           .clip(StreamDekRadius.panelShape)
                           .clickable {
                             viewModel.clearPlayerReturnTarget()
@@ -16218,7 +16217,7 @@ private fun MainScene(
                             if (uiState.collapsibleNavigationEnabled) navigationActivityKey += 1
                           },
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = if (uiState.showNavLabels) Arrangement.spacedBy(2.dp, Alignment.CenterVertically) else Arrangement.Center,
+                        verticalArrangement = if (uiState.showNavLabels) Arrangement.spacedBy(1.dp, Alignment.CenterVertically) else Arrangement.Center,
                       ) {
                         if (tab == MainTab.Settings && activeProfile != null) {
                           Box(
@@ -16270,7 +16269,7 @@ private fun MainScene(
                         ProfileAvatarImage(avatarIndex = activeProfile.avatarIndex, modifier = Modifier.fillMaxSize())
                       }
                     } else {
-                      Icon(StreamDekNavIcons.SettingsOutline, contentDescription = stringResource(R.string.a11y_expand_navigation), tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(30.dp))
+                      Icon(StreamDekNavIcons.SettingsOutline, contentDescription = stringResource(R.string.a11y_expand_navigation), tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(24.dp))
                     }
                     AnimatedVisibility(
                       visible = showNavigationCaret,
@@ -19036,7 +19035,7 @@ private fun LiveCategorySheetRow(
  * sentence whole, with its own plural rules.
  */
 @Composable
-internal fun NetworkHomeCard(item: MediaItem, sports: Boolean = false, branded: Boolean = false, modifier: Modifier = Modifier.width(LocalHomeLayout.current.card(176.dp)), dimmed: Boolean = false, favourite: Boolean = false, onClick: () -> Unit, onLongPress: () -> Unit = {}) {
+internal fun NetworkHomeCard(item: MediaItem, sports: Boolean = false, branded: Boolean = false, modifier: Modifier = Modifier.width(LocalHomeLayout.current.card(136.dp)), dimmed: Boolean = false, favourite: Boolean = false, onClick: () -> Unit, onLongPress: () -> Unit = {}) {
   // Relaxed everywhere except inside Home, so the Browse grid — which passes its own width and
   // shares this card — is untouched by the density setting.
   val home = LocalHomeLayout.current
@@ -19060,7 +19059,7 @@ internal fun NetworkHomeCard(item: MediaItem, sports: Boolean = false, branded: 
     Box(
       modifier = Modifier
         .fillMaxWidth()
-        .height(home.card(104.dp))
+        .height(home.card(80.dp))
         .clip(StreamDekRadius.panelShape)
         .background(if (tile != null) Color(0xFF0E0E0E) else if (sports) Color(0xFF171717) else Color.White)
         .border(1.dp, if (tile != null) Color.White.copy(alpha = 0.10f) else Color.Black.copy(alpha = 0.08f), StreamDekRadius.panelShape)
@@ -19860,8 +19859,8 @@ internal fun LibraryPosterTile(item: MediaItem, modifier: Modifier = Modifier, s
       }
     }
     if (showMeta) {
-      Column(modifier = Modifier.fillMaxWidth().height(72.dp).padding(10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-        Text(item.title, maxLines = 2, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, lineHeight = 16.sp)
+      Column(modifier = Modifier.fillMaxWidth().height(54.dp).padding(horizontal = 6.dp, vertical = 5.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text(item.title, maxLines = 2, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, lineHeight = 14.sp)
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
           Text(
             (item.cardSubtitle ?: item.year ?: item.type.replaceFirstChar(Char::uppercase)).let {
@@ -19871,7 +19870,7 @@ internal fun LibraryPosterTile(item: MediaItem, modifier: Modifier = Modifier, s
             fontWeight = if (item.cardHighlight) FontWeight.Bold else FontWeight.Normal,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            fontSize = 11.sp,
+            fontSize = 10.sp,
           )
           item.progress?.takeIf { it > 0.0 }?.let {
         Text(AppFormats.percent(LocalAppLanguage.current, it / 100.0), color = LocalStreamDekThemeColors.current.progress, fontWeight = FontWeight.Bold, fontSize = 10.sp)
@@ -21817,44 +21816,6 @@ private fun LibraryTabScreen(viewModel: NativeAppViewModel) {
           }
         }
       }
-      LibraryTab.Debrid -> {
-        item {
-          GlassCard {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-              Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                DebridProviderOptions.forEach { (provider, label) ->
-                  FilterChip(selected = selectedProvider == provider, onClick = { selectedProvider = provider }, label = { Text(label) })
-                }
-              }
-              OutlinedTextField(value = providerApiKey, onValueChange = { providerApiKey = it }, modifier = Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.debrid_service_access_key)) }, singleLine = true)
-              Button(onClick = {
-                if (providerApiKey.isNotBlank()) {
-                  viewModel.addDebridAccount(selectedProvider, providerApiKey.trim())
-                  providerApiKey = ""
-                }
-              }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.debrid_connect_service)) }
-            }
-          }
-        }
-        items(uiState.debridAccounts, key = { "debrid-${it.provider}" }) { account ->
-          GlassCard(modifier = animatedItem()) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-              Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(debridProviderLabel(account.provider), fontWeight = FontWeight.Bold)
-                Text(account.username ?: "Configured", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f))
-              }
-              Column(horizontalAlignment = Alignment.End) {
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                  TextButton(onClick = { viewModel.moveDebridAccount(account.provider, -1) }) { Text(stringResource(R.string.action_move_up)) }
-                  TextButton(onClick = { viewModel.moveDebridAccount(account.provider, 1) }) { Text(stringResource(R.string.action_move_down)) }
-                }
-                Switch(checked = account.enabled, onCheckedChange = { viewModel.setDebridAccountEnabled(account.provider, it) })
-                TextButton(onClick = { viewModel.removeDebridAccount(account.provider) }) { Text(stringResource(R.string.action_remove)) }
-              }
-            }
-          }
-        }
-      }
       LibraryTab.Trakt -> {
         item {
           GlassCard {
@@ -21902,24 +21863,24 @@ private fun LibraryTabScreen(viewModel: NativeAppViewModel) {
 
 @Composable
 internal fun SettingsSection(title: String, content: @Composable ColumnScope.() -> Unit) {
-  Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+  Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
     Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
     Card(
       colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
       shape = StreamDekRadius.panelShape,
     ) {
-      Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp), content = content)
+      Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), content = content)
     }
   }
 }
 
 @Composable
 private fun SettingsRow(icon: String, iconColor: Color, title: String, subtitle: String, trailing: @Composable (() -> Unit)? = null) {
-  Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
-    Box(modifier = Modifier.size(46.dp).clip(StreamDekRadius.controlShape).background(iconColor.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
+  Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+    Box(modifier = Modifier.size(36.dp).clip(StreamDekRadius.controlShape).background(iconColor.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
       Text(icon, color = iconColor, fontWeight = FontWeight.Black)
     }
-    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
       Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurface)
       Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f))
     }
@@ -21929,13 +21890,13 @@ private fun SettingsRow(icon: String, iconColor: Color, title: String, subtitle:
 
 @Composable
 internal fun SettingsDivider() {
-  Box(modifier = Modifier.fillMaxWidth().padding(start = 66.dp).height(1.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.09f)))
+  Box(modifier = Modifier.fillMaxWidth().padding(start = 54.dp).height(1.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.09f)))
 }
 @Composable
 private fun AmbientTintSlider(percent: Int, enabled: Boolean, surface: String, onPercentChange: (Int) -> Unit) {
   Column(
-    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-    verticalArrangement = Arrangement.spacedBy(6.dp),
+    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+    verticalArrangement = Arrangement.spacedBy(4.dp),
   ) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
       Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -22747,8 +22708,8 @@ private fun SettingsTab(
         // inset applied the list ends where the keyboard begins, and the automatic scroll a text
         // field performs on focus has somewhere to put it.
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).imePadding(),
-        contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = if (route == null) 64.dp else 132.dp, bottom = 126.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp),
+        contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = if (route == null) 64.dp else 132.dp, bottom = 104.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
       ) {
     if (route == null) {
       item {
@@ -22839,20 +22800,11 @@ private fun SettingsTab(
       }
       item {
         SettingsSection(stringResource(R.string.settings_m_sources)) {
-          // The viewer's own library first: it is where people look for "add a source".
-          PlexSettingsNavRow(uiState.mediaServerState, onClick = { onRouteChange(SettingsRoute.MediaServers) })
-          SettingsDivider()
-          JellyfinSettingsNavRow(uiState.jellyfinServerState, onClick = { onRouteChange(SettingsRoute.Jellyfin) })
-          SettingsDivider()
-          EmbySettingsNavRow(uiState.embyServerState, onClick = { onRouteChange(SettingsRoute.Emby) })
-          SettingsDivider()
           SettingsNavRow("+", Color(0xFF22C55E), stringResource(R.string.settings_m_add_ons), stringResource(R.string.settings_summary_addons, uiState.addons.count { it.enabled }, uiState.addons.sumOf { supportedHomeCatalogCount(it) }), onClick = { onRouteChange(SettingsRoute.Addons) })
           SettingsDivider()
           SettingsNavRow("JS", Color(0xFFF59E0B), stringResource(R.string.settings_m_plugins), pluralStringResource(R.plurals.settings_summary_streaming_sources, enabledStreamingSourceCount(), enabledStreamingSourceCount()), onClick = { onRouteChange(SettingsRoute.Plugins) })
           SettingsDivider()
           SettingsNavRow("M3U", Color(0xFFEC4899), stringResource(R.string.settings_m_playlists), if (uiState.m3uSources.isEmpty()) stringResource(R.string.settings_summary_add_playlist) else stringResource(R.string.settings_summary_playlists_on, uiState.m3uSources.count { it.enabled }, uiState.m3uSources.size), onClick = { onRouteChange(SettingsRoute.M3uPlaylists) })
-          SettingsDivider()
-          SettingsNavRow("DB", Color(0xFF38BDF8), stringResource(R.string.settings_m_premium_services), if (uiState.debridAccounts.isEmpty()) stringResource(R.string.settings_summary_connect_premium) else pluralStringResource(R.plurals.settings_summary_services_connected, uiState.debridAccounts.size, uiState.debridAccounts.size), onClick = { onRouteChange(SettingsRoute.Debrid) })
           SettingsDivider()
           SettingsNavRow("P2P", Color(0xFF94A3B8), stringResource(R.string.settings_m_peer_to_peer), if (uiState.peerStreamSettings.enabled) stringResource(R.string.settings_summary_p2p_on, uiState.peerStreamStatus.cacheSizeGb) else stringResource(R.string.settings_state_off), onClick = { onRouteChange(SettingsRoute.PeerToPeer) })
         }
@@ -23382,8 +23334,6 @@ private fun SettingsTab(
               SettingsSwitchRow("SRC", Color(0xFF6366F1), stringResource(R.string.settings_m_remember_last_source), stringResource(R.string.settings_m_try_the_source_you_used_last_when), uiState.rememberLastSource, onRememberLastSourceChange)
               SettingsDivider()
               SettingsSwitchRow("LST", Color(0xFF22D3EE), stringResource(R.string.settings_m_show_streams_list), stringResource(R.string.settings_m_show_available_streams_on_title_pages_instead), uiState.showStreamsList, onShowStreamsListChange)
-              SettingsDivider()
-              SettingsSwitchRow("MS", Color(0xFF52B54B), stringResource(R.string.settings_m_prefer_media_server_source), stringResource(R.string.settings_m_prefer_media_server_source_description), uiState.preferMediaServerSource, onPreferMediaServerSourceChange)
             }
           }
           item {
@@ -24611,13 +24561,13 @@ private fun SettingsProfileRow(uiState: AppUiState, onClick: () -> Unit) {
       .fillMaxWidth()
       .clip(StreamDekRadius.cardShape)
       .clickable(onClick = onClick)
-      .padding(vertical = 10.dp),
+      .padding(vertical = 6.dp),
     horizontalArrangement = Arrangement.spacedBy(14.dp),
     verticalAlignment = Alignment.CenterVertically,
   ) {
     Box(
       modifier = Modifier
-        .size(44.dp)
+        .size(36.dp)
         .clip(CircleShape)
         .background(profileAvatarColor(profile?.avatarIndex ?: 0))
         .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f), CircleShape),
@@ -24629,7 +24579,7 @@ private fun SettingsProfileRow(uiState: AppUiState, onClick: () -> Unit) {
         Icon(StreamDekSettingsIcons.Account, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.82f))
       }
     }
-    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
       Text(stringResource(R.string.profiles_switch), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
       Text(profile?.let { stringResource(R.string.profile_current_named, it.name) } ?: stringResource(R.string.profile_create_or_select), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f), maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
@@ -24721,9 +24671,9 @@ private fun SettingsCommunityFooter() {
 
 @Composable
 internal fun SettingsNavRow(icon: String, iconColor: Color, title: String, subtitle: String, value: String? = null, onClick: () -> Unit) {
-  Row(modifier = Modifier.fillMaxWidth().clip(StreamDekRadius.cardShape).clickable(onClick = onClick).padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+  Row(modifier = Modifier.fillMaxWidth().clip(StreamDekRadius.cardShape).clickable(onClick = onClick).padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
     SettingsIcon(icon, iconColor)
-    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
       Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
       SettingsSubtitle(subtitle)
     }
@@ -24790,9 +24740,9 @@ private fun ClearPeerStorageRow(usageBytes: Long, clearing: Boolean, onClear: ()
 
 @Composable
 private fun SettingsStaticRow(icon: String, iconColor: Color, title: String, subtitle: String, trailing: (@Composable () -> Unit)? = null) {
-  Row(modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+  Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
     SettingsIcon(icon, iconColor)
-    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
       Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
       Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f))
     }
@@ -25070,18 +25020,18 @@ private const val HomeDensitySkeletonSpacingScale = 0.5f
 
 @Composable
 internal fun SettingsSwitchRow(icon: String, iconColor: Color, title: String, subtitle: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit, logoProvider: String? = null, enabled: Boolean = true) {
-  Row(modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+  Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
     if (logoProvider != null) {
       Image(
         painter = painterResource(ratingProviderLogoRes(logoProvider)),
         contentDescription = title,
-        modifier = Modifier.size(22.dp),
+        modifier = Modifier.size(20.dp),
         contentScale = ContentScale.Fit,
       )
     } else {
       SettingsIcon(icon, iconColor)
     }
-    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
       Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
       SettingsSubtitle(subtitle)
     }
@@ -25811,8 +25761,8 @@ private fun settingsOptionDescription(choice: SettingsChoice?, option: String): 
 
 @Composable
 internal fun SettingsIcon(icon: String, iconColor: Color) {
-  Box(modifier = Modifier.size(42.dp).clip(StreamDekRadius.controlShape).background(iconColor.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
-    Icon(settingsGlyph(icon), contentDescription = null, tint = iconColor)
+  Box(modifier = Modifier.size(34.dp).clip(StreamDekRadius.controlShape).background(iconColor.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
+    Icon(settingsGlyph(icon), contentDescription = null, tint = iconColor, modifier = Modifier.size(20.dp))
   }
 }
 
@@ -25820,7 +25770,7 @@ internal fun SettingsIcon(icon: String, iconColor: Color) {
 private fun SettingsSegment(text: String, selected: Boolean, modifier: Modifier = Modifier) {
   Box(
     modifier = modifier
-      .height(42.dp)
+      .height(34.dp)
       .clip(StreamDekRadius.pill)
       .background(if (selected) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
       .border(1.dp, if (selected) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.86f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f), StreamDekRadius.pill),
@@ -26074,7 +26024,7 @@ private fun AddonServiceCard(
   ) {
     Column(modifier = Modifier.fillMaxWidth().animateContentSize()) {
       Row(
-        modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(14.dp),
+        modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(horizontal = 14.dp, vertical = 9.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
       ) {
@@ -26478,10 +26428,10 @@ private fun SettingsSliderRow(
   valueLabel: String,
   onValueChange: (Int) -> Unit,
 ) {
-  Column(modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+  Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
     Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
       SettingsIcon(icon, iconColor)
-      Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+      Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
         Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
         Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f), maxLines = 3, overflow = TextOverflow.Ellipsis)
       }
@@ -26915,7 +26865,7 @@ private fun CollectionCard(
       // and a drawn border to separate from the white section behind it; a dark one does not.
       .background(MaterialTheme.colorScheme.onSurface.copy(alpha = if (lightSurface) 0.055f else 0.04f))
       .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = if (lightSurface) 0.10f else 0.06f), StreamDekRadius.cardShape)
-      .padding(14.dp),
+      .padding(horizontal = 14.dp, vertical = 9.dp),
     verticalArrangement = Arrangement.spacedBy(6.dp),
   ) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -28135,10 +28085,10 @@ private fun AddonsSettingsSummary(uiState: AppUiState, onRefreshAddons: () -> Un
 @Composable
 private fun DebridServiceCard(providerLabel: String, account: DebridAccount, index: Int, total: Int, isActive: Boolean, onRemoveDebrid: (String) -> Unit, onSetDebridEnabled: (String, Boolean) -> Unit, onMoveDebrid: (String, Int) -> Unit) {
   Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = StreamDekRadius.panelShape) {
-    Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
       Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(modifier = Modifier.size(12.dp).clip(CircleShape).background(if (account.enabled) Color(0xFF00E676) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.28f)))
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
           Text(providerLabel, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
           val resolverStatus = when {
             !account.enabled -> "Disabled"
@@ -28609,7 +28559,7 @@ private fun SyncSourceCard(
         // Tapping an unconnected service opens its page rather than doing nothing: wanting to
         // pick it is exactly the moment someone is willing to connect it.
         .clickable { if (selectable) onSelect() else onOpen?.invoke() }
-        .padding(horizontal = 16.dp, vertical = 14.dp),
+        .padding(horizontal = 16.dp, vertical = 9.dp),
       verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
       Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -32877,8 +32827,8 @@ private fun PosterCard(
     PosterShape.Square -> posterWidth * 1.16f
   }
   val artworkHeight = when (shape) {
-    PosterShape.Poster -> 204.dp
-    PosterShape.Landscape -> 118.dp
+    PosterShape.Poster -> 156.dp
+    PosterShape.Landscape -> 90.dp
     PosterShape.Square -> posterWidth * 1.16f
   }
   Column(
@@ -32988,7 +32938,7 @@ private fun ContinueWatchingCard(item: MediaItem, style: ContinueWatchingStyle, 
       val cardHazeState = rememberHazeState()
       Box(
         modifier = Modifier
-          .width(home.card(288.dp))
+          .width(home.card(220.dp))
           .aspectRatio(16f / 9f)
           .clip(StreamDekRadius.thumbShape)
           .background(Color(0xFF141414))
@@ -33006,7 +32956,7 @@ private fun ContinueWatchingCard(item: MediaItem, style: ContinueWatchingStyle, 
         Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = if (style == ContinueWatchingStyle.Glass) 0.26f else 0.38f)))
         if (style == ContinueWatchingStyle.Glass) {
           FrostedGlassSurface(
-            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(home.card(60.5.dp)),
+            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(home.card(50.dp)),
             shape = RectangleShape,
             hazeStateOverride = cardHazeState,
             blurRadius = 38f,
@@ -33022,8 +32972,8 @@ private fun ContinueWatchingCard(item: MediaItem, style: ContinueWatchingStyle, 
             .align(Alignment.BottomStart)
             .fillMaxWidth()
             .background(Brush.verticalGradient(colors = listOf(Color.Transparent, Color.Black.copy(alpha = overlayAlpha), Color.Black.copy(alpha = 0.94f))))
-            .padding(horizontal = home.card(14.dp), vertical = home.card(12.dp)),
-          verticalArrangement = Arrangement.spacedBy(home.card(6.dp)),
+            .padding(horizontal = home.card(12.dp), vertical = home.card(10.dp)),
+          verticalArrangement = Arrangement.spacedBy(home.card(5.dp)),
         ) {
           Text(item.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.ExtraBold, style = home.text(MaterialTheme.typography.titleMedium), color = Color.White)
           Text(subtitle, maxLines = 1, overflow = TextOverflow.Ellipsis, style = home.text(MaterialTheme.typography.bodySmall), color = Color.White.copy(alpha = 0.72f))
@@ -33035,8 +32985,8 @@ private fun ContinueWatchingCard(item: MediaItem, style: ContinueWatchingStyle, 
     ContinueWatchingStyle.Ticket -> {
       Box(
         modifier = Modifier
-          .width(home.card(316.dp))
-          .height(home.card(88.dp))
+          .width(home.card(240.dp))
+          .height(home.card(68.dp))
           .clip(StreamDekRadius.thumbShape)
           .background(Color(0xFF121212))
           .border(1.dp, Color.White.copy(alpha = 0.10f), StreamDekRadius.thumbShape)
@@ -33044,8 +32994,8 @@ private fun ContinueWatchingCard(item: MediaItem, style: ContinueWatchingStyle, 
       ) {
         AsyncImage(model = imageModel, contentDescription = item.title, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.72f)))
-        Row(modifier = Modifier.fillMaxSize().padding(horizontal = home.card(14.dp), vertical = home.card(12.dp)), verticalAlignment = Alignment.CenterVertically) {
-          Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(home.card(6.dp))) {
+        Row(modifier = Modifier.fillMaxSize().padding(horizontal = home.card(12.dp), vertical = home.card(10.dp)), verticalAlignment = Alignment.CenterVertically) {
+          Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(home.card(5.dp))) {
             // cardText, not text: this shape's height is fixed, so its type has to come down with
             // the box or a two-line title would squeeze the line below it harder here than it does
             // at Relaxed. See [HomeLayoutMetrics.cardText].
@@ -33060,15 +33010,15 @@ private fun ContinueWatchingCard(item: MediaItem, style: ContinueWatchingStyle, 
     ContinueWatchingStyle.Mini -> {
       Row(
         modifier = Modifier
-          .width(home.card(292.dp))
-          .height(home.card(78.dp))
+          .width(home.card(224.dp))
+          .height(home.card(62.dp))
           .clip(StreamDekRadius.controlShape)
           .background(Color(0xFF121218))
           .border(1.dp, Color.White.copy(alpha = 0.12f), StreamDekRadius.controlShape)
           .pressable(item.id, item.type, style, onClick = onClick, onLongPress = onLongPress),
       ) {
-        AsyncImage(model = imageModel, contentDescription = item.title, modifier = Modifier.width(home.card(120.dp)).fillMaxSize(), contentScale = ContentScale.Crop)
-        Column(modifier = Modifier.weight(1f).padding(horizontal = home.card(10.dp), vertical = home.card(9.dp)), verticalArrangement = Arrangement.SpaceBetween) {
+        AsyncImage(model = imageModel, contentDescription = item.title, modifier = Modifier.width(home.card(92.dp)).fillMaxSize(), contentScale = ContentScale.Crop)
+        Column(modifier = Modifier.weight(1f).padding(horizontal = home.card(8.dp), vertical = home.card(7.dp)), verticalArrangement = Arrangement.SpaceBetween) {
           Text(item.title, maxLines = 2, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Bold, fontSize = home.text(12.sp), lineHeight = home.text(16.sp), color = Color.White)
           Text(subtitle, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = home.text(10.sp), color = Color.White.copy(alpha = 0.66f))
           progressBar()
@@ -33078,13 +33028,13 @@ private fun ContinueWatchingCard(item: MediaItem, style: ContinueWatchingStyle, 
     ContinueWatchingStyle.Stacked -> {
       Column(
         modifier = Modifier
-          .width(home.card(155.dp))
+          .width(home.card(120.dp))
           .clip(StreamDekRadius.controlShape)
           .background(Color(0xFF121218))
           .border(1.dp, Color.White.copy(alpha = 0.12f), StreamDekRadius.controlShape)
           .pressable(item.id, item.type, style, onClick = onClick, onLongPress = onLongPress),
       ) {
-        Box(modifier = Modifier.fillMaxWidth().height(home.card(88.dp))) {
+        Box(modifier = Modifier.fillMaxWidth().height(home.card(68.dp))) {
           AsyncImage(model = imageModel, contentDescription = item.title, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
           Box(modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth()) { progressBar() }
         }
@@ -33407,8 +33357,8 @@ private fun EpisodeViewportCard(
   })
   Box(
     modifier = Modifier
-      .width(314.dp)
-      .height(202.dp)
+      .width(240.dp)
+      .height(154.dp)
       .clip(StreamDekRadius.panelShape)
       // A ring rather than a tint, so which card is selected survives being read by somebody who
       // cannot pick the accent out from the artwork behind it.
@@ -33428,8 +33378,8 @@ private fun EpisodeViewportCard(
       ),
     )
     Column(
-      modifier = Modifier.align(Alignment.BottomStart).padding(start = 14.dp, end = 14.dp, top = 14.dp, bottom = 10.dp),
-      verticalArrangement = Arrangement.spacedBy(7.dp),
+      modifier = Modifier.align(Alignment.BottomStart).padding(start = 10.dp, end = 10.dp, top = 10.dp, bottom = 8.dp),
+      verticalArrangement = Arrangement.spacedBy(5.dp),
     ) {
       Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(modifier = Modifier.clip(StreamDekRadius.badgeShape).background(Color.Black.copy(alpha = 0.58f)).padding(horizontal = 8.dp, vertical = 4.dp)) {
@@ -35573,7 +35523,7 @@ private fun GlassCard(modifier: Modifier = Modifier, containerAlpha: Float = 0.8
     modifier = modifier,
     shape = StreamDekRadius.sheetShape,
     blurRadius = 42f,
-    contentPadding = PaddingValues(18.dp),
+    contentPadding = PaddingValues(12.dp),
     tintAlpha = tint,
     borderAlpha = 0.18f,
   ) {
