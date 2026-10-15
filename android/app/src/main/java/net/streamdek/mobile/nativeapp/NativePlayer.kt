@@ -2261,7 +2261,13 @@ private fun PlayerCenterControls(isPaused: Boolean, onPauseToggle: () -> Unit, o
       Box(
         modifier = Modifier
           .size(90.dp)
-          .clip(CircleShape)
+          .playerGlass(
+            shape = CircleShape,
+            borderAlpha = 0.55f,
+            glareAlpha = 0.45f,
+            baseColor = Color(0x990A0E18),
+            borderWidth = 1.5.dp
+          )
           .clickable(role = Role.Button, onClick = onPauseToggle),
         contentAlignment = Alignment.Center,
       ) {
@@ -2275,7 +2281,16 @@ private fun PlayerCenterControls(isPaused: Boolean, onPauseToggle: () -> Unit, o
 @Composable
 private fun PlayerRoundAction(icon: ImageVector, label: String, onClick: () -> Unit) {
   Box(
-    modifier = Modifier.size(74.dp).clip(CircleShape).clickable(role = Role.Button, onClick = onClick),
+    modifier = Modifier
+      .size(74.dp)
+      .playerGlass(
+        shape = CircleShape,
+        borderAlpha = 0.46f,
+        glareAlpha = 0.38f,
+        baseColor = Color(0x880A0E18),
+        borderWidth = 1.2.dp
+      )
+      .clickable(role = Role.Button, onClick = onClick),
     contentAlignment = Alignment.Center,
   ) {
     PlayerGlyph(icon, label, 36.dp)
@@ -2315,7 +2330,16 @@ private fun PlayerGlyph(icon: ImageVector, contentDescription: String?, size: Dp
 @Composable
 private fun PlayerHeaderAction(icon: ImageVector, label: String, onClick: () -> Unit, iconSize: Dp = 26.dp, tint: Color = Color.White) {
   Box(
-    modifier = Modifier.size(48.dp).clip(CircleShape).clickable(role = Role.Button, onClick = onClick),
+    modifier = Modifier
+      .size(44.dp)
+      .playerGlass(
+        shape = CircleShape,
+        borderAlpha = 0.38f,
+        glareAlpha = 0.30f,
+        baseColor = Color(0x660A0E18),
+        borderWidth = 1.dp
+      )
+      .clickable(role = Role.Button, onClick = onClick),
     contentAlignment = Alignment.Center,
   ) {
     PlayerGlyph(icon, label, iconSize, tint)
@@ -2481,7 +2505,16 @@ private fun PlayerBottomControls(
     modifier = Modifier
       .fillMaxWidth()
       .navigationBarsPadding()
-      .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.22f), Color.Black.copy(alpha = 0.78f))))
+      .background(
+        Brush.verticalGradient(
+          listOf(
+            Color.Transparent,
+            Color(0x220B101D),
+            Color(0x88060A12),
+            Color(0xCC030509)
+          )
+        )
+      )
       .padding(start = 24.dp, top = 18.dp, end = 24.dp, bottom = 10.dp),
     verticalArrangement = Arrangement.spacedBy(10.dp),
   ) {
@@ -2489,9 +2522,18 @@ private fun PlayerBottomControls(
     if (showProgressRow) {
       Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Box(
-          modifier = Modifier.width(78.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.44f)).padding(vertical = 8.dp),
+          modifier = Modifier
+            .width(78.dp)
+            .playerGlass(
+              shape = CircleShape,
+              borderAlpha = 0.42f,
+              glareAlpha = 0.35f,
+              baseColor = Color(0x880B101B),
+              borderWidth = 1.dp
+            )
+            .padding(vertical = 8.dp),
           contentAlignment = Alignment.Center,
-        ) { Text(formatClock(currentTime), color = Color.White.copy(alpha = 0.92f)) }
+        ) { Text(formatClock(currentTime), color = Color.White.copy(alpha = 0.95f), fontWeight = FontWeight.SemiBold) }
         Spacer(Modifier.weight(0.075f))
         if (liveWithoutWindow) {
           Box(modifier = Modifier.weight(0.85f).height(48.dp), contentAlignment = Alignment.Center) {
@@ -2540,7 +2582,16 @@ private fun PlayerBottomControls(
         // pill goes too and the rule takes its room, rather than leaving an empty capsule behind.
         if (!liveWithoutWindow || badge.visible) Spacer(Modifier.weight(0.075f))
         if (!liveWithoutWindow || badge.visible) Box(
-          modifier = Modifier.width(96.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.44f)).padding(vertical = 8.dp),
+          modifier = Modifier
+            .width(96.dp)
+            .playerGlass(
+              shape = CircleShape,
+              borderAlpha = 0.42f,
+              glareAlpha = 0.35f,
+              baseColor = Color(0x880B101B),
+              borderWidth = 1.dp
+            )
+            .padding(vertical = 8.dp),
           contentAlignment = Alignment.Center,
         ) {
           if (liveWithoutWindow) {
@@ -2553,10 +2604,10 @@ private fun PlayerBottomControls(
               } else {
                 Box(modifier = Modifier.size(3.6.dp).clip(CircleShape).background(Color(0xFFE11D48)))
               }
-              Text(if (isVod) "VOD" else "LIVE", color = Color.White.copy(alpha = 0.92f), fontSize = 6.6.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.36.sp)
+              Text(if (isVod) "VOD" else "LIVE", color = Color.White.copy(alpha = 0.95f), fontSize = 6.6.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.36.sp)
             }
           } else {
-            Text(formatClock(duration), color = Color.White.copy(alpha = 0.92f))
+            Text(formatClock(duration), color = Color.White.copy(alpha = 0.95f), fontWeight = FontWeight.SemiBold)
           }
         }
       }
@@ -2566,8 +2617,13 @@ private fun PlayerBottomControls(
       Row(
         modifier = Modifier
           .then(if (minimal) Modifier.widthIn(max = 620.dp).horizontalScroll(rememberScrollState()) else Modifier)
-          .clip(if (minimal) RoundedCornerShape(14.dp) else StreamDekRadius.sheetShape)
-          .background(if (minimal) Color.Black.copy(alpha = 0.30f) else Color(0xD9161A23))
+          .playerGlass(
+            shape = if (minimal) RoundedCornerShape(14.dp) else StreamDekRadius.sheetShape,
+            borderAlpha = 0.50f,
+            glareAlpha = 0.40f,
+            baseColor = Color(0xD0121724),
+            borderWidth = 1.2.dp
+          )
           .padding(
             horizontal = when (layout) { "Compact" -> 12.dp; "Minimal" -> 7.dp; else -> 18.dp },
             // Normal is 48dp touch targets inside 4dp of padding top and bottom, 56dp overall.
@@ -2648,6 +2704,21 @@ private fun PlayerDockButton(
     modifier = Modifier
       .heightIn(min = 48.dp)
       .then(if (minimal) Modifier.widthIn(min = 42.dp) else Modifier)
+      .then(
+        if (active) {
+          Modifier
+            .playerGlass(
+              shape = RoundedCornerShape(10.dp),
+              borderAlpha = 0.60f,
+              glareAlpha = 0.40f,
+              baseColor = Color(0x600284C7),
+              borderWidth = 1.dp
+            )
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+        } else {
+          Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
+        }
+      )
       .combinedClickable(onClick = onClick, onLongClick = { Toast.makeText(context, label, Toast.LENGTH_SHORT).show() }),
   ) {
     Icon(icon, contentDescription = label, tint = if (active) Color(0xFF38BDF8) else Color.White.copy(alpha = 0.92f), modifier = Modifier.size(if (minimal) 18.dp else if (compact) 19.dp else 21.dp))
@@ -2681,7 +2752,28 @@ private fun androidx.compose.foundation.layout.BoxScope.PlayerTopHeader(
   Row(
     modifier = modifier
       .fillMaxWidth()
-      .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.78f), Color.Black.copy(alpha = 0.38f), Color.Transparent)))
+      .background(
+        Brush.verticalGradient(
+          listOf(
+            Color(0xCC050811),
+            Color(0x88090E1A),
+            Color(0x220C1322),
+            Color.Transparent
+          )
+        )
+      )
+      .drawBehind {
+        drawRect(
+          brush = Brush.verticalGradient(
+            listOf(
+              Color.White.copy(alpha = 0.22f),
+              Color.Transparent
+            ),
+            startY = 0f,
+            endY = 48.dp.toPx()
+          )
+        )
+      }
       // The bottom controls sit inside the navigation bar's inset; so does this, or the two rows
       // would stop lining up whenever the bar is on a side edge.
       .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal))
@@ -2783,9 +2875,13 @@ private fun PlayerSourceCard(
   Box(
     modifier = Modifier
       .fillMaxWidth()
-      .clip(shape)
-      .background(if (active) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.08f))
-      .border(1.dp, if (active) Color.White.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.08f), shape)
+      .playerGlass(
+        shape = shape,
+        borderAlpha = if (active) 0.65f else 0.30f,
+        glareAlpha = if (active) 0.40f else 0.22f,
+        baseColor = if (active) Color(0x8A1E3A8A) else Color(0x660F172A),
+        borderWidth = if (active) 1.5.dp else 1.dp
+      )
       .clickable(onClick = onClick),
   ) {
     Column(
@@ -2848,7 +2944,15 @@ private fun StreamInfoPill(
   contentColor: Color = Color.White.copy(alpha = 0.82f),
 ) {
   Row(
-    modifier = Modifier.clip(StreamDekRadius.pill).background(containerColor).padding(horizontal = 10.dp, vertical = 6.dp),
+    modifier = Modifier
+      .playerGlass(
+        shape = StreamDekRadius.pill,
+        borderAlpha = 0.30f,
+        glareAlpha = 0.22f,
+        baseColor = containerColor,
+        borderWidth = 0.8.dp
+      )
+      .padding(horizontal = 10.dp, vertical = 6.dp),
     horizontalArrangement = Arrangement.spacedBy(6.dp),
     verticalAlignment = Alignment.CenterVertically,
   ) {
@@ -2869,8 +2973,13 @@ private fun PlayerModalPanel(title: String, onClose: () -> Unit, trailing: @Comp
   ) {
     Column(
       modifier = panelSizeModifier
-        .clip(StreamDekRadius.sheetShape)
-        .background(Color(0xEE111722))
+        .playerGlass(
+          shape = StreamDekRadius.sheetShape,
+          borderAlpha = 0.55f,
+          glareAlpha = 0.42f,
+          baseColor = Color(0xE00E1424),
+          borderWidth = 1.2.dp
+        )
         .clickable(onClick = {})
         .padding(22.dp),
       verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -2895,7 +3004,12 @@ private fun PlayerModalPanel(title: String, onClose: () -> Unit, trailing: @Comp
         )
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
           trailing?.invoke()
-          Button(onClick = onClose, colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.12f), contentColor = Color.White), shape = StreamDekRadius.cardShape) { Text(stringResource(R.string.action_close)) }
+          Button(
+            onClick = onClose,
+            colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.14f), contentColor = Color.White),
+            shape = StreamDekRadius.cardShape,
+            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
+          ) { Text(stringResource(R.string.action_close)) }
         }
       }
       val panelContentModifier = if (compact) Modifier.fillMaxWidth().heightIn(max = 220.dp) else Modifier.weight(1f).fillMaxWidth()
@@ -3024,17 +3138,27 @@ private fun PlayerInfoSection(heading: String, rows: List<Pair<String, String>>)
 @Composable
 private fun PlayerOptionRow(label: String, selected: Boolean, supportingText: String? = null, onClick: () -> Unit) {
   Row(
-    modifier = Modifier.fillMaxWidth().clip(StreamDekRadius.thumbShape).background(if (selected) Color.White else Color.White.copy(alpha = 0.08f)).clickable(onClick = onClick).padding(horizontal = 18.dp, vertical = 16.dp),
+    modifier = Modifier
+      .fillMaxWidth()
+      .playerGlass(
+        shape = StreamDekRadius.thumbShape,
+        borderAlpha = if (selected) 0.65f else 0.25f,
+        glareAlpha = if (selected) 0.45f else 0.20f,
+        baseColor = if (selected) Color(0xE62563EB) else Color(0x600F172A),
+        borderWidth = if (selected) 1.5.dp else 1.dp
+      )
+      .clickable(onClick = onClick)
+      .padding(horizontal = 18.dp, vertical = 16.dp),
     horizontalArrangement = Arrangement.SpaceBetween,
     verticalAlignment = Alignment.CenterVertically,
   ) {
     Column(modifier = Modifier.weight(1f)) {
-      Text(label, color = if (selected) Color.Black else Color.White, style = MaterialTheme.typography.titleMedium)
+      Text(label, color = Color.White, style = MaterialTheme.typography.titleMedium, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
       supportingText?.takeIf { it.isNotBlank() }?.let {
-        Text(it, color = if (selected) Color.Black.copy(alpha = 0.68f) else Color.White.copy(alpha = 0.62f), style = MaterialTheme.typography.bodySmall)
+        Text(it, color = Color.White.copy(alpha = if (selected) 0.88f else 0.65f), style = MaterialTheme.typography.bodySmall)
       }
     }
-    if (selected) Icon(StreamDekPlayerIcons.Check, contentDescription = stringResource(R.string.a11y_selected), tint = Color.Black, modifier = Modifier.size(22.dp))
+    if (selected) Icon(StreamDekPlayerIcons.Check, contentDescription = stringResource(R.string.a11y_selected), tint = Color.White, modifier = Modifier.size(22.dp))
   }
 }
 
@@ -4144,9 +4268,15 @@ private fun BoxScope.PlayerOverlays(
     exit = fadeOut(animationSpec = tween(160)),
   ) {
     Surface(
-      color = Color(0xD9161A23),
+      color = Color.Transparent,
       shape = StreamDekRadius.pill,
-      border = BorderStroke(1.dp, Color.White.copy(alpha = 0.14f)),
+      modifier = Modifier.playerGlass(
+        shape = StreamDekRadius.pill,
+        borderAlpha = 0.52f,
+        glareAlpha = 0.42f,
+        baseColor = Color(0xD0121724),
+        borderWidth = 1.2.dp
+      ),
     ) {
       Row(
         modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
@@ -4173,9 +4303,15 @@ private fun BoxScope.PlayerOverlays(
     val target = scrubTargetSeconds ?: currentTime
     val delta = (target - currentTime).roundToInt()
     Surface(
-      color = Color(0xD9161A23),
+      color = Color.Transparent,
       shape = StreamDekRadius.panelShape,
-      border = BorderStroke(1.dp, Color.White.copy(alpha = 0.14f)),
+      modifier = Modifier.playerGlass(
+        shape = StreamDekRadius.panelShape,
+        borderAlpha = 0.52f,
+        glareAlpha = 0.42f,
+        baseColor = Color(0xD0121724),
+        borderWidth = 1.2.dp
+      ),
     ) {
       Column(
         modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
@@ -4204,9 +4340,15 @@ private fun BoxScope.PlayerOverlays(
     exit = fadeOut(animationSpec = tween(180)),
   ) {
     Surface(
-      color = Color.Black.copy(alpha = 0.46f),
+      color = Color.Transparent,
       shape = StreamDekRadius.pill,
-      border = BorderStroke(1.dp, Color.White.copy(alpha = 0.14f)),
+      modifier = Modifier.playerGlass(
+        shape = StreamDekRadius.pill,
+        borderAlpha = 0.52f,
+        glareAlpha = 0.42f,
+        baseColor = Color(0xB80B101D),
+        borderWidth = 1.2.dp
+      ),
     ) {
       Row(
         modifier = Modifier.padding(horizontal = 13.dp, vertical = 9.dp),
@@ -4245,10 +4387,16 @@ private fun BoxScope.PlayerOverlays(
     exit = fadeOut(animationSpec = tween(140)),
   ) {
     Surface(
-      color = Color(0xD9161A23),
+      color = Color.Transparent,
       shape = StreamDekRadius.panelShape,
       modifier = Modifier
-        .border(1.dp, Color.White.copy(alpha = 0.12f), StreamDekRadius.panelShape)
+        .playerGlass(
+          shape = StreamDekRadius.panelShape,
+          borderAlpha = 0.52f,
+          glareAlpha = 0.42f,
+          baseColor = Color(0xD0121724),
+          borderWidth = 1.2.dp
+        )
         .pointerInput(session.url) {
           detectTapGestures(onLongPress = {
             controlsLocked = false
@@ -4919,7 +5067,17 @@ private fun BoxScope.PlayerSurfaceOverlays(
     enter = fadeIn(tween(100)),
     exit = fadeOut(tween(180)),
   ) {
-    Surface(color = Color.Black.copy(alpha = 0.48f), shape = CircleShape) {
+    Surface(
+      color = Color.Transparent,
+      shape = CircleShape,
+      modifier = Modifier.playerGlass(
+        shape = CircleShape,
+        borderAlpha = 0.45f,
+        glareAlpha = 0.38f,
+        baseColor = Color(0x990B101D),
+        borderWidth = 1.dp
+      ),
+    ) {
       Column(Modifier.padding(horizontal = 18.dp, vertical = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Icon(if (displayedSeekFeedbackAmount < 0) StreamDekPlayerIcons.FastRewind else StreamDekPlayerIcons.FastForward, contentDescription = null, tint = Color.White)
         Text(
@@ -4939,7 +5097,17 @@ private fun BoxScope.PlayerSurfaceOverlays(
     enter = fadeIn(tween(100)),
     exit = fadeOut(tween(180)),
   ) {
-    Surface(color = Color.Black.copy(alpha = 0.42f), shape = CircleShape) {
+    Surface(
+      color = Color.Transparent,
+      shape = CircleShape,
+      modifier = Modifier.playerGlass(
+        shape = CircleShape,
+        borderAlpha = 0.45f,
+        glareAlpha = 0.38f,
+        baseColor = Color(0x990B101D),
+        borderWidth = 1.dp
+      ),
+    ) {
       Icon(if (playPauseFeedback == true) StreamDekPlayerIcons.Pause else StreamDekPlayerIcons.Play, contentDescription = null, tint = Color.White, modifier = Modifier.padding(16.dp).size(30.dp))
     }
   }
@@ -4950,9 +5118,15 @@ private fun BoxScope.PlayerSurfaceOverlays(
     exit = fadeOut(animationSpec = tween(140)) + slideOutVertically(targetOffsetY = { it / 2 }),
   ) {
     Surface(
-      color = Color(0xEA161A23),
+      color = Color.Transparent,
       shape = StreamDekRadius.panelShape,
-      border = BorderStroke(1.dp, Color.White.copy(alpha = 0.16f)),
+      modifier = Modifier.playerGlass(
+        shape = StreamDekRadius.panelShape,
+        borderAlpha = 0.50f,
+        glareAlpha = 0.38f,
+        baseColor = Color(0xE0121724),
+        borderWidth = 1.2.dp
+      ),
     ) {
       Row(
         modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
@@ -5047,7 +5221,17 @@ private fun BoxScope.PlayerSurfaceOverlays(
     enter = fadeIn(animationSpec = tween(160)),
     exit = fadeOut(animationSpec = tween(180)),
   ) {
-    Surface(color = Color(0xD91A1D24), shape = StreamDekRadius.pill) {
+    Surface(
+      color = Color.Transparent,
+      shape = StreamDekRadius.pill,
+      modifier = Modifier.playerGlass(
+        shape = StreamDekRadius.pill,
+        borderAlpha = 0.45f,
+        glareAlpha = 0.35f,
+        baseColor = Color(0xD0121724),
+        borderWidth = 1.dp
+      ),
+    ) {
       Text(autoSkipNotice?.let { stringResource(it) }.orEmpty(), modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp), color = Color.White, fontWeight = FontWeight.SemiBold)
     }
   }

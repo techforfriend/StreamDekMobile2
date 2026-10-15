@@ -198,8 +198,13 @@ internal fun PlayerEpisodePanel(
             .widthIn(max = 500.dp)
             .fillMaxWidth()
             .fillMaxHeight()
-            .clip(EpisodePanelShape)
-            .background(Color(0xF20E131C))
+            .playerGlass(
+              shape = EpisodePanelShape,
+              borderAlpha = 0.50f,
+              glareAlpha = 0.40f,
+              baseColor = Color(0xE80D1322),
+              borderWidth = 1.2.dp
+            )
             // Swallows taps on the sheet itself, so only the picture beside it dismisses.
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = {})
             .statusBarsPadding()
@@ -234,8 +239,13 @@ internal fun PlayerEpisodePanel(
             Box(
               modifier = Modifier
                 .size(44.dp)
-                .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.10f))
+                .playerGlass(
+                  shape = CircleShape,
+                  borderAlpha = 0.38f,
+                  glareAlpha = 0.30f,
+                  baseColor = Color(0x660A0E18),
+                  borderWidth = 1.dp
+                )
                 .clickable(onClick = onClose),
               contentAlignment = Alignment.Center,
             ) {
@@ -259,8 +269,13 @@ internal fun PlayerEpisodePanel(
                 val label = summary.name.ifBlank { stringResource(R.string.detail_season_number, summary.seasonNumber) }
                 Box(
                   modifier = Modifier
-                    .clip(StreamDekRadius.pill)
-                    .background(if (selected) accent else Color.White.copy(alpha = 0.08f))
+                    .playerGlass(
+                      shape = StreamDekRadius.pill,
+                      borderAlpha = if (selected) 0.65f else 0.25f,
+                      glareAlpha = if (selected) 0.45f else 0.20f,
+                      baseColor = if (selected) accent else Color(0x600F172A),
+                      borderWidth = if (selected) 1.5.dp else 1.dp
+                    )
                     .clickable { season = summary.seasonNumber }
                     .semantics { this.selected = selected }
                     .padding(horizontal = 16.dp, vertical = 9.dp),
@@ -378,9 +393,13 @@ private fun PlayerEpisodeRow(
     modifier = Modifier
       .fillMaxWidth()
       .graphicsLayer { alpha = if (unreleased) 0.55f else 1f }
-      .clip(EpisodeRowShape)
-      .background(if (playing) accent.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.06f))
-      .then(if (playing) Modifier.border(1.5.dp, accent, EpisodeRowShape) else Modifier)
+      .playerGlass(
+        shape = EpisodeRowShape,
+        borderAlpha = if (playing) 0.65f else 0.22f,
+        glareAlpha = if (playing) 0.42f else 0.16f,
+        baseColor = if (playing) accent.copy(alpha = 0.22f) else Color(0x600F172A),
+        borderWidth = if (playing) 1.5.dp else 1.dp
+      )
       .clickable(enabled = !unreleased, onClick = onClick)
       .semantics {
         selected = playing
