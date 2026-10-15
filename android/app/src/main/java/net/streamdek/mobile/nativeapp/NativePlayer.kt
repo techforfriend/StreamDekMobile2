@@ -2251,29 +2251,33 @@ private fun PlayerCenterControls(isPaused: Boolean, onPauseToggle: () -> Unit, o
     verticalAlignment = Alignment.CenterVertically,
   ) {
     Row(
-      horizontalArrangement = Arrangement.spacedBy(48.dp),
+      horizontalArrangement = Arrangement.spacedBy(24.dp),
       verticalAlignment = Alignment.CenterVertically,
     ) {
-      // Bare icons in every layout: no disc behind play, pause or either seek. The targets keep
-      // the size the discs had - 90dp and 74dp - so nothing is harder to hit than it was.
-      if (showSeeking) PlayerRoundAction(icon = StreamDekPlayerIcons.Replay10, label = pluralStringResource(R.plurals.player_rewind_seconds, 10, 10), onClick = { onSeek(-10.0) }) else Spacer(modifier = Modifier.size(74.dp))
+      // Compact blur discs for play/pause and seek
+      if (showSeeking) PlayerRoundAction(icon = StreamDekPlayerIcons.Replay10, label = pluralStringResource(R.plurals.player_rewind_seconds, 10, 10), onClick = { onSeek(-10.0) }) else Spacer(modifier = Modifier.size(48.dp))
       val playPauseLabel = stringResource(if (isPaused) R.string.action_play else R.string.action_pause)
       Box(
         modifier = Modifier
-          .size(90.dp)
+          .size(64.dp)
           .playerGlass(
             shape = CircleShape,
-            borderAlpha = 0.55f,
-            glareAlpha = 0.45f,
-            baseColor = Color(0x990A0E18),
-            borderWidth = 1.5.dp
+            borderAlpha = 0.22f,
+            baseColor = Color(0x60000000),
+            borderWidth = 1.dp
           )
           .clickable(role = Role.Button, onClick = onPauseToggle),
         contentAlignment = Alignment.Center,
       ) {
-        PlayerGlyph(if (isPaused) StreamDekPlayerIcons.Play else StreamDekPlayerIcons.Pause, playPauseLabel, if (isPaused) 51.dp else 54.dp)
+        Box(
+          modifier = Modifier
+            .matchParentSize()
+            .blur(14.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
+            .background(Color.Black.copy(alpha = 0.24f), CircleShape)
+        )
+        PlayerGlyph(if (isPaused) StreamDekPlayerIcons.Play else StreamDekPlayerIcons.Pause, playPauseLabel, if (isPaused) 34.dp else 36.dp)
       }
-      if (showSeeking) PlayerRoundAction(icon = StreamDekPlayerIcons.Forward10, label = pluralStringResource(R.plurals.player_forward_seconds, 10, 10), onClick = { onSeek(10.0) }) else Spacer(modifier = Modifier.size(74.dp))
+      if (showSeeking) PlayerRoundAction(icon = StreamDekPlayerIcons.Forward10, label = pluralStringResource(R.plurals.player_forward_seconds, 10, 10), onClick = { onSeek(10.0) }) else Spacer(modifier = Modifier.size(48.dp))
     }
   }
 }
@@ -2282,18 +2286,23 @@ private fun PlayerCenterControls(isPaused: Boolean, onPauseToggle: () -> Unit, o
 private fun PlayerRoundAction(icon: ImageVector, label: String, onClick: () -> Unit) {
   Box(
     modifier = Modifier
-      .size(74.dp)
+      .size(48.dp)
       .playerGlass(
         shape = CircleShape,
-        borderAlpha = 0.46f,
-        glareAlpha = 0.38f,
-        baseColor = Color(0x880A0E18),
-        borderWidth = 1.2.dp
+        borderAlpha = 0.18f,
+        baseColor = Color(0x60000000),
+        borderWidth = 1.dp
       )
       .clickable(role = Role.Button, onClick = onClick),
     contentAlignment = Alignment.Center,
   ) {
-    PlayerGlyph(icon, label, 36.dp)
+    Box(
+      modifier = Modifier
+        .matchParentSize()
+        .blur(10.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
+        .background(Color.Black.copy(alpha = 0.20f), CircleShape)
+    )
+    PlayerGlyph(icon, label, 24.dp)
   }
 }
 
@@ -2328,20 +2337,25 @@ private fun PlayerGlyph(icon: ImageVector, contentDescription: String?, size: Dp
  * shows the control took the tap now that there is no disc to light up.
  */
 @Composable
-private fun PlayerHeaderAction(icon: ImageVector, label: String, onClick: () -> Unit, iconSize: Dp = 26.dp, tint: Color = Color.White) {
+private fun PlayerHeaderAction(icon: ImageVector, label: String, onClick: () -> Unit, iconSize: Dp = 20.dp, tint: Color = Color.White) {
   Box(
     modifier = Modifier
-      .size(44.dp)
+      .size(36.dp)
       .playerGlass(
         shape = CircleShape,
-        borderAlpha = 0.38f,
-        glareAlpha = 0.30f,
-        baseColor = Color(0x660A0E18),
-        borderWidth = 1.dp
+        borderAlpha = 0.16f,
+        baseColor = Color(0x55000000),
+        borderWidth = 0.8.dp
       )
       .clickable(role = Role.Button, onClick = onClick),
     contentAlignment = Alignment.Center,
   ) {
+    Box(
+      modifier = Modifier
+        .matchParentSize()
+        .blur(8.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
+        .background(Color.Black.copy(alpha = 0.18f), CircleShape)
+    )
     PlayerGlyph(icon, label, iconSize, tint)
   }
 }
@@ -2523,17 +2537,24 @@ private fun PlayerBottomControls(
       Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Box(
           modifier = Modifier
-            .width(78.dp)
+            .width(62.dp)
             .playerGlass(
               shape = CircleShape,
-              borderAlpha = 0.42f,
-              glareAlpha = 0.35f,
-              baseColor = Color(0x880B101B),
-              borderWidth = 1.dp
+              borderAlpha = 0.18f,
+              baseColor = Color(0x600B101B),
+              borderWidth = 0.8.dp
             )
-            .padding(vertical = 8.dp),
+            .padding(vertical = 5.dp),
           contentAlignment = Alignment.Center,
-        ) { Text(formatClock(currentTime), color = Color.White.copy(alpha = 0.95f), fontWeight = FontWeight.SemiBold) }
+        ) {
+          Box(
+            modifier = Modifier
+              .matchParentSize()
+              .blur(8.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
+              .background(Color.Black.copy(alpha = 0.15f), CircleShape)
+          )
+          Text(formatClock(currentTime), color = Color.White.copy(alpha = 0.95f), fontWeight = FontWeight.SemiBold, fontSize = 11.sp)
+        }
         Spacer(Modifier.weight(0.075f))
         if (liveWithoutWindow) {
           Box(modifier = Modifier.weight(0.85f).height(48.dp), contentAlignment = Alignment.Center) {
@@ -2583,17 +2604,22 @@ private fun PlayerBottomControls(
         if (!liveWithoutWindow || badge.visible) Spacer(Modifier.weight(0.075f))
         if (!liveWithoutWindow || badge.visible) Box(
           modifier = Modifier
-            .width(96.dp)
+            .width(76.dp)
             .playerGlass(
               shape = CircleShape,
-              borderAlpha = 0.42f,
-              glareAlpha = 0.35f,
-              baseColor = Color(0x880B101B),
-              borderWidth = 1.dp
+              borderAlpha = 0.18f,
+              baseColor = Color(0x600B101B),
+              borderWidth = 0.8.dp
             )
-            .padding(vertical = 8.dp),
+            .padding(vertical = 5.dp),
           contentAlignment = Alignment.Center,
         ) {
+          Box(
+            modifier = Modifier
+              .matchParentSize()
+              .blur(8.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
+              .background(Color.Black.copy(alpha = 0.15f), CircleShape)
+          )
           if (liveWithoutWindow) {
             // Scaled by 0.6 to match the badge over the picture. The pill around it keeps its size:
             // it is shared with the duration clock this replaces, and shrinking it here would move
@@ -2607,7 +2633,7 @@ private fun PlayerBottomControls(
               Text(if (isVod) "VOD" else "LIVE", color = Color.White.copy(alpha = 0.95f), fontSize = 6.6.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.36.sp)
             }
           } else {
-            Text(formatClock(duration), color = Color.White.copy(alpha = 0.95f), fontWeight = FontWeight.SemiBold)
+            Text(formatClock(duration), color = Color.White.copy(alpha = 0.95f), fontWeight = FontWeight.SemiBold, fontSize = 11.sp)
           }
         }
       }
@@ -2618,19 +2644,17 @@ private fun PlayerBottomControls(
         modifier = Modifier
           .then(if (minimal) Modifier.widthIn(max = 620.dp).horizontalScroll(rememberScrollState()) else Modifier)
           .playerGlass(
-            shape = if (minimal) RoundedCornerShape(14.dp) else StreamDekRadius.sheetShape,
-            borderAlpha = 0.50f,
-            glareAlpha = 0.40f,
-            baseColor = Color(0xD0121724),
-            borderWidth = 1.2.dp
+            shape = if (minimal) RoundedCornerShape(12.dp) else StreamDekRadius.sheetShape,
+            borderAlpha = 0.18f,
+            baseColor = Color(0x660B0E18),
+            borderWidth = 1.dp
           )
           .padding(
-            horizontal = when (layout) { "Compact" -> 12.dp; "Minimal" -> 7.dp; else -> 18.dp },
-            // Normal is 48dp touch targets inside 4dp of padding top and bottom, 56dp overall.
-            // Minimal retains its own low-profile treatment.
-            vertical = when (layout) { "Compact" -> 5.dp; "Minimal" -> 2.dp; else -> 4.dp },
+            horizontal = when (layout) { "Compact" -> 10.dp; "Minimal" -> 6.dp; else -> 14.dp },
+            // Compact 3dp vertical padding for sleek low profile
+            vertical = when (layout) { "Compact" -> 3.dp; "Minimal" -> 2.dp; else -> 3.dp },
           ),
-        horizontalArrangement = Arrangement.spacedBy(when (layout) { "Compact" -> 32.dp; "Minimal" -> 6.dp; else -> 15.5.dp }),
+        horizontalArrangement = Arrangement.spacedBy(when (layout) { "Compact" -> 20.dp; "Minimal" -> 5.dp; else -> 10.dp }),
         verticalAlignment = Alignment.CenterVertically,
       ) {
         // Episodes leads the dock: it is the one control here that changes what is playing rather
@@ -2700,29 +2724,28 @@ private fun PlayerDockButton(
     // Centred, which only shows in Minimal: there the button is wider than its lone icon, and
     // start-aligned the spare width all fell to the icon's right - so the dock had a margin after
     // its last icon and none before its first.
-    horizontalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 6.dp, Alignment.CenterHorizontally),
+    horizontalArrangement = Arrangement.spacedBy(if (compact) 3.dp else 5.dp, Alignment.CenterHorizontally),
     modifier = Modifier
-      .heightIn(min = 48.dp)
-      .then(if (minimal) Modifier.widthIn(min = 42.dp) else Modifier)
+      .heightIn(min = 38.dp)
+      .then(if (minimal) Modifier.widthIn(min = 36.dp) else Modifier)
       .then(
         if (active) {
           Modifier
             .playerGlass(
-              shape = RoundedCornerShape(10.dp),
-              borderAlpha = 0.60f,
-              glareAlpha = 0.40f,
-              baseColor = Color(0x600284C7),
+              shape = RoundedCornerShape(8.dp),
+              borderAlpha = 0.35f,
+              baseColor = Color(0x400284C7),
               borderWidth = 1.dp
             )
-            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .padding(horizontal = 6.dp, vertical = 3.dp)
         } else {
-          Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
+          Modifier.padding(horizontal = 4.dp, vertical = 3.dp)
         }
       )
       .combinedClickable(onClick = onClick, onLongClick = { Toast.makeText(context, label, Toast.LENGTH_SHORT).show() }),
   ) {
-    Icon(icon, contentDescription = label, tint = if (active) Color(0xFF38BDF8) else Color.White.copy(alpha = 0.92f), modifier = Modifier.size(if (minimal) 18.dp else if (compact) 19.dp else 21.dp))
-    if (showLabel) Text(label, color = if (active) Color(0xFF38BDF8) else Color.White.copy(alpha = 0.78f), fontSize = if (compact) 10.sp else 11.sp, maxLines = 1)
+    Icon(icon, contentDescription = label, tint = if (active) Color(0xFF38BDF8) else Color.White.copy(alpha = 0.92f), modifier = Modifier.size(if (minimal) 16.dp else if (compact) 17.dp else 19.dp))
+    if (showLabel) Text(label, color = if (active) Color(0xFF38BDF8) else Color.White.copy(alpha = 0.78f), fontSize = if (compact) 9.5.sp else 10.5.sp, maxLines = 1)
   }
 }
 
@@ -2762,18 +2785,6 @@ private fun androidx.compose.foundation.layout.BoxScope.PlayerTopHeader(
           )
         )
       )
-      .drawBehind {
-        drawRect(
-          brush = Brush.verticalGradient(
-            listOf(
-              Color.White.copy(alpha = 0.22f),
-              Color.Transparent
-            ),
-            startY = 0f,
-            endY = 48.dp.toPx()
-          )
-        )
-      }
       // The bottom controls sit inside the navigation bar's inset; so does this, or the two rows
       // would stop lining up whenever the bar is on a side edge.
       .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal))
@@ -2788,7 +2799,7 @@ private fun androidx.compose.foundation.layout.BoxScope.PlayerTopHeader(
     val minimal = layout == "Minimal"
     // No disc behind any of the header's controls, in either layout: each is a bare icon over the
     // header's own gradient, in a 48dp target - the same area the discs gave, or a little more.
-    PlayerHeaderAction(StreamDekPlayerIcons.Back, stringResource(R.string.action_back), onBack, iconSize = if (minimal) 30.dp else 28.dp)
+    PlayerHeaderAction(StreamDekPlayerIcons.Back, stringResource(R.string.action_back), onBack, iconSize = if (minimal) 22.dp else 20.dp)
     Column(modifier = Modifier.weight(1f).padding(top = 2.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
       val yearLabel = session.year?.toString().orEmpty()
       val titleLine = listOfNotNull(session.title, episodeContext(session), yearLabel.takeIf { it.isNotBlank() }).joinToString(" | ")
@@ -2877,10 +2888,9 @@ private fun PlayerSourceCard(
       .fillMaxWidth()
       .playerGlass(
         shape = shape,
-        borderAlpha = if (active) 0.65f else 0.30f,
-        glareAlpha = if (active) 0.40f else 0.22f,
-        baseColor = if (active) Color(0x8A1E3A8A) else Color(0x660F172A),
-        borderWidth = if (active) 1.5.dp else 1.dp
+        borderAlpha = if (active) 0.35f else 0.16f,
+        baseColor = if (active) Color(0x601E3A8A) else Color(0x550F172A),
+        borderWidth = 1.dp
       )
       .clickable(onClick = onClick),
   ) {
@@ -2947,8 +2957,7 @@ private fun StreamInfoPill(
     modifier = Modifier
       .playerGlass(
         shape = StreamDekRadius.pill,
-        borderAlpha = 0.30f,
-        glareAlpha = 0.22f,
+        borderAlpha = 0.16f,
         baseColor = containerColor,
         borderWidth = 0.8.dp
       )
@@ -2975,10 +2984,9 @@ private fun PlayerModalPanel(title: String, onClose: () -> Unit, trailing: @Comp
       modifier = panelSizeModifier
         .playerGlass(
           shape = StreamDekRadius.sheetShape,
-          borderAlpha = 0.55f,
-          glareAlpha = 0.42f,
+          borderAlpha = 0.20f,
           baseColor = Color(0xE00E1424),
-          borderWidth = 1.2.dp
+          borderWidth = 1.dp
         )
         .clickable(onClick = {})
         .padding(22.dp),
@@ -3142,10 +3150,9 @@ private fun PlayerOptionRow(label: String, selected: Boolean, supportingText: St
       .fillMaxWidth()
       .playerGlass(
         shape = StreamDekRadius.thumbShape,
-        borderAlpha = if (selected) 0.65f else 0.25f,
-        glareAlpha = if (selected) 0.45f else 0.20f,
-        baseColor = if (selected) Color(0xE62563EB) else Color(0x600F172A),
-        borderWidth = if (selected) 1.5.dp else 1.dp
+        borderAlpha = if (selected) 0.35f else 0.16f,
+        baseColor = if (selected) Color(0xB02563EB) else Color(0x500F172A),
+        borderWidth = 1.dp
       )
       .clickable(onClick = onClick)
       .padding(horizontal = 18.dp, vertical = 16.dp),
@@ -4272,10 +4279,9 @@ private fun BoxScope.PlayerOverlays(
       shape = StreamDekRadius.pill,
       modifier = Modifier.playerGlass(
         shape = StreamDekRadius.pill,
-        borderAlpha = 0.52f,
-        glareAlpha = 0.42f,
-        baseColor = Color(0xD0121724),
-        borderWidth = 1.2.dp
+        borderAlpha = 0.18f,
+        baseColor = Color(0x66121724),
+        borderWidth = 1.dp
       ),
     ) {
       Row(
@@ -4307,10 +4313,9 @@ private fun BoxScope.PlayerOverlays(
       shape = StreamDekRadius.panelShape,
       modifier = Modifier.playerGlass(
         shape = StreamDekRadius.panelShape,
-        borderAlpha = 0.52f,
-        glareAlpha = 0.42f,
-        baseColor = Color(0xD0121724),
-        borderWidth = 1.2.dp
+        borderAlpha = 0.18f,
+        baseColor = Color(0x66121724),
+        borderWidth = 1.dp
       ),
     ) {
       Column(
@@ -4344,10 +4349,9 @@ private fun BoxScope.PlayerOverlays(
       shape = StreamDekRadius.pill,
       modifier = Modifier.playerGlass(
         shape = StreamDekRadius.pill,
-        borderAlpha = 0.52f,
-        glareAlpha = 0.42f,
-        baseColor = Color(0xB80B101D),
-        borderWidth = 1.2.dp
+        borderAlpha = 0.18f,
+        baseColor = Color(0x660B101D),
+        borderWidth = 1.dp
       ),
     ) {
       Row(
@@ -4392,10 +4396,9 @@ private fun BoxScope.PlayerOverlays(
       modifier = Modifier
         .playerGlass(
           shape = StreamDekRadius.panelShape,
-          borderAlpha = 0.52f,
-          glareAlpha = 0.42f,
-          baseColor = Color(0xD0121724),
-          borderWidth = 1.2.dp
+          borderAlpha = 0.18f,
+          baseColor = Color(0x66121724),
+          borderWidth = 1.dp
         )
         .pointerInput(session.url) {
           detectTapGestures(onLongPress = {
@@ -5072,9 +5075,8 @@ private fun BoxScope.PlayerSurfaceOverlays(
       shape = CircleShape,
       modifier = Modifier.playerGlass(
         shape = CircleShape,
-        borderAlpha = 0.45f,
-        glareAlpha = 0.38f,
-        baseColor = Color(0x990B101D),
+        borderAlpha = 0.18f,
+        baseColor = Color(0x600B101D),
         borderWidth = 1.dp
       ),
     ) {
@@ -5102,9 +5104,8 @@ private fun BoxScope.PlayerSurfaceOverlays(
       shape = CircleShape,
       modifier = Modifier.playerGlass(
         shape = CircleShape,
-        borderAlpha = 0.45f,
-        glareAlpha = 0.38f,
-        baseColor = Color(0x990B101D),
+        borderAlpha = 0.18f,
+        baseColor = Color(0x600B101D),
         borderWidth = 1.dp
       ),
     ) {
@@ -5122,10 +5123,9 @@ private fun BoxScope.PlayerSurfaceOverlays(
       shape = StreamDekRadius.panelShape,
       modifier = Modifier.playerGlass(
         shape = StreamDekRadius.panelShape,
-        borderAlpha = 0.50f,
-        glareAlpha = 0.38f,
-        baseColor = Color(0xE0121724),
-        borderWidth = 1.2.dp
+        borderAlpha = 0.20f,
+        baseColor = Color(0xD0121724),
+        borderWidth = 1.dp
       ),
     ) {
       Row(
@@ -5226,9 +5226,8 @@ private fun BoxScope.PlayerSurfaceOverlays(
       shape = StreamDekRadius.pill,
       modifier = Modifier.playerGlass(
         shape = StreamDekRadius.pill,
-        borderAlpha = 0.45f,
-        glareAlpha = 0.35f,
-        baseColor = Color(0xD0121724),
+        borderAlpha = 0.18f,
+        baseColor = Color(0x70121724),
         borderWidth = 1.dp
       ),
     ) {

@@ -347,61 +347,25 @@ data class StreamDekElevation(
 )
 
 /**
- * Applies a high-fidelity glassmorphic frosted acrylic effect with full specular glare reflection
- * and 3D refractive borders across video player UI components.
+ * Applies a sleek, translucent dark blur glass effect without frosted milky glare.
  */
 fun Modifier.playerGlass(
   shape: Shape = StreamDekRadius.cardShape,
-  borderAlpha: Float = 0.42f,
-  glareAlpha: Float = 0.36f,
-  baseColor: Color = Color(0x8C0D1322),
-  borderWidth: Dp = 1.2.dp,
+  borderAlpha: Float = 0.18f,
+  glareAlpha: Float = 0f,
+  baseColor: Color = Color(0x600B0E18),
+  borderWidth: Dp = 1.dp,
 ): Modifier = this
   .border(
     width = borderWidth,
-    brush = Brush.linearGradient(
-      colors = listOf(
+    brush = Brush.verticalGradient(
+      listOf(
         Color.White.copy(alpha = borderAlpha),
-        Color.White.copy(alpha = borderAlpha * 0.55f),
-        Color.White.copy(alpha = 0.12f),
-        Color.White.copy(alpha = borderAlpha * 0.42f),
+        Color.White.copy(alpha = borderAlpha * 0.4f),
       )
     ),
     shape = shape
   )
   .clip(shape)
-  .background(
-    Brush.verticalGradient(
-      listOf(
-        baseColor.copy(alpha = (baseColor.alpha * 0.85f).coerceIn(0f, 1f)),
-        baseColor.copy(alpha = (baseColor.alpha * 1.05f).coerceIn(0f, 1f)),
-      )
-    )
-  )
-  .drawBehind {
-    // 1. Full diagonal specular glare sweep (light hitting the surface at an angle)
-    drawRect(
-      brush = Brush.linearGradient(
-        colors = listOf(
-          Color.White.copy(alpha = glareAlpha),
-          Color.White.copy(alpha = glareAlpha * 0.40f),
-          Color.Transparent,
-          Color.White.copy(alpha = glareAlpha * 0.15f),
-        ),
-        start = Offset(0f, 0f),
-        end = Offset(size.width, size.height)
-      )
-    )
-    // 2. Specular top highlight glare (luminous reflection on the top rim)
-    drawRect(
-      brush = Brush.verticalGradient(
-        colors = listOf(
-          Color.White.copy(alpha = glareAlpha * 0.85f),
-          Color.Transparent
-        ),
-        startY = 0f,
-        endY = (size.height * 0.42f).coerceAtLeast(1f)
-      )
-    )
-  }
+  .background(baseColor)
 
