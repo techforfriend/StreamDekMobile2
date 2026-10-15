@@ -848,10 +848,9 @@ class StreamDekApiClient(context: Context? = null) {
     .callTimeout(30, TimeUnit.SECONDS)
     .build()
   private val directStreamClient = client.newBuilder()
-    .connectTimeout(10, TimeUnit.SECONDS)
-    .readTimeout(15, TimeUnit.SECONDS)
-    .writeTimeout(15, TimeUnit.SECONDS)
-    .callTimeout(20, TimeUnit.SECONDS)
+    .connectTimeout(15, TimeUnit.SECONDS)
+    .readTimeout(120, TimeUnit.SECONDS)
+    .callTimeout(150, TimeUnit.SECONDS)
     // Without a Cache installed, OkHttp does not store responses at all, so removing the old
     // cache-busting query parameter on its own would have changed nothing.
     .apply {
