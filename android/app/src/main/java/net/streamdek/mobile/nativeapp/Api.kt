@@ -18,6 +18,8 @@ import kotlinx.coroutines.ensureActive
 import kotlin.coroutines.coroutineContext
 import okhttp3.Cache
 import okhttp3.CacheControl
+import okhttp3.ConnectionPool
+import okhttp3.Dispatcher
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -699,6 +701,11 @@ class StreamDekApiClient(context: Context? = null) {
   private val apiHost: String? =
     runCatching { java.net.URI(BuildConfig.API_BASE_URL).host }.getOrNull()?.takeIf { it.isNotBlank() }
   private val client = OkHttpClient.Builder()
+    .connectionPool(ConnectionPool(32, 5, TimeUnit.MINUTES))
+    .dispatcher(Dispatcher().apply {
+      maxRequests = 64
+      maxRequestsPerHost = 16
+    })
     .apply { appContext?.let { dns(StreamDekDns(it)) } }
     /**
      * Attaches a device-only content-service key to the requests that need one.
@@ -841,9 +848,10 @@ class StreamDekApiClient(context: Context? = null) {
     .callTimeout(30, TimeUnit.SECONDS)
     .build()
   private val directStreamClient = client.newBuilder()
-    .connectTimeout(15, TimeUnit.SECONDS)
-    .readTimeout(120, TimeUnit.SECONDS)
-    .callTimeout(150, TimeUnit.SECONDS)
+    .connectTimeout(10, TimeUnit.SECONDS)
+    .readTimeout(15, TimeUnit.SECONDS)
+    .writeTimeout(15, TimeUnit.SECONDS)
+    .callTimeout(20, TimeUnit.SECONDS)
     // Without a Cache installed, OkHttp does not store responses at all, so removing the old
     // cache-busting query parameter on its own would have changed nothing.
     .apply {

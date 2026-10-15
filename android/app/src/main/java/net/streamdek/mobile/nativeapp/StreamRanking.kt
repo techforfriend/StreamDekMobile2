@@ -196,7 +196,8 @@ internal fun streamScore(stream: AddonStream, hasDebrid: Boolean, preferredQuali
   val sizeGiB = streamSizeGiB(stream)
   var score = 0
   if (maxFileSizeGb > 0 && sizeGiB != null && sizeGiB > maxFileSizeGb.toDouble()) return Int.MIN_VALUE / 4
-  if (!stream.url.isNullOrBlank()) score += 380
+  val isDirectHttp = !stream.url.isNullOrBlank() && !stream.url.startsWith("magnet:", ignoreCase = true)
+  if (isDirectHttp) score += 380
   if (hasDebrid && !stream.infoHash.isNullOrBlank()) score += 260
   if (stream.cachedBy.isNotEmpty()) score += 400 + ((stream.cachedBy.size - 1).coerceAtLeast(0) * 45)
   score += when {

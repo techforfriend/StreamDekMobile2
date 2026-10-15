@@ -50,14 +50,19 @@ class StreamDekDns(context: Context) : Dns {
 
   override fun lookup(hostname: String): List<InetAddress> {
     if (!settings.enabled) return Dns.SYSTEM.lookup(hostname)
-    val endpoint = settings.endpoint() ?: throw UnknownHostException("DNS over HTTPS is enabled but no endpoint is configured")
-    val resolver = (if (cachedEndpoint == endpoint) cachedResolver else null) ?: synchronized(this) {
-      (if (cachedEndpoint == endpoint) cachedResolver else null) ?: buildResolver(endpoint).also {
-        cachedEndpoint = endpoint
-        cachedResolver = it
+    val endpoint = settings.endpoint() ?: return Dns.SYSTEM.lookup(hostname)
+    return try {
+      val resolver = (if (cachedEndpoint == endpoint) cachedResolver else null) ?: synchronized(this) {
+        (if (cachedEndpoint == endpoint) cachedResolver else null) ?: buildResolver(endpoint).also {
+          cachedEndpoint = endpoint
+          cachedResolver = it
+        }
       }
+      val addresses = resolver.lookup(hostname)
+      if (addresses.isEmpty()) Dns.SYSTEM.lookup(hostname) else addresses
+    } catch (_: Throwable) {
+      Dns.SYSTEM.lookup(hostname)
     }
-    return resolver.lookup(hostname)
   }
 
   private fun buildResolver(endpoint: String): DnsOverHttps {

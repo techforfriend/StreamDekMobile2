@@ -1869,13 +1869,15 @@ internal fun streamDisplayName(stream: AddonStream, fallbackName: String): Strin
     .firstNotNullOfOrNull { candidate -> streamSingleLine(candidate)?.takeIf(::streamTextNamesTitle) }
     ?: fallbackName
 
+private val STREAM_WHITESPACE_REGEX = Regex("\\s+")
+
 /** Collapses an add-on's multi-line text onto one line so a formatted row stays one line tall. */
 private fun streamSingleLine(value: String?): String? =
-  value?.replace(Regex("\\s+"), " ")?.trim()?.takeIf { it.isNotEmpty() }
+  value?.replace(STREAM_WHITESPACE_REGEX, " ")?.trim()?.takeIf { it.isNotEmpty() }
 
 /** Whitespace and case removed, so two spellings of the same sentence compare equal. */
 internal fun streamTextFingerprint(value: String): String =
-  value.replace(Regex("\\s+"), " ").trim().lowercase()
+  value.replace(STREAM_WHITESPACE_REGEX, " ").trim().lowercase()
 
 private fun streamIdentity(stream: AddonStream): String =
   listOf(stream.addonId, stream.url.orEmpty(), stream.infoHash.orEmpty(), stream.name.orEmpty(), stream.title.orEmpty()).joinToString("|")
@@ -7078,7 +7080,7 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
     val pending = requests.map { (addon, _, _) -> addon.manifest.name.ifBlank { addon.id } }.toMutableList()
     val failed = linkedSetOf<String>()
     if (serverStreams.isEmpty()) failed += serverLabel
-    val gate = Semaphore(4)
+    val gate = Semaphore(8)
     viewModelScope.launch {
       requests.forEach { (addon, type, id) ->
         launch {
@@ -7185,7 +7187,7 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
     val totalSources = addonRequests.size + pluginSourceCount + cloudStreamSourceCount + skyStreamSourceCount + serverProviders.size
     val generation = ++streamRequestGeneration
     val merged = linkedMapOf<String, AddonStream>()
-    val requestGate = Semaphore(4)
+    val requestGate = Semaphore(8)
     var completedSources = 0
     var lastError: Throwable? = null
     // What is still being waited on, by name, so the page can say which sources have not answered
@@ -7463,13 +7465,22 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
     if (id.substringBefore(":").matches(IMDB_ID_PATTERN)) return id
     val key = "$type:$id"
     val pending = synchronized(resolvedAddonVideoIds) {
+      if (resolvedAddonVideoIds.size > 256) {
+        resolvedAddonVideoIds.clear()
+      }
       resolvedAddonVideoIds.getOrPut(key) {
         viewModelScope.async(Dispatchers.IO) {
           apiClient.resolveAddonVideoId(uiState.session, type, id).getOrDefault(id)
         }
       }
     }
-    return runCatching { pending.await() }.getOrDefault(id)
+    val result = runCatching { pending.await() }.getOrDefault(id)
+    if (result == id) {
+      synchronized(resolvedAddonVideoIds) {
+        resolvedAddonVideoIds.remove(key)
+      }
+    }
+    return result
   }
 
   private suspend fun fetchAddonStreamsWithRetry(addon: InstalledAddon, type: String, id: String): Result<List<AddonStream>> {
@@ -7516,9 +7527,11 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
     // Recorded rather than passed over: this is the one empty result that will still be empty
     // tomorrow, and the viewer is otherwise left refreshing a list that can never fill.
     if (requiresImdbId && !isLocalAddon && !baseId.matches(IMDB_ID_PATTERN)) {
-      uiState = uiState.copy(
-        streamsUnavailableReason = "No sources for this title. Add-ons look titles up by their IMDb id, and this one has none listed — refreshing will not change that.",
-      )
+      withContext(Dispatchers.Main.immediate) {
+        uiState = uiState.copy(
+          streamsUnavailableReason = "No sources for this title. Add-ons look titles up by their IMDb id, and this one has none listed — refreshing will not change that.",
+        )
+      }
     }
     if (isLocalAddon || !requiresImdbId || baseId.matches(IMDB_ID_PATTERN)) {
       if (useServerSideStreams) delay(180L)
@@ -7569,37 +7582,59 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
       }
       .sortedWith(compareByDescending<InstalledAddon> { it.favourite }.thenBy { it.position })
 
-    enabledAddons.firstOrNull { it.id == ownerId }?.let { owner ->
+    val ownerJob = enabledAddons.firstOrNull { it.id == ownerId }?.let { owner ->
       val baseId = detailLocalStreamId ?: detailAddonMetaId ?: uiState.detailFallbackItem?.id ?: detail?.id
       val nativeId = episode?.sourceStreamId?.takeIf { it.isNotBlank() }
         ?: baseId?.let { base -> episode?.let { "$base:${it.seasonNumber}:${it.episodeNumber}" } ?: base }
-      if (nativeId != null) fetchAddonStreamsWithRetry(owner, ownerType, nativeId)
-        .onSuccess { merged += it }.onFailure { lastError = it }
+      if (nativeId != null) {
+        async(Dispatchers.IO) {
+          fetchAddonStreamsWithRetry(owner, ownerType, nativeId)
+        }
+      } else null
     }
-    for (id in candidates) {
-      for (addon in enabledAddons.filterNot { it.id == ownerId }) {
-        fetchAddonStreamsWithRetry(addon, type, id)
-          .onSuccess { streams -> merged += streams }
-          .onFailure { lastError = it }
-      }
 
-      // The aggregate endpoint spans every add-on, so live channels never use it.
-      if (merged.isEmpty() && !live) {
+    val addonGate = Semaphore(8)
+    val addonJobs = candidates.flatMap { id ->
+      enabledAddons.filterNot { it.id == ownerId }.map { addon ->
+        async(Dispatchers.IO) {
+          addonGate.withPermit {
+            fetchAddonStreamsWithRetry(addon, type, id)
+          }
+        }
+      }
+    }
+
+    val pluginJob = if (!live) {
+      async(Dispatchers.IO) {
+        runCatching {
+          val pluginType = if (type == "series") "tv" else type
+          val pluginCandidate = candidates.firstOrNull()?.substringBefore(":").orEmpty()
+          val pluginId = apiClient.resolvePluginMediaId(pluginType, pluginCandidate)
+          StreamDekPlugins.manager.streams(pluginId, pluginType, null, null)
+        }.getOrDefault(emptyList())
+      }
+    } else null
+
+    val cloudStreamJob = async(Dispatchers.IO) {
+      cloudStreamStreams(type, candidates, live, detail)
+    }
+
+    ownerJob?.await()?.onSuccess { merged += it }?.onFailure { lastError = it }
+    for (job in addonJobs) {
+      job.await().onSuccess { streams -> merged += streams }.onFailure { lastError = it }
+    }
+
+    // The aggregate endpoint spans every add-on, so live channels never use it.
+    if (merged.isEmpty() && !live) {
+      for (id in candidates) {
         apiClient.fetchStreams(uiState.session, type, id, uiState.activeProfileId, detailCorrelationId)
           .onSuccess { streams -> merged += streams }
           .onFailure { lastError = it }
       }
     }
 
-    // Plugin providers are movie/series scrapers — not a source for live channels.
-    if (!live) {
-      val pluginType = if (type == "series") "tv" else type
-      val pluginCandidate = candidates.firstOrNull()?.substringBefore(":").orEmpty()
-      val pluginId = apiClient.resolvePluginMediaId(pluginType, pluginCandidate)
-      merged += StreamDekPlugins.manager.streams(pluginId, pluginType, null, null)
-    }
-
-    merged += cloudStreamStreams(type, candidates, live, detail)
+    pluginJob?.await()?.let { merged += it }
+    merged += cloudStreamJob.await()
     merged += serverLookup?.await().orEmpty()
 
     val unique = merged.distinctBy(::addonStreamPlaybackIdentity)
@@ -18156,6 +18191,8 @@ internal data class BrowseCategory(val name: String, val items: List<MediaItem>)
 /** Categories that are a bucket for "everything else" and so always sort last. */
 private val trailingCategoryNames = setOf("General", "Other", "Uncategorized", "Undefined")
 
+private val CATEGORY_DELIMITER_REGEX = Regex("\\s*[|»>~]\\s*")
+
 /**
  * Cleans a raw `group-title` for display. Providers write these as `US| ENTERTAINMENT`,
  * `|IN| MOVIES`, `SPORTS »`, so the leading/trailing punctuation goes, inner pipes become a
@@ -18166,8 +18203,8 @@ internal fun tidyCategoryLabel(raw: String): String {
   val trimmed = raw.trim().trim('|', '»', '>', '~', '-', '–', '—', '•', ':', '.', ' ')
   if (trimmed.isBlank()) return ""
   return trimmed
-    .replace(Regex("\\s+"), " ")
-    .replace(Regex("\\s*[|»>~]\\s*"), " • ")
+    .replace(STREAM_WHITESPACE_REGEX, " ")
+    .replace(CATEGORY_DELIMITER_REGEX, " • ")
     .split(' ')
     .joinToString(" ") { word ->
       if (word.length <= 3 || word.any(Char::isLowerCase)) word
@@ -32589,8 +32626,10 @@ private fun ratingProviderLogoRes(provider: String): Int = when (provider.lowerc
   else -> R.drawable.rating_tmdb_logo
 }
 
+private val RATING_PROVIDER_CLEAN_REGEX = Regex("[^a-z]")
+
 private fun ratingProviderId(provider: String): String {
-  val key = provider.trim().lowercase().replace(Regex("[^a-z]"), "")
+  val key = provider.trim().lowercase().replace(RATING_PROVIDER_CLEAN_REGEX, "")
   return when (key) {
     "imdb" -> "imdb"
     "tmdb", "themoviedb" -> "tmdb"
