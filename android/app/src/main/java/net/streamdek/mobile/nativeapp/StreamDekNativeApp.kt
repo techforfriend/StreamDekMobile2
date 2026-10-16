@@ -1483,7 +1483,7 @@ private data class AppUiState(
   val trailerCacheClearHours: Int = DEFAULT_TRAILER_CACHE_CLEAR_HOURS,
   val trailerCacheSizeBytes: Long = 0L,
   val trailerCacheLastClearedAt: Long = 0L,
-  val defaultAppCatalogsEnabled: Boolean = true,
+  val defaultAppCatalogsEnabled: Boolean = false,
   val homeCatalogRows: List<HomeCatalogRow> = emptyList(),
   /**
    * How [homeCatalogRows] is read: grouped under the source that offers each row, or as one freely
@@ -2248,7 +2248,7 @@ private class AppSettingsStore(
       runAsForegroundService = prefs.getBoolean("torrent_run_foreground", false),
     ),
     trailerCacheClearHours = profilePrefs.getInt("trailer_cache_clear_hours", DEFAULT_TRAILER_CACHE_CLEAR_HOURS),
-    defaultAppCatalogsEnabled = profilePrefs.getBoolean("default_app_catalogs_enabled", true),
+    defaultAppCatalogsEnabled = profilePrefs.getBoolean("default_app_catalogs_enabled", false),
     homeCatalogRows = parseHomeCatalogRows(profilePrefs.getString("home_catalog_rows", null)),
     homeRows = HomeRowArrangement(
       mode = HomeRowMode.fromKey(profilePrefs.getString(HOME_ROW_MODE_PREFERENCE, null)),
@@ -3468,8 +3468,8 @@ internal val streamDekFeatureRowIds: Set<String> = streamDekFeatureRows.mapTo(mu
 
 internal fun builtinHomeCatalogCandidates(definitions: List<CatalogDefinition>): List<HomeCatalogRow> =
   definitions.ifEmpty { fallbackCatalogDefinitions }.map { definition ->
-    HomeCatalogRow(definition.id, definition.title, subtitleRes = R.string.home_row_provided_by_streamdek, builtin = true)
-  } + streamDekFeatureRows
+    HomeCatalogRow(definition.id, definition.title, subtitleRes = R.string.home_row_provided_by_streamdek, builtin = true, enabled = false)
+  } + streamDekFeatureRows.map { it.copy(enabled = false) }
 
 /**
  * Home rows offered by CloudStream providers' main pages.
@@ -3722,7 +3722,7 @@ internal fun mergeHomeCatalogRows(
    */
   fun resolve(row: HomeCatalogRow): HomeCatalogRow? {
     val candidate = candidates[row.id] ?: candidatesByMatchKey[homeCatalogRowMatchKey(row.id)]
-    if (candidate != null) return candidate.copy(enabled = row.enabled)
+    if (candidate != null) return if (candidate.builtin) candidate.copy(enabled = false) else candidate.copy(enabled = row.enabled)
     val addonId = homeCatalogRowAddonId(row.id)
     return when {
       // The add-on is installed and switched on, and no longer offers this catalogue. Gone.
@@ -3828,7 +3828,7 @@ internal fun applyHomeCatalogLayout(sections: List<MediaSection>, rows: List<Hom
   val sectionMap = sections.associateBy { it.id }
   return rows.mapNotNull { row ->
     if (!row.enabled) return@mapNotNull null
-    if (row.builtin && !defaultBuiltinsEnabled) return@mapNotNull null
+    if (row.builtin) return@mapNotNull null
     sectionMap[row.id]
   }
 }
@@ -17152,7 +17152,7 @@ private fun HomeTab(uiState: AppUiState, scrollToTopSignal: Int, onReload: () ->
       )
       layout.forEach { row ->
         if (!row.enabled) return@forEach
-        if (row.builtin && !uiState.defaultAppCatalogsEnabled) return@forEach
+        if (row.builtin) return@forEach
         val built = assembled[row.id]?.invoke()
           ?: sectionsById[row.id]?.let { section ->
             // An add-on catalog is held complete rather than trimmed to the preview length, so the
