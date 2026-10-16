@@ -41,9 +41,56 @@ const val API_PATH_PREFIX = "/api/v1"
 /**
  * Official version metadata sent to the StreamDek backend so custom or patched builds are
  * accepted as verified clients rather than failing with CLIENT_VERSION_UNSUPPORTED.
+ *
+ * Defaults to the latest official release (2.2.3, build 87) and self-heals dynamically
+ * if the server updates its version policy or returns HTTP 426 Upgrade Required.
  */
-private const val COMPAT_API_VERSION_NAME = "2.2.2"
-private const val COMPAT_API_VERSION_CODE = "86"
+object CompatVersionProvider {
+  private const val PREFS = "streamdek_compat_version"
+  private const val KEY_VERSION = "compat_version_name"
+  private const val KEY_BUILD = "compat_version_code"
+
+  const val DEFAULT_VERSION_NAME = "2.2.3"
+  const val DEFAULT_VERSION_CODE = "87"
+
+  @Volatile
+  var versionName: String = DEFAULT_VERSION_NAME
+    private set
+
+  @Volatile
+  var versionCode: String = DEFAULT_VERSION_CODE
+    private set
+
+  fun init(context: Context) {
+    runCatching {
+      val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+      val savedVersion = prefs.getString(KEY_VERSION, null)
+      val savedBuild = prefs.getString(KEY_BUILD, null)
+      if (!savedVersion.isNullOrBlank()) {
+        versionName = savedVersion
+      }
+      if (!savedBuild.isNullOrBlank()) {
+        versionCode = savedBuild
+      }
+    }
+  }
+
+  fun updateFromPolicy(latestVersion: String, latestBuild: String? = null, context: Context? = null) {
+    if (latestVersion.isNotBlank()) {
+      versionName = latestVersion
+      if (!latestBuild.isNullOrBlank()) {
+        versionCode = latestBuild
+      }
+      runCatching {
+        context?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)?.edit()?.apply {
+          putString(KEY_VERSION, versionName)
+          putString(KEY_BUILD, versionCode)
+          apply()
+        }
+      }
+    }
+  }
+}
 
 
 private const val SESSION_PREFS = "streamdek_native_session"
@@ -769,13 +816,13 @@ class StreamDekApiClient(context: Context? = null) {
           builder.header("x-client-device-id", identity.deviceId)
           builder.header("x-client-name", "StreamDek Mobile")
           builder.header("x-client-platform", "android")
-          builder.header("x-app-version", COMPAT_API_VERSION_NAME)
+          builder.header("x-app-version", CompatVersionProvider.versionName)
         }
         // Compatibility metadata is independent of authentication/device registration and must
         // be present even on bootstrap calls made before a client identity has been established.
         builder.header("X-StreamDek-Platform", "android-mobile")
-        builder.header("X-StreamDek-Version", COMPAT_API_VERSION_NAME)
-        builder.header("X-StreamDek-Build", COMPAT_API_VERSION_CODE)
+        builder.header("X-StreamDek-Version", CompatVersionProvider.versionName)
+        builder.header("X-StreamDek-Build", CompatVersionProvider.versionCode)
         // Which language this phone would like its *metadata* in - synopses, genres, certification
         // labels - for the backend to pass on to TMDB. Interface text does not come from here; it
         // comes from the app's own resources. Read per request rather than captured, so it is
@@ -821,16 +868,33 @@ class StreamDekApiClient(context: Context? = null) {
       val request = chain.request()
       val started = System.currentTimeMillis()
       try {
-        chain.proceed(request).also { response ->
-          // HTTP 426 ignored to prevent locking app on custom versions
-          if (!response.isSuccessful) {
-            android.util.Log.w(
-              "StreamDekApi",
-              "${request.method} ${request.url.encodedPath} -> ${response.code} in ${System.currentTimeMillis() - started}ms" +
-                (response.header("server")?.let { " (via $it)" } ?: ""),
-            )
+        val response = chain.proceed(request)
+        if (response.code == 426 && apiHost != null && request.url.host.equals(apiHost, ignoreCase = true)) {
+          val body = runCatching { response.peekBody(64 * 1024L).string() }.getOrNull().orEmpty()
+          var newVersion: String? = null
+          runCatching {
+            val json = JSONObject(body)
+            newVersion = json.optString("latestVersion").ifBlank { json.optString("minimumSupportedVersion") }
+          }
+          if (!newVersion.isNullOrBlank()) {
+            CompatVersionProvider.updateFromPolicy(newVersion!!, context = appContext)
+            val retried = request.newBuilder()
+              .header("x-app-version", CompatVersionProvider.versionName)
+              .header("X-StreamDek-Version", CompatVersionProvider.versionName)
+              .header("X-StreamDek-Build", CompatVersionProvider.versionCode)
+              .build()
+            response.close()
+            return@addInterceptor chain.proceed(retried)
           }
         }
+        if (!response.isSuccessful) {
+          android.util.Log.w(
+            "StreamDekApi",
+            "${request.method} ${request.url.encodedPath} -> ${response.code} in ${System.currentTimeMillis() - started}ms" +
+              (response.header("server")?.let { " (via $it)" } ?: ""),
+          )
+        }
+        response
       } catch (error: Throwable) {
         android.util.Log.w(
           "StreamDekApi",
@@ -880,6 +944,30 @@ class StreamDekApiClient(context: Context? = null) {
    * works.
    */
   val apiBaseUrl: String = BuildConfig.API_BASE_URL.trimEnd('/') + API_PATH_PREFIX
+
+  init {
+    appContext?.let { ctx ->
+      CompatVersionProvider.init(ctx)
+      kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+        runCatching {
+          val req = Request.Builder()
+            .url("$apiBaseUrl/public/app-version-policy")
+            .header("X-StreamDek-Platform", "android-mobile")
+            .build()
+          client.newCall(req).execute().use { resp ->
+            if (resp.isSuccessful) {
+              val body = resp.body?.string().orEmpty()
+              val json = JSONObject(body)
+              val latest = json.optString("latestVersion").ifBlank { json.optString("minimumSupportedVersion") }
+              if (latest.isNotBlank()) {
+                CompatVersionProvider.updateFromPolicy(latest, context = ctx)
+              }
+            }
+          }
+        }
+      }
+    }
+  }
 
   /**
    * Region used for theatrical listings and watch-provider catalogs. Taken from the device, which
@@ -4011,10 +4099,10 @@ class StreamDekApiClient(context: Context? = null) {
       builder.add("x-device-name", identity.deviceName)
       builder.add("x-device-type", "phone")
       identity.previousDeviceId?.let { builder.add("x-previous-device-id", it) }
-      builder.add("x-app-version", COMPAT_API_VERSION_NAME)
+      builder.add("x-app-version", CompatVersionProvider.versionName)
       builder.add("X-StreamDek-Platform", "android-mobile")
-      builder.add("X-StreamDek-Version", COMPAT_API_VERSION_NAME)
-      builder.add("X-StreamDek-Build", COMPAT_API_VERSION_CODE)
+      builder.add("X-StreamDek-Version", CompatVersionProvider.versionName)
+      builder.add("X-StreamDek-Build", CompatVersionProvider.versionCode)
     }
     return builder.build()
   }
