@@ -194,8 +194,7 @@ do not move or reuse a published tag for different code.
 
 - Auth
 - Profiles
-- Add-ons
-- Debrid
+- Add-on
 - Trakt device auth, watchlist sync, and playback scrobbling
 - Native detail, stream selection, and MPV playback
 
