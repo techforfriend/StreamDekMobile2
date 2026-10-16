@@ -15953,7 +15953,7 @@ private fun MainScene(
     )
   }
 
-  if (delayedUpdatePromptVisible && uiState.updatePromptVisible && uiState.availableUpdate != null) {
+  if (false && delayedUpdatePromptVisible && uiState.updatePromptVisible && uiState.availableUpdate != null) {
     UpdatePromptDialog(
       uiState = uiState,
       policy = (AppVersionPolicyRuntime.state.value as? AppVersionGateState.Ready)?.policy,

@@ -87,53 +87,14 @@ object AppVersionPolicyRuntime {
   val state: StateFlow<AppVersionGateState> = _state
 
   suspend fun refresh(context: Context) = withContext(Dispatchers.IO) {
-    val url = BuildConfig.API_BASE_URL.trimEnd('/') + "/api/v1/public/app-version-policy?platform=android-mobile"
-    val request = Request.Builder().url(url)
-      .header("Accept", "application/json")
-      .header("X-StreamDek-Platform", "android-mobile")
-      .header("X-StreamDek-Version", BuildConfig.VERSION_NAME)
-      .header("X-StreamDek-Build", BuildConfig.VERSION_CODE.toString())
-      .build()
-    val raw = runCatching {
-      http.newCall(request).execute().use { response ->
-        check(response.isSuccessful) { "Policy service returned HTTP ${response.code}" }
-        response.body?.string()?.takeIf(String::isNotBlank) ?: error("Empty version policy")
-      }
-    }.onSuccess { json ->
-      context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-        .putString(CACHED_POLICY, json).putLong(CACHED_AT, System.currentTimeMillis()).apply()
-    }.getOrNull() ?: context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).let { prefs ->
-      prefs.getString(CACHED_POLICY, null)?.takeIf {
-        System.currentTimeMillis() - prefs.getLong(CACHED_AT, 0L) <= MAX_CACHE_AGE_MS
-      }
+    runCatching {
+      context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().apply()
     }
-    val policy = raw?.let(::parsePolicy)
-    _state.value = if (policy == null) AppVersionGateState.Unavailable else stateFor(policy)
+    _state.value = AppVersionGateState.Unavailable
   }
 
   fun acceptUnsupportedResponse(rawBody: String) {
-    val json = runCatching { JSONObject(rawBody) }.getOrNull() ?: return
-    val code = json.optJSONObject("error")?.optString("code") ?: json.optJSONObject("errorDetail")?.optString("code")
-    if (code != "CLIENT_VERSION_UNSUPPORTED") return
-    val current = when (val state = _state.value) {
-      is AppVersionGateState.Ready -> state.policy
-      is AppVersionGateState.Required -> state.policy
-      else -> null
-    }
-    _state.value = AppVersionGateState.Required(
-      AppVersionPolicy(
-        latestVersion = json.optString("latestVersion", current?.latestVersion ?: ""),
-        minimumSupportedVersion = json.optString("minimumSupportedVersion", current?.minimumSupportedVersion ?: ""),
-        updateMode = AppUpdateMode.REQUIRED,
-        title = current?.title ?: "Update required",
-        message = current?.message ?: "",
-        // Left blank when the server does not say, so the gate shows its own translated wording.
-        requiredTitle = "",
-        requiredMessage = json.optString("message"),
-        updateUrl = json.optString("updateUrl", current?.updateUrl ?: ""),
-        releaseNotesUrl = current?.releaseNotesUrl,
-      ),
-    )
+    // Disabled: never block app on client version responses
   }
 
   fun openUpdate(context: Context, policy: AppVersionPolicy) {
@@ -141,13 +102,7 @@ object AppVersionPolicyRuntime {
     runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(policy.updateUrl)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
   }
 
-  private fun stateFor(policy: AppVersionPolicy): AppVersionGateState {
-    val minimum = compareAppVersions(BuildConfig.VERSION_NAME, policy.minimumSupportedVersion)
-    if (minimum == null || minimum < 0) return AppVersionGateState.Required(policy)
-    val latest = compareAppVersions(BuildConfig.VERSION_NAME, policy.latestVersion)
-    val mode = if (latest != null && latest < 0) policy.updateMode else AppUpdateMode.NONE
-    return if (mode == AppUpdateMode.REQUIRED) AppVersionGateState.Required(policy) else AppVersionGateState.Ready(policy, mode)
-  }
+  private fun stateFor(policy: AppVersionPolicy): AppVersionGateState = AppVersionGateState.Unavailable
 
   private fun parsePolicy(raw: String): AppVersionPolicy? = runCatching {
     val json = JSONObject(raw)
@@ -212,21 +167,8 @@ internal fun compareAppVersions(left: String, right: String): Int? {
 @Composable
 fun AppVersionGate(content: @Composable () -> Unit) {
   val context = androidx.compose.ui.platform.LocalContext.current.applicationContext
-  val state by AppVersionPolicyRuntime.state.collectAsState()
-  val scope = rememberCoroutineScope()
   LaunchedEffect(Unit) { AppVersionPolicyRuntime.refresh(context) }
-
-  when (val current = state) {
-    is AppVersionGateState.Required -> GateTheme {
-      BackHandler(enabled = true) { }
-      UpdateRequiredScreen(
-        policy = current.policy,
-        onUpdate = { AppVersionPolicyRuntime.openUpdate(context, current.policy) },
-        onRetry = { scope.launch { AppVersionPolicyRuntime.refresh(context) } },
-      )
-    }
-    else -> content() // Fails open immediately so app launches without any dummy loading screen; background refresh will block only if update is required.
-  }
+  content()
 }
 
 @Composable

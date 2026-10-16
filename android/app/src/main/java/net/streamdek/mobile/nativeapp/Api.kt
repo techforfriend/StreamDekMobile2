@@ -815,9 +815,7 @@ class StreamDekApiClient(context: Context? = null) {
       val started = System.currentTimeMillis()
       try {
         chain.proceed(request).also { response ->
-          if (response.code == 426) {
-            AppVersionPolicyRuntime.acceptUnsupportedResponse(response.peekBody(64 * 1024L).string())
-          }
+          // HTTP 426 ignored to prevent locking app on custom versions
           if (!response.isSuccessful) {
             android.util.Log.w(
               "StreamDekApi",
