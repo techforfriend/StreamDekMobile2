@@ -201,7 +201,7 @@ internal fun PlayerEpisodePanel(
             .playerGlass(
               shape = EpisodePanelShape,
               borderAlpha = 0.20f,
-              baseColor = Color(0xE80D1322),
+              baseColor = Color(0xE8121212),
               borderWidth = 1.dp
             )
             // Swallows taps on the sheet itself, so only the picture beside it dismisses.
@@ -276,7 +276,7 @@ internal fun PlayerEpisodePanel(
                     .playerGlass(
                       shape = StreamDekRadius.pill,
                       borderAlpha = if (selected) 0.35f else 0.16f,
-                      baseColor = if (selected) accent else Color(0x550F172A),
+                      baseColor = if (selected) accent else Color(0x55141414),
                       borderWidth = 1.dp
                     )
                     .clickable { season = summary.seasonNumber }
@@ -399,7 +399,7 @@ private fun PlayerEpisodeRow(
       .playerGlass(
         shape = EpisodeRowShape,
         borderAlpha = if (playing) 0.35f else 0.15f,
-        baseColor = if (playing) accent.copy(alpha = 0.22f) else Color(0x550F172A),
+        baseColor = if (playing) accent.copy(alpha = 0.22f) else Color(0x55141414),
         borderWidth = 1.dp
       )
       .clickable(enabled = !unreleased, onClick = onClick)

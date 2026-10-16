@@ -353,7 +353,7 @@ fun Modifier.playerGlass(
   shape: Shape = StreamDekRadius.cardShape,
   borderAlpha: Float = 0.18f,
   glareAlpha: Float = 0f,
-  baseColor: Color = Color(0x600B0E18),
+  baseColor: Color = Color(0x60000000),
   borderWidth: Dp = 1.dp,
 ): Modifier = this
   .border(

@@ -1975,9 +1975,9 @@ private fun LiveFavouriteDrawer(
       Brush.horizontalGradient(
         colorStops = arrayOf(
           0f to Color.Transparent,
-          0.18f to Color(0xA613161D),
-          0.48f to Color(0xDD13161D),
-          1f to Color(0xF013161D),
+          0.18f to Color(0xA6121212),
+          0.48f to Color(0xDD121212),
+          1f to Color(0xF0121212),
         ),
       ),
     ),
@@ -2533,9 +2533,9 @@ private fun PlayerBottomControls(
         Brush.verticalGradient(
           listOf(
             Color.Transparent,
-            Color(0x220B101D),
-            Color(0x88060A12),
-            Color(0xCC030509)
+            Color(0x22000000),
+            Color(0x88000000),
+            Color(0xCC000000)
           )
         )
       )
@@ -2555,7 +2555,7 @@ private fun PlayerBottomControls(
             .playerGlass(
               shape = CircleShape,
               borderAlpha = 0.18f,
-              baseColor = Color(0x600B101B),
+              baseColor = Color(0x60000000),
               borderWidth = 0.8.dp
             )
             .padding(vertical = 5.dp),
@@ -2619,7 +2619,7 @@ private fun PlayerBottomControls(
             .playerGlass(
               shape = CircleShape,
               borderAlpha = 0.18f,
-              baseColor = Color(0x600B101B),
+              baseColor = Color(0x60000000),
               borderWidth = 0.8.dp
             )
             .padding(vertical = 5.dp),
@@ -2657,7 +2657,7 @@ private fun PlayerBottomControls(
           .playerGlass(
             shape = if (minimal) RoundedCornerShape(12.dp) else StreamDekRadius.sheetShape,
             borderAlpha = 0.18f,
-            baseColor = Color(0x660B0E18),
+            baseColor = Color(0x66000000),
             borderWidth = 1.dp
           )
           .padding(
@@ -2789,9 +2789,9 @@ private fun androidx.compose.foundation.layout.BoxScope.PlayerTopHeader(
       .background(
         Brush.verticalGradient(
           listOf(
-            Color(0xCC050811),
-            Color(0x88090E1A),
-            Color(0x220C1322),
+            Color(0xCC000000),
+            Color(0x88000000),
+            Color(0x22000000),
             Color.Transparent
           )
         )
@@ -2900,7 +2900,7 @@ private fun PlayerSourceCard(
       .playerGlass(
         shape = shape,
         borderAlpha = if (active) 0.35f else 0.16f,
-        baseColor = if (active) Color(0x601E3A8A) else Color(0x550F172A),
+        baseColor = if (active) Color(0x60334155) else Color(0x55141414),
         borderWidth = 1.dp
       )
       .clickable(onClick = onClick),
@@ -2996,7 +2996,7 @@ private fun PlayerModalPanel(title: String, onClose: () -> Unit, trailing: @Comp
         .playerGlass(
           shape = StreamDekRadius.sheetShape,
           borderAlpha = 0.20f,
-          baseColor = Color(0xE00E1424),
+          baseColor = Color(0xE8121212),
           borderWidth = 1.dp
         )
         .clickable(onClick = {})
@@ -3162,7 +3162,7 @@ private fun PlayerOptionRow(label: String, selected: Boolean, supportingText: St
       .playerGlass(
         shape = StreamDekRadius.thumbShape,
         borderAlpha = if (selected) 0.35f else 0.16f,
-        baseColor = if (selected) Color(0xB02563EB) else Color(0x500F172A),
+        baseColor = if (selected) Color(0xB02563EB) else Color(0x50141414),
         borderWidth = 1.dp
       )
       .clickable(onClick = onClick)
@@ -4291,7 +4291,7 @@ private fun BoxScope.PlayerOverlays(
       modifier = Modifier.playerGlass(
         shape = StreamDekRadius.pill,
         borderAlpha = 0.18f,
-        baseColor = Color(0x66121724),
+        baseColor = Color(0x66000000),
         borderWidth = 1.dp
       ),
     ) {
@@ -4325,7 +4325,7 @@ private fun BoxScope.PlayerOverlays(
       modifier = Modifier.playerGlass(
         shape = StreamDekRadius.panelShape,
         borderAlpha = 0.18f,
-        baseColor = Color(0x66121724),
+        baseColor = Color(0x66000000),
         borderWidth = 1.dp
       ),
     ) {
@@ -4361,7 +4361,7 @@ private fun BoxScope.PlayerOverlays(
       modifier = Modifier.playerGlass(
         shape = StreamDekRadius.pill,
         borderAlpha = 0.18f,
-        baseColor = Color(0x660B101D),
+        baseColor = Color(0x66000000),
         borderWidth = 1.dp
       ),
     ) {
@@ -4408,7 +4408,7 @@ private fun BoxScope.PlayerOverlays(
         .playerGlass(
           shape = StreamDekRadius.panelShape,
           borderAlpha = 0.18f,
-          baseColor = Color(0x66121724),
+          baseColor = Color(0x66000000),
           borderWidth = 1.dp
         )
         .pointerInput(session.url) {
@@ -4882,7 +4882,7 @@ private fun UpNextPanel(
   val primary = primaryRecommendation
   Surface(
     modifier = Modifier.widthIn(min = 320.dp, max = 400.dp),
-    color = Color(0xF214171C),
+    color = Color(0xF2141414),
     shape = RoundedCornerShape(18.dp),
     border = BorderStroke(1.dp, Color.White.copy(alpha = 0.14f)),
     tonalElevation = 10.dp,
@@ -5087,7 +5087,7 @@ private fun BoxScope.PlayerSurfaceOverlays(
       modifier = Modifier.playerGlass(
         shape = CircleShape,
         borderAlpha = 0.18f,
-        baseColor = Color(0x600B101D),
+        baseColor = Color(0x60000000),
         borderWidth = 1.dp
       ),
     ) {
@@ -5116,7 +5116,7 @@ private fun BoxScope.PlayerSurfaceOverlays(
       modifier = Modifier.playerGlass(
         shape = CircleShape,
         borderAlpha = 0.18f,
-        baseColor = Color(0x600B101D),
+        baseColor = Color(0x60000000),
         borderWidth = 1.dp
       ),
     ) {
@@ -5135,7 +5135,7 @@ private fun BoxScope.PlayerSurfaceOverlays(
       modifier = Modifier.playerGlass(
         shape = StreamDekRadius.panelShape,
         borderAlpha = 0.20f,
-        baseColor = Color(0xD0121724),
+        baseColor = Color(0xD0121212),
         borderWidth = 1.dp
       ),
     ) {
@@ -5238,7 +5238,7 @@ private fun BoxScope.PlayerSurfaceOverlays(
       modifier = Modifier.playerGlass(
         shape = StreamDekRadius.pill,
         borderAlpha = 0.18f,
-        baseColor = Color(0x70121724),
+        baseColor = Color(0x70121212),
         borderWidth = 1.dp
       ),
     ) {

@@ -23132,7 +23132,7 @@ private fun SettingsTab(
                 onHomeCardTextModeChange(HomeCardTextMode.fromKey(selected))
               }
               SettingsDivider()
-              SettingsNavRow("GRID", Color(0xFF38BDF8), stringResource(R.string.settings_m_home_rows), stringResource(R.string.settings_m_choose_which_rows_appear_on_home_and), value = AppFormats.number(LocalAppLanguage.current, uiState.homeCatalogRows.count { it.enabled }), onClick = { onRouteChange(SettingsRoute.HomeLayout) })
+              SettingsNavRow("GRID", Color(0xFF38BDF8), stringResource(R.string.settings_m_home_rows), stringResource(R.string.settings_m_choose_which_rows_appear_on_home_and), value = AppFormats.number(LocalAppLanguage.current, uiState.homeCatalogRows.count { !it.builtin && it.enabled && (!isCloudStreamHomeRowId(it.id) || homeCatalogRowAddonId(it.id) in currentCloudStreamRowGroups()) }), onClick = { onRouteChange(SettingsRoute.HomeLayout) })
               SettingsDivider()
               SettingsChoiceRow("PLAY", Color(0xFF22C55E), stringResource(R.string.settings_row_continue_watching_style), stringResource(R.string.settings_m_choose_how_continue_watching_cards_appear_on), ContinueWatchingStyle.values().map { it.name }, uiState.continueWatchingStyle.name,
               choice = SettingsChoice.ContinueWatchingStyle) { selected ->

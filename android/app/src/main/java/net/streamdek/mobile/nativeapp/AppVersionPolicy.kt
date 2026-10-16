@@ -83,7 +83,7 @@ object AppVersionPolicyRuntime {
   private const val MAX_CACHE_AGE_MS = 7L * 24 * 60 * 60 * 1000
   private val http = OkHttpClient.Builder()
     .connectTimeout(4, TimeUnit.SECONDS).readTimeout(4, TimeUnit.SECONDS).callTimeout(6, TimeUnit.SECONDS).build()
-  private val _state = MutableStateFlow<AppVersionGateState>(AppVersionGateState.Checking)
+  private val _state = MutableStateFlow<AppVersionGateState>(AppVersionGateState.Unavailable)
   val state: StateFlow<AppVersionGateState> = _state
 
   suspend fun refresh(context: Context) = withContext(Dispatchers.IO) {
@@ -217,11 +217,6 @@ fun AppVersionGate(content: @Composable () -> Unit) {
   LaunchedEffect(Unit) { AppVersionPolicyRuntime.refresh(context) }
 
   when (val current = state) {
-    AppVersionGateState.Checking -> GateTheme {
-      Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        Box(contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-      }
-    }
     is AppVersionGateState.Required -> GateTheme {
       BackHandler(enabled = true) { }
       UpdateRequiredScreen(
@@ -230,7 +225,7 @@ fun AppVersionGate(content: @Composable () -> Unit) {
         onRetry = { scope.launch { AppVersionPolicyRuntime.refresh(context) } },
       )
     }
-    else -> content() // A lookup outage fails open; any protected API can still answer with 426.
+    else -> content() // Fails open immediately so app launches without any dummy loading screen; background refresh will block only if update is required.
   }
 }
 
