@@ -741,15 +741,13 @@ private fun HomeCatalogRowItem(
         // The badge replaces the second line rather than joining it: "From AIOStreams" said twice,
         // once as a sentence and once as a chip, is the sort of thing that makes a list of seventy
         // rows unreadable.
-        sourceLabel?.let {
-          Text(
-            it,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = contentAlpha * 0.48f),
-            style = MaterialTheme.typography.labelSmall,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-          )
-        }
+        sourceLabel != null -> Text(
+          sourceLabel,
+          color = MaterialTheme.colorScheme.onBackground.copy(alpha = contentAlpha * 0.48f),
+          style = MaterialTheme.typography.labelSmall,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
+        )
         row.subtitleRes != null -> Text(
           if (row.subtitleArg != null) stringResource(row.subtitleRes, row.subtitleArg) else stringResource(row.subtitleRes),
           style = MaterialTheme.typography.bodySmall,
