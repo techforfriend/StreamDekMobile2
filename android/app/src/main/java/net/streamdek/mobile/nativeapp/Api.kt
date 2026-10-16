@@ -946,9 +946,10 @@ class StreamDekApiClient(context: Context? = null) {
   val apiBaseUrl: String = BuildConfig.API_BASE_URL.trimEnd('/') + API_PATH_PREFIX
 
   init {
-    appContext?.let { ctx ->
+    val ctx = appContext
+    if (ctx != null) {
       CompatVersionProvider.init(ctx)
-      kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+      Thread {
         runCatching {
           val req = Request.Builder()
             .url("$apiBaseUrl/public/app-version-policy")
@@ -965,7 +966,7 @@ class StreamDekApiClient(context: Context? = null) {
             }
           }
         }
-      }
+      }.start()
     }
   }
 
