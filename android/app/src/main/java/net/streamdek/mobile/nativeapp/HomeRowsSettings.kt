@@ -148,7 +148,7 @@ internal fun CatalogHomeLayoutSettings(
   // exactly as they were. Moving rows still works on the full layout, so their places hold too.
   val offeredRows = remember(localRows, cloudStreamGroups) {
     localRows.filter { row ->
-      !isCloudStreamHomeRowId(row.id) || homeCatalogRowAddonId(row.id) in cloudStreamGroups
+      !row.builtin && (!isCloudStreamHomeRowId(row.id) || homeCatalogRowAddonId(row.id) in cloudStreamGroups)
     }
   }
   // What the screen lists, in the order Home will draw it. In By source that is the grouped view of
@@ -166,6 +166,7 @@ internal fun CatalogHomeLayoutSettings(
       fallbackAddonName = fallbackAddonName,
       cloudStreamGroups = cloudStreamGroups,
     )
+      .filterNot { it.key == STREAMDEK_ROW_GROUP_KEY }
       // Rows whose add-on is gone cannot reach Home whatever order they are in, so they sit at the
       // end rather than in the middle of an arrangement of sources that do.
       .sortedBy { it.key == ORPHAN_ROW_GROUP_KEY }
