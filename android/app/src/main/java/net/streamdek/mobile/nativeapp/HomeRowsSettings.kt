@@ -349,6 +349,7 @@ private fun GroupedHomeRowsSection(
                 onMove = { direction -> onMoveRowWithin(row.id, siblingIds, direction) },
                 reorderThresholdPx = reorderThresholdPx,
                 dragScrollBy = dragScrollBy,
+                sourceLabel = sourceLabels[group.key],
               )
             }
           }
@@ -740,16 +741,11 @@ private fun HomeCatalogRowItem(
         // The badge replaces the second line rather than joining it: "From AIOStreams" said twice,
         // once as a sentence and once as a chip, is the sort of thing that makes a list of seventy
         // rows unreadable.
-        sourceLabel != null -> Box(
-          modifier = Modifier
-            .clip(StreamDekRadius.pill)
-            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
-            .padding(horizontal = 9.dp, vertical = 3.dp),
-        ) {
+        sourceLabel?.let {
           Text(
-            sourceLabel,
+            it,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = contentAlpha * 0.48f),
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
           )
