@@ -1068,7 +1068,8 @@ fun NativePlayerScreen(
     if (session.isLive) onChannelSwitchPlaybackStarted()
     duration = loadedDuration
     error = null
-    if (session.autoLoadSubtitles && !userPickedSubtitle && !subtitleDisabledByUser && selectedSubtitleTrackId == null &&
+    val isSubtitleNone = Languages.normalize(session.subtitleLanguage) == Languages.NONE
+    if (!isSubtitleNone && session.autoLoadSubtitles && !userPickedSubtitle && !subtitleDisabledByUser && selectedSubtitleTrackId == null &&
       subtitleSourceAllowsOrigin(session.subtitleDefaultSource, ExternalSubtitleOrigin.BuiltIn)
     ) {
       val preferredLanguages = preferredSubtitleLanguages(session.subtitleLanguage, session.secondarySubtitleLanguage)
@@ -1076,6 +1077,9 @@ fun NativePlayerScreen(
         selectedSubtitleTrackId = preferredSubtitle.id
         activeSetSubtitleTrack(preferredSubtitle.id)
       }
+    } else if (isSubtitleNone && !userPickedSubtitle) {
+      selectedSubtitleTrackId = null
+      activeDisableSubtitleTrack()
     }
     if (pendingEngineResumeSeconds > 0.0 && loadedDuration > 0.0) {
       val resumeAt = pendingEngineResumeSeconds.coerceIn(0.0, (loadedDuration - 2.0).coerceAtLeast(0.0))
@@ -1223,6 +1227,7 @@ fun NativePlayerScreen(
         activeSetAudioTrack(preferredAudio.id)
       }
     }
+    val isSubtitleNone = Languages.normalize(session.subtitleLanguage) == Languages.NONE
     if (userPickedSubtitle || subtitleDisabledByUser) {
       when {
         subtitleDisabledByUser -> selectedSubtitleTrackId = null
@@ -1233,19 +1238,19 @@ fun NativePlayerScreen(
           if (preferredSubtitle != null && subtitleId != preferredSubtitle.id) activeSetSubtitleTrack(preferredSubtitle.id)
         }
       }
-    } else if (hasLoaded) {
+    } else {
       selectedSubtitleTrackId = subtitleId
-      val allowedLanguages = preferredSubtitleLanguages(session.subtitleLanguage, session.secondarySubtitleLanguage)
-      val preferredSubtitle = subtitles.firstOrNull {
+      val allowedLanguages = if (isSubtitleNone) emptyList() else preferredSubtitleLanguages(session.subtitleLanguage, session.secondarySubtitleLanguage)
+      val preferredSubtitle = if (isSubtitleNone) null else subtitles.firstOrNull {
         !(session.isLive && it.speculative) && normalizeSubtitleLanguage(it.language ?: it.title) in allowedLanguages
       }
       when {
-        session.autoLoadSubtitles && subtitleSourceAllowsOrigin(session.subtitleDefaultSource, ExternalSubtitleOrigin.BuiltIn) &&
+        !isSubtitleNone && session.autoLoadSubtitles && subtitleSourceAllowsOrigin(session.subtitleDefaultSource, ExternalSubtitleOrigin.BuiltIn) &&
           preferredSubtitle != null && subtitleId != preferredSubtitle.id -> {
           selectedSubtitleTrackId = preferredSubtitle.id
           activeSetSubtitleTrack(preferredSubtitle.id)
         }
-        (!session.autoLoadSubtitles || preferredSubtitle == null ||
+        (isSubtitleNone || !session.autoLoadSubtitles || preferredSubtitle == null ||
           !subtitleSourceAllowsOrigin(session.subtitleDefaultSource, ExternalSubtitleOrigin.BuiltIn)) && subtitleId != null -> {
           selectedSubtitleTrackId = null
           activeDisableSubtitleTrack()
@@ -2899,9 +2904,10 @@ private fun PlayerSourceCard(
       .fillMaxWidth()
       .playerGlass(
         shape = shape,
-        borderAlpha = if (active) 0.35f else 0.16f,
-        baseColor = if (active) Color(0x60334155) else Color(0x55141414),
-        borderWidth = 1.dp
+        borderAlpha = if (active) 0.85f else 0.16f,
+        baseColor = if (active) MaterialTheme.colorScheme.primary.copy(alpha = 0.25f) else Color(0x55141414),
+        borderWidth = if (active) 2.dp else 1.dp,
+        borderColor = if (active) MaterialTheme.colorScheme.primary else null,
       )
       .clickable(onClick = onClick),
   ) {
@@ -3655,7 +3661,7 @@ private suspend fun fetchSkipSegments(session: PlayerSession): List<SkipSegment>
   Log.i("StreamDekPlayback", "timing provider=$actual preferred=$preferred fallback=no_usable_data segments=${alternate.size}")
   alternate
 }
-private fun streamsRepresentSameSource(candidate: AddonStream, current: AddonStream?): Boolean {
+internal fun streamsRepresentSameSource(candidate: AddonStream, current: AddonStream?): Boolean {
   current ?: return false
   if (addonStreamPlaybackIdentity(candidate) == addonStreamPlaybackIdentity(current)) return true
   // The address alone is not enough: the stream being played can carry a different URL from the
@@ -3666,7 +3672,7 @@ private fun streamsRepresentSameSource(candidate: AddonStream, current: AddonStr
     streamListingIdentity(candidate) == streamListingIdentity(current)
 }
 
-private fun streamListingIdentity(stream: AddonStream): String =
+internal fun streamListingIdentity(stream: AddonStream): String =
   listOf(stream.infoHash, stream.fileIdx?.toString(), stream.bingeGroup, stream.filename, stream.name, stream.title, stream.quality, stream.size)
     .joinToString("|") { it.orEmpty().trim().lowercase() }
 
@@ -4808,7 +4814,8 @@ LaunchedEffect(playbackIdentity, session.autoLoadSubtitles, playerView, exoPlaye
   val results = fetchExternalSubtitles(session, userSubtitleSources)
   externalSubtitles = results
   // Auto-selection is the part that has to respect those two, not the lookup above.
-  if (session.autoLoadSubtitles && selectedSubtitleTrackId == null && selectedExternalSubtitleId == null &&
+  val isSubtitleNone = Languages.normalize(session.subtitleLanguage) == Languages.NONE
+  if (!isSubtitleNone && session.autoLoadSubtitles && selectedSubtitleTrackId == null && selectedExternalSubtitleId == null &&
     !subtitleDisabledByUser && !userPickedSubtitle
   ) {
     val preferredLanguages = preferredSubtitleLanguages(session.subtitleLanguage, session.secondarySubtitleLanguage)

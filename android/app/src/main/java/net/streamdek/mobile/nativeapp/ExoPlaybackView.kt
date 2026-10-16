@@ -347,28 +347,40 @@ class ExoPlaybackView @JvmOverloads constructor(
     preferredSubtitleLanguage = Languages.normalize(primary)
     secondarySubtitleLanguage = Languages.normalize(secondary)
     useForcedSubtitles = useForced
+    if (preferredSubtitleLanguage == Languages.NONE) {
+      subtitlesHidden = true
+      applySubtitleVisibility()
+    }
     applyLanguagePreferences()
   }
 
   private fun applyLanguagePreferences(target: ExoPlayer? = exoPlayer) {
     val active = target ?: return
     val audioTags = orderedLanguageTags(preferredAudioLanguage, secondaryAudioLanguage)
-    val subtitleTags = (Languages.tags(preferredSubtitleLanguage) + Languages.tags(secondarySubtitleLanguage)).distinct()
+    val isSubtitleNone = preferredSubtitleLanguage == Languages.NONE
+    val subtitleTags = if (isSubtitleNone) emptyList() else (Languages.tags(preferredSubtitleLanguage) + Languages.tags(secondarySubtitleLanguage)).distinct()
     // Forced only applies when the spoken language is one the viewer reads: matched against the
     // audio actually asked for, since that is the language the release will be playing in.
-    val audioMatchesSubtitles = useForcedSubtitles &&
+    val audioMatchesSubtitles = !isSubtitleNone && useForcedSubtitles &&
       preferredSubtitleLanguage.isNotEmpty() &&
       (Languages.matches(preferredAudioLanguage, preferredSubtitleLanguage) ||
         Languages.matches(secondaryAudioLanguage, preferredSubtitleLanguage))
     active.trackSelectionParameters = active.trackSelectionParameters.buildUpon()
       .apply {
         if (audioTags.isNotEmpty()) setPreferredAudioLanguages(*audioTags.toTypedArray())
-        if (subtitleTags.isNotEmpty()) setPreferredTextLanguages(*subtitleTags.toTypedArray())
-        // Role flags decide between the full track and the forced one within the chosen language.
-        setPreferredTextRoleFlags(if (audioMatchesSubtitles) C.ROLE_FLAG_SUBTITLE or C.ROLE_FLAG_DESCRIBES_MUSIC_AND_SOUND else 0)
-        // An untagged text track is a coin toss; only take one when the viewer asked for no
-        // particular language, otherwise a stray track overrides a considered preference.
-        setSelectUndeterminedTextLanguage(subtitleTags.isEmpty())
+        if (isSubtitleNone) {
+          setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+          clearOverridesOfType(C.TRACK_TYPE_TEXT)
+          setSelectUndeterminedTextLanguage(false)
+        } else {
+          setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+          if (subtitleTags.isNotEmpty()) setPreferredTextLanguages(*subtitleTags.toTypedArray())
+          // Role flags decide between the full track and the forced one within the chosen language.
+          setPreferredTextRoleFlags(if (audioMatchesSubtitles) C.ROLE_FLAG_SUBTITLE or C.ROLE_FLAG_DESCRIBES_MUSIC_AND_SOUND else 0)
+          // An untagged text track is a coin toss; only take one when the viewer asked for no
+          // particular language, otherwise a stray track overrides a considered preference.
+          setSelectUndeterminedTextLanguage(subtitleTags.isEmpty())
+        }
       }
       .build()
   }

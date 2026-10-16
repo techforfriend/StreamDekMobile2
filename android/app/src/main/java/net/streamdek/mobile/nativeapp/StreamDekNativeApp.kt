@@ -1333,6 +1333,7 @@ private data class AppUiState(
    * exit path having to remember to clear it.
    */
   val launchingStreamKey: String? = null,
+  val lastPlayedStreamKey: String? = null,
   val availableStreams: List<AddonStream> = emptyList(),
   val profilesLoading: Boolean = false,
   val profiles: List<StreamProfile> = emptyList(),
@@ -1498,7 +1499,7 @@ private data class AppUiState(
   val catalogNextPages: Map<String, Int> = emptyMap(),
   val fusionBadgeUrls: List<String> = listOf(DEFAULT_FUSION_BADGE_URL),
   val activeFusionBadgeUrl: String? = null,
-  val autoUpdateChecksEnabled: Boolean = true,
+  val autoUpdateChecksEnabled: Boolean = false,
   val updateChecking: Boolean = false,
   val updateDownloading: Boolean = false,
   val updateProgress: Float? = null,
@@ -2256,7 +2257,7 @@ private class AppSettingsStore(
     ),
     fusionBadgeUrls = parseFusionBadgeUrls(profilePrefs.getString("fusion_badge_urls", null)),
     activeFusionBadgeUrl = profilePrefs.getString("active_fusion_badge_url", null),
-    autoUpdateChecksEnabled = prefs.getBoolean("auto_update_checks", true),
+    autoUpdateChecksEnabled = prefs.getBoolean("auto_update_checks", false),
     playbackSettings = state.playbackSettings.copy(
       pictureInPictureEnabled = prefs.getBoolean("pip_enabled", true),
       decoderMode = normalizeDecoderModeSetting(prefs.getString("decoder_mode", "HW+") ?: "HW+"),
@@ -7917,6 +7918,7 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
           // Which row was chosen, so the sources list can mark that one as resolving. Read only
           // while playerLaunching is set, so no exit path has to remember to clear it.
           launchingStreamKey = addonStreamPlaybackIdentity(stream),
+          lastPlayedStreamKey = addonStreamPlaybackIdentity(stream),
           // Only a source with no direct link of its own can end up in the torrent engine, so this
           // is what the player's loading backdrop watches through resolution and first frame.
           playerLaunchingPeerHash = stream.infoHash?.takeIf { hash ->
@@ -22879,9 +22881,6 @@ private fun SettingsTab(
           SettingsNavRow("UP", Color(0xFF22C55E), stringResource(R.string.settings_m_app_updates), uiState.availableUpdate?.let { stringResource(R.string.settings_summary_version_available, it.versionName) } ?: stringResource(R.string.settings_summary_version, BuildConfig.VERSION_NAME), onClick = { onRouteChange(SettingsRoute.AppUpdates) })
         }
       }
-      item {
-        SettingsCommunityFooter()
-      }
 
     } else {
       item { SettingsDetailHeader(route = route) }
@@ -24691,37 +24690,7 @@ private const val KOFI_URL = "https://ko-fi.com/streamdek/goal?g=0"
  * talk.
  */
 @Composable
-private fun SettingsCommunityFooter() {
-  val context = LocalContext.current
-  @Composable
-  fun FooterLink(labelRes: Int, url: String, logo: Int? = null) {
-    TextButton(
-      onClick = { openExternalUrl(context, url) },
-      modifier = Modifier.heightIn(min = 48.dp),
-      contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
-      colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant),
-    ) {
-      if (logo != null) {
-        androidx.compose.foundation.Image(painter = painterResource(logo), contentDescription = null, modifier = Modifier.size(20.dp))
-        Spacer(Modifier.width(6.dp))
-      }
-      Text(stringResource(labelRes), fontSize = 13.sp, fontWeight = FontWeight.Medium)
-      Spacer(Modifier.width(6.dp))
-      Icon(Icons.Rounded.OpenInNew, contentDescription = null, modifier = Modifier.size(14.dp))
-    }
-  }
-  Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-    Row(
-      horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
-      verticalAlignment = Alignment.CenterVertically,
-    ) {
-      FooterLink(R.string.settings_community_discord, "https://discord.gg/Sk4Jf8sba")
-      FooterLink(R.string.settings_community_telegram, "https://t.me/StreamDekApp")
-    }
-    // Ko-fi's own cup, so the one link that asks for something says plainly whose page it opens.
-    FooterLink(R.string.settings_community_kofi, KOFI_URL, logo = R.drawable.kofi_logo)
-  }
-}
+private fun SettingsCommunityFooter() {}
 
 @Composable
 internal fun SettingsNavRow(icon: String, iconColor: Color, title: String, subtitle: String, value: String? = null, onClick: () -> Unit) {
@@ -29067,17 +29036,6 @@ private fun AppUpdatesSettingsSummary(uiState: AppUiState, onAutoCheckChange: (B
   val release = uiState.availableUpdate
   Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
     SettingsSection(stringResource(R.string.settings_m_app_updates)) {
-      SettingsSwitchRow("UP", Color(0xFF22C55E), stringResource(R.string.settings_m_check_automatically), stringResource(R.string.settings_m_let_streamdek_notify_you_when_a_new), uiState.autoUpdateChecksEnabled, onAutoCheckChange)
-      SettingsDivider()
-      SettingsNavRow(
-        "DL",
-        Color(0xFF38BDF8),
-        stringResource(R.string.settings_m_check_for_updates),
-        uiState.updateErrorMessage ?: uiState.updateStatusMessage?.resolve() ?: stringResource(R.string.settings_update_check_now),
-        value = when { uiState.updateChecking -> stringResource(R.string.settings_update_state_checking); release != null -> stringResource(R.string.settings_update_state_available); else -> stringResource(R.string.settings_update_state_current) },
-        onClick = onCheckNow,
-      )
-      SettingsDivider()
       SettingsStaticRow("APP", Color(0xFF94A3B8), stringResource(R.string.update_current_version), BuildConfig.VERSION_NAME)
     }
     if (release != null) {
@@ -32412,14 +32370,20 @@ private fun StreamResultCard(
   // Whether this is the row the app is currently turning into a playback URL. Marked with a ring
   // around the card and nothing else: the inside of the card belongs to whoever sent the result,
   // and an overlay on top of it would hide the very text somebody chose the row by.
-  val resolving = uiState.playerLaunching && uiState.launchingStreamKey == addonStreamPlaybackIdentity(stream)
+  val streamIdentity = remember(stream) { addonStreamPlaybackIdentity(stream) }
+  val resolving = uiState.playerLaunching && uiState.launchingStreamKey == streamIdentity
+  val isCurrentPlaybackStream = resolving ||
+    (uiState.playerSession?.currentStream != null && streamsRepresentSameSource(stream, uiState.playerSession?.currentStream)) ||
+    (uiState.lastPlayedStreamKey != null && uiState.lastPlayedStreamKey == streamIdentity)
   val resolvingRing = MaterialTheme.colorScheme.primary
+  val activeCardColor = if (streamLightMode) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
+  val effectiveCardColor = if (isCurrentPlaybackStream) activeCardColor else streamCardColor
   // The size badge and the "ready" pill share the card's top right corner. How wide they are is
   // not known ahead of time -- a size is a few characters, a ready label depends on the service,
   // and either may be absent -- so the corner is measured and the header lines beside it give up
   // exactly that much room. This replaces a fixed 174dp reserve that only fitted the ready pill.
   val sizeText = remember(stream, uiState.showSizeBadges) { if (uiState.showSizeBadges) streamSizeLabel(stream) else null }
-  val hasCornerBadges = sizeText != null || readyProvider != null
+  val hasCornerBadges = sizeText != null || readyProvider != null || isCurrentPlaybackStream
   var cornerWidthPx by remember { mutableIntStateOf(0) }
   val cornerReserve = if (hasCornerBadges) with(LocalDensity.current) { cornerWidthPx.toDp() } + 10.dp else 0.dp
   Card(
@@ -32434,9 +32398,9 @@ private fun StreamResultCard(
         onLongPress = if (downloadable) onLongPress else null,
       )
       .then(
-        if (resolving) Modifier.border(1.5.dp, resolvingRing.copy(alpha = 0.72f), StreamDekRadius.panelShape) else Modifier,
+        if (isCurrentPlaybackStream) Modifier.border(2.dp, resolvingRing, StreamDekRadius.panelShape) else Modifier,
       ),
-    colors = CardDefaults.cardColors(containerColor = streamCardColor),
+    colors = CardDefaults.cardColors(containerColor = effectiveCardColor),
     shape = StreamDekRadius.panelShape,
   ) {
     Box(modifier = Modifier.fillMaxWidth()) {
@@ -32584,6 +32548,22 @@ private fun StreamResultCard(
           horizontalArrangement = Arrangement.spacedBy(6.dp),
           verticalAlignment = Alignment.CenterVertically,
         ) {
+          if (isCurrentPlaybackStream) {
+            Box(
+              modifier = Modifier
+                .clip(StreamDekRadius.pill)
+                .background(MaterialTheme.colorScheme.primary)
+                .padding(horizontal = 9.dp, vertical = 4.dp),
+              contentAlignment = Alignment.Center,
+            ) {
+              Text(
+                if (resolving) "Starting..." else "Playing",
+                color = MaterialTheme.colorScheme.onPrimary,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Black,
+              )
+            }
+          }
           readyProvider?.let { provider ->
             Box(
               modifier = Modifier

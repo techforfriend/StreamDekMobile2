@@ -37,6 +37,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.unit.Dp
 
 /**
@@ -355,10 +356,11 @@ fun Modifier.playerGlass(
   glareAlpha: Float = 0f,
   baseColor: Color = Color(0x60000000),
   borderWidth: Dp = 1.dp,
+  borderColor: Color? = null,
 ): Modifier = this
   .border(
     width = borderWidth,
-    brush = Brush.verticalGradient(
+    brush = if (borderColor != null) SolidColor(borderColor) else Brush.verticalGradient(
       listOf(
         Color.White.copy(alpha = borderAlpha),
         Color.White.copy(alpha = borderAlpha * 0.4f),

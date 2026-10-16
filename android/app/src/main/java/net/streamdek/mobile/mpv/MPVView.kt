@@ -627,7 +627,12 @@ class MPVView @JvmOverloads constructor(
         pendingPreferredSubtitleLanguage = Languages.normalize(primary)
         pendingSecondarySubtitleLanguage = Languages.normalize(secondary)
         if (initialized && !isDestroyed) {
-            subtitleLanguageOption()?.let { MPVLib.setPropertyString("slang", it) }
+            if (pendingPreferredSubtitleLanguage == Languages.NONE) {
+                MPVLib.command(arrayOf("set", "sid", "no"))
+                MPVLib.setPropertyString("slang", "")
+            } else {
+                subtitleLanguageOption()?.let { MPVLib.setPropertyString("slang", it) }
+            }
         }
     }
 

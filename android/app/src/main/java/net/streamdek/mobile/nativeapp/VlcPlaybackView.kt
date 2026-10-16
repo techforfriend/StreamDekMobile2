@@ -477,7 +477,12 @@ class VlcPlaybackView @JvmOverloads constructor(
   }
 
   fun setSubtitleLanguages(primary: String?, secondary: String?) {
-    subtitleLanguages = listOfNotNull(primary, secondary).filter { it.isNotBlank() && it != "none" }.distinct()
+    val normPrimary = Languages.normalize(primary)
+    val normSecondary = Languages.normalize(secondary)
+    subtitleLanguages = listOfNotNull(normPrimary, normSecondary).filter { it.isNotBlank() && it != Languages.NONE }.distinct()
+    if (normPrimary == Languages.NONE) {
+      disableSubtitleTrack()
+    }
   }
 
   fun setAudioTrack(trackId: Int) {
