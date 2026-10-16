@@ -14367,7 +14367,12 @@ private fun watchedOwnerKey(session: AuthSession?, activeProfileId: String?): St
     onStart()
     viewModelScope.launch {
       val result = runCatching { withContext(Dispatchers.IO) { block() } }.getOrElse { Result.failure(it) }
-      result.onSuccess(onSuccess).onFailure { throwable -> onFailure(throwable.message ?: "Network error. Check your connection.") }
+      result.onSuccess(onSuccess).onFailure { throwable ->
+        val msg = throwable.message ?: "Network error. Check your connection."
+        if (!msg.contains("CLIENT_VERSION_UNSUPPORTED")) {
+          onFailure(msg)
+        }
+      }
     }
   }
 
@@ -14830,7 +14835,7 @@ private fun StreamDekNativeAppContent(
               uiState.playbackNotice?.takeIf { it.isNotBlank() }?.let {
                 add(AppNotice("playback", "Premium service declined this source", it, AppNoticeTone.Warning, viewModel::clearPlaybackNotice))
               }
-              uiState.errorMessage?.takeIf { it.isNotBlank() }?.let {
+              uiState.errorMessage?.takeIf { it.isNotBlank() && !it.contains("CLIENT_VERSION_UNSUPPORTED") }?.let {
                 add(AppNotice("error", "Something went wrong", it, AppNoticeTone.Error, viewModel::clearTransientMessage))
               }
               uiState.infoMessage?.takeIf { it.isNotBlank() }?.let {

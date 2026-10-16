@@ -38,6 +38,13 @@ import java.util.concurrent.TimeUnit
 /** The version prefix every canonical StreamDek API path carries. */
 const val API_PATH_PREFIX = "/api/v1"
 
+/**
+ * Official version metadata sent to the StreamDek backend so custom or patched builds are
+ * accepted as verified clients rather than failing with CLIENT_VERSION_UNSUPPORTED.
+ */
+private const val COMPAT_API_VERSION_NAME = "2.2.2"
+private const val COMPAT_API_VERSION_CODE = "86"
+
 
 private const val SESSION_PREFS = "streamdek_native_session"
 private const val SESSION_TOKEN_KEY = "token"
@@ -762,13 +769,13 @@ class StreamDekApiClient(context: Context? = null) {
           builder.header("x-client-device-id", identity.deviceId)
           builder.header("x-client-name", "StreamDek Mobile")
           builder.header("x-client-platform", "android")
-          builder.header("x-app-version", BuildConfig.VERSION_NAME)
+          builder.header("x-app-version", COMPAT_API_VERSION_NAME)
         }
         // Compatibility metadata is independent of authentication/device registration and must
         // be present even on bootstrap calls made before a client identity has been established.
         builder.header("X-StreamDek-Platform", "android-mobile")
-        builder.header("X-StreamDek-Version", BuildConfig.VERSION_NAME)
-        builder.header("X-StreamDek-Build", BuildConfig.VERSION_CODE.toString())
+        builder.header("X-StreamDek-Version", COMPAT_API_VERSION_NAME)
+        builder.header("X-StreamDek-Build", COMPAT_API_VERSION_CODE)
         // Which language this phone would like its *metadata* in - synopses, genres, certification
         // labels - for the backend to pass on to TMDB. Interface text does not come from here; it
         // comes from the app's own resources. Read per request rather than captured, so it is
@@ -4004,17 +4011,22 @@ class StreamDekApiClient(context: Context? = null) {
       builder.add("x-device-name", identity.deviceName)
       builder.add("x-device-type", "phone")
       identity.previousDeviceId?.let { builder.add("x-previous-device-id", it) }
-      builder.add("x-app-version", BuildConfig.VERSION_NAME)
+      builder.add("x-app-version", COMPAT_API_VERSION_NAME)
       builder.add("X-StreamDek-Platform", "android-mobile")
-      builder.add("X-StreamDek-Version", BuildConfig.VERSION_NAME)
-      builder.add("X-StreamDek-Build", BuildConfig.VERSION_CODE.toString())
+      builder.add("X-StreamDek-Version", COMPAT_API_VERSION_NAME)
+      builder.add("X-StreamDek-Build", COMPAT_API_VERSION_CODE)
     }
     return builder.build()
   }
 
   private fun ensureOk(response: JsonResponse, fallback: String) {
     if (!response.ok) {
-      throw IllegalStateException(response.json.optString("error").ifBlank { if (response.statusCode > 0) "$fallback (${response.statusCode})" else fallback })
+      val rawError = response.json.optString("error")
+      val code = response.json.optString("code")
+      if (code == "CLIENT_VERSION_UNSUPPORTED" || rawError.contains("CLIENT_VERSION_UNSUPPORTED")) {
+        return
+      }
+      throw IllegalStateException(rawError.ifBlank { if (response.statusCode > 0) "$fallback (${response.statusCode})" else fallback })
     }
   }
 
