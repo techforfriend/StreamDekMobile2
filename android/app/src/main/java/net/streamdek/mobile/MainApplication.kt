@@ -46,43 +46,38 @@ class MainApplication : Application(), ImageLoaderFactory {
       OkHttpClient.Builder()
         .dispatcher(
           Dispatcher().apply {
-            maxRequests = 64
-            // The number that matters. Artwork is one host, so this is effectively the app's
-            // whole artwork concurrency; five made a grid load in visible waves.
-            maxRequestsPerHost = 24
+            maxRequests = 96
+            maxRequestsPerHost = 32
           },
         )
-        // Deep enough that those parallel requests reuse connections instead of paying a TLS
-        // handshake each, and idle long enough to still be warm when the next row scrolls in.
-        .connectionPool(okhttp3.ConnectionPool(32, 5, TimeUnit.MINUTES))
-        // Artwork from the viewer's own media server is fetched with that server's token as a
-        // header, added here per request - so the token is never in an image URL, and never in
-        // the image cache's keys. See MediaServerAuth.
+        .cache(okhttp3.Cache(cacheDir.resolve("image_http_cache"), 256L * 1024 * 1024))
+        .connectionPool(okhttp3.ConnectionPool(48, 10, TimeUnit.MINUTES))
+        .addNetworkInterceptor { chain ->
+          val response = chain.proceed(chain.request())
+          response.newBuilder()
+            .header("Cache-Control", "public, max-age=2592000, max-stale=2592000")
+            .removeHeader("Pragma")
+            .build()
+        }
         .addNetworkInterceptor(net.streamdek.mobile.nativeapp.mediaserver.MediaServerAuth.interceptor)
         .build()
     }
     .memoryCache {
-      // The manifest asks for a large heap, and artwork is what it is for: scrolling back up a
-      // home screen should not re-decode a poster that was on screen four rows ago.
-      MemoryCache.Builder(this).maxSizePercent(0.25).build()
+      MemoryCache.Builder(this)
+        .maxSizePercent(0.35)
+        .strongReferencesEnabled(true)
+        .build()
     }
     .diskCache {
       DiskCache.Builder()
         .directory(cacheDir.resolve("image_cache"))
-        .maxSizeBytes(256L * 1024 * 1024)
+        .maxSizeBytes(512L * 1024 * 1024)
         .build()
     }
+    .allowHardware(true)
+    .allowRgb565(true)
     .respectCacheHeaders(false)
-    // Artwork used to appear by popping from empty to opaque in a single frame, which is the
-    // harshest thing a screen made almost entirely of posters can do.
-    //
-    // This is cheaper than it looks. Coil's crossfade transition sits out any result that came
-    // from the memory cache, so scrolling back over a row that is already decoded still snaps
-    // instantly - the fade is only paid on an image the user has genuinely not seen yet. Two call
-    // sites still pass `crossfade(false)` and should keep it: the profile hero already cross-fades
-    // itself through an AnimatedContent, and a 24dp rating badge is too small for a fade to read
-    // as anything but a flicker.
-    .crossfade(if (animationsDisabled()) 0 else 180)
+    .crossfade(if (animationsDisabled()) 0 else 140)
     .build()
 
   /**
