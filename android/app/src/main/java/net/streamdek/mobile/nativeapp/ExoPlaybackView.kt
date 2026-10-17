@@ -631,7 +631,10 @@ class ExoPlaybackView @JvmOverloads constructor(
 
   private fun applyDialogueEnhancer(target: ExoPlayer? = exoPlayer, explicitSessionId: Int? = null) {
     val active = target ?: return
-    val sessionId = (explicitSessionId ?: active.audioSessionId).takeIf { it != androidx.media3.common.C.AUDIO_SESSION_ID_UNSET && it > 0 } ?: return
+    val sessionId = (explicitSessionId
+      ?: active.audioSessionId.takeIf { it != androidx.media3.common.C.AUDIO_SESSION_ID_UNSET && it > 0 }
+      ?: lastAudioSessionId)
+      .takeIf { it != androidx.media3.common.C.AUDIO_SESSION_ID_UNSET && it > 0 } ?: return
 
     val sessionChanged = (lastAudioSessionId != sessionId)
     if (sessionChanged) {
@@ -643,8 +646,16 @@ class ExoPlaybackView @JvmOverloads constructor(
     }
 
     if (!dialogueEnhancerEnabled) {
-      runCatching { equalizer?.enabled = false }
-      runCatching { loudnessEnhancer?.enabled = false }
+      runCatching {
+        equalizer?.enabled = false
+        equalizer?.release()
+      }
+      runCatching {
+        loudnessEnhancer?.enabled = false
+        loudnessEnhancer?.release()
+      }
+      equalizer = null
+      loudnessEnhancer = null
       return
     }
 
@@ -824,6 +835,9 @@ class ExoPlaybackView @JvmOverloads constructor(
     rendererLogs[active] = rendererLog
     active.addAnalyticsListener(object : androidx.media3.exoplayer.analytics.AnalyticsListener {
       override fun onAudioSessionIdChanged(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, audioSessionId: Int) {
+        if (audioSessionId != androidx.media3.common.C.AUDIO_SESSION_ID_UNSET && audioSessionId > 0) {
+          lastAudioSessionId = audioSessionId
+        }
         if (exoPlayer === active) applyDialogueEnhancer(active, audioSessionId)
       }
       override fun onAudioPositionAdvancing(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, playoutStartSystemTimeMs: Long) {
