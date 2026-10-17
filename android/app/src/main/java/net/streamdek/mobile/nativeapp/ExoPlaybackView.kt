@@ -629,10 +629,9 @@ class ExoPlaybackView @JvmOverloads constructor(
     applyDialogueEnhancer()
   }
 
-  private fun applyDialogueEnhancer(target: ExoPlayer? = exoPlayer) {
+  private fun applyDialogueEnhancer(target: ExoPlayer? = exoPlayer, explicitSessionId: Int? = null) {
     val active = target ?: return
-    val sessionId = active.audioSessionId
-    if (sessionId == androidx.media3.common.C.AUDIO_SESSION_ID_UNSET) return
+    val sessionId = (explicitSessionId ?: active.audioSessionId).takeIf { it != androidx.media3.common.C.AUDIO_SESSION_ID_UNSET && it > 0 } ?: return
 
     val sessionChanged = (lastAudioSessionId != sessionId)
     if (sessionChanged) {
@@ -651,15 +650,20 @@ class ExoPlaybackView @JvmOverloads constructor(
 
     runCatching {
       if (equalizer == null) {
-        equalizer = android.media.audiofx.Equalizer(0, sessionId)
+        equalizer = android.media.audiofx.Equalizer(1000, sessionId)
       }
       equalizer?.let { eq ->
+        val range = runCatching { eq.bandLevelRange }.getOrNull() ?: shortArrayOf(-1500, 1500)
+        val minLevel = range[0]
+        val maxLevel = range[1]
+        val speechBoost = 600.toShort().coerceIn(minLevel, maxLevel)
+        val bassCut = (-300).toShort().coerceIn(minLevel, maxLevel)
         val numBands = eq.numberOfBands
         for (i in 0 until numBands) {
           val centerFreqHz = eq.getCenterFreq(i.toShort()) / 1000
           when {
-            centerFreqHz < 250 -> eq.setBandLevel(i.toShort(), (-250).toShort())
-            centerFreqHz in 1000..4000 -> eq.setBandLevel(i.toShort(), 450.toShort())
+            centerFreqHz < 250 -> eq.setBandLevel(i.toShort(), bassCut)
+            centerFreqHz in 1000..4000 -> eq.setBandLevel(i.toShort(), speechBoost)
             else -> eq.setBandLevel(i.toShort(), 0)
           }
         }
@@ -672,7 +676,7 @@ class ExoPlaybackView @JvmOverloads constructor(
         loudnessEnhancer = android.media.audiofx.LoudnessEnhancer(sessionId)
       }
       loudnessEnhancer?.let {
-        it.setTargetGain(200)
+        it.setTargetGain(350)
         it.enabled = true
       }
     }.onFailure { Log.w(TAG, "Failed to apply LoudnessEnhancer: ${it.message}") }
@@ -820,7 +824,7 @@ class ExoPlaybackView @JvmOverloads constructor(
     rendererLogs[active] = rendererLog
     active.addAnalyticsListener(object : androidx.media3.exoplayer.analytics.AnalyticsListener {
       override fun onAudioSessionIdChanged(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, audioSessionId: Int) {
-        if (exoPlayer === active) applyDialogueEnhancer(active)
+        if (exoPlayer === active) applyDialogueEnhancer(active, audioSessionId)
       }
       override fun onAudioPositionAdvancing(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, playoutStartSystemTimeMs: Long) {
         if (exoPlayer === active) {
