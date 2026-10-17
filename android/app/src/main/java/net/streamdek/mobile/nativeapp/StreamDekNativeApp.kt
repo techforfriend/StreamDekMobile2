@@ -17319,6 +17319,8 @@ private fun HomeTab(uiState: AppUiState, scrollToTopSignal: Int, onReload: () ->
             items = heroItems,
             pagerState = pagerState,
             onOpen = onOpen,
+            onToggleWatchlist = onToggleWatchlist,
+            watchlistItems = uiState.mergedWatchlist,
             showSynopsis = uiState.showHeroSynopsis,
             scrollOffset = { if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset else 0 },
             modifier = Modifier.fillMaxWidth(),
@@ -17595,6 +17597,8 @@ private fun HomeHeroCarousel(
   items: List<MediaItem>,
   pagerState: androidx.compose.foundation.pager.PagerState,
   onOpen: (MediaItem) -> Unit,
+  onToggleWatchlist: (MediaItem) -> Unit = {},
+  watchlistItems: List<MediaItem> = emptyList(),
   showSynopsis: Boolean,
   scrollOffset: () -> Int,
   modifier: Modifier = Modifier,
@@ -17768,14 +17772,56 @@ private fun HomeHeroCarousel(
                 verticalArrangement = Arrangement.spacedBy(heroItemSpacing),
               ) {
                 HomeHeroTitle(item, lightMode)
-                Text(
-                  (listOf(if (item.type == "tv" || item.type == "series") "Series" else "Movie") + item.genres.take(3)).joinToString(" \u00B7 "),
-                  style = MaterialTheme.typography.bodyMedium,
-                  color = Color.White.copy(alpha = 0.72f),
-                  fontWeight = FontWeight.Bold,
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis,
-                )
+
+                Row(
+                  horizontalArrangement = Arrangement.spacedBy(8.dp),
+                  verticalAlignment = Alignment.CenterVertically,
+                ) {
+                  item.rating?.takeIf { it > 0 }?.let { rating ->
+                    Row(
+                      modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xFFE5A00D).copy(alpha = 0.28f))
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                      verticalAlignment = Alignment.CenterVertically,
+                      horizontalArrangement = Arrangement.spacedBy(3.dp),
+                    ) {
+                      Icon(
+                        Icons.Rounded.Star,
+                        contentDescription = null,
+                        tint = Color(0xFFFFC107),
+                        modifier = Modifier.size(13.dp),
+                      )
+                      Text(
+                        String.format(java.util.Locale.US, "%.1f", rating),
+                        color = Color(0xFFFFD54F),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                      )
+                    }
+                  }
+
+                  item.year?.takeIf { it.isNotBlank() }?.let { yr ->
+                    Text(
+                      yr,
+                      style = MaterialTheme.typography.labelMedium,
+                      color = Color.White.copy(alpha = 0.88f),
+                      fontWeight = FontWeight.SemiBold,
+                    )
+                    Text("•", color = Color.White.copy(alpha = 0.40f), style = MaterialTheme.typography.labelMedium)
+                  }
+
+                  val typeGenre = (listOf(if (item.type == "tv" || item.type == "series") "Series" else "Movie") + item.genres.take(2)).joinToString(" • ")
+                  Text(
+                    typeGenre,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color.White.copy(alpha = 0.72f),
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                  )
+                }
+
                 if (showSynopsis && item.description.isNotBlank()) {
                   Text(
                     item.description,
@@ -17793,13 +17839,70 @@ private fun HomeHeroCarousel(
             }
           }
 
-          Button(
-            onClick = { onOpen(currentItem) },
-            colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
-            shape = StreamDekRadius.pill,
-            modifier = Modifier.fillMaxWidth(0.68f),
+          val inWatchlist = remember(currentItem.id, watchlistItems) {
+            watchlistItems.any { it.id == currentItem.id }
+          }
+          Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+            verticalAlignment = Alignment.CenterVertically,
           ) {
-            Text(stringResource(R.string.action_view_details), fontWeight = FontWeight.ExtraBold)
+            Button(
+              onClick = { onOpen(currentItem) },
+              colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
+              shape = StreamDekRadius.pill,
+              contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+              modifier = Modifier.height(40.dp),
+            ) {
+              Icon(
+                Icons.Rounded.PlayArrow,
+                contentDescription = null,
+                tint = Color.Black,
+                modifier = Modifier.size(19.dp),
+              )
+              Spacer(modifier = Modifier.width(6.dp))
+              Text("Watch Now", fontWeight = FontWeight.Black, style = MaterialTheme.typography.labelLarge)
+            }
+
+            Button(
+              onClick = { onToggleWatchlist(currentItem) },
+              colors = ButtonDefaults.buttonColors(
+                containerColor = if (inWatchlist) MaterialTheme.colorScheme.primary.copy(alpha = 0.28f) else Color.White.copy(alpha = 0.16f),
+                contentColor = Color.White,
+              ),
+              shape = StreamDekRadius.pill,
+              contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+              modifier = Modifier.height(40.dp),
+            ) {
+              Icon(
+                if (inWatchlist) Icons.Rounded.Check else Icons.Rounded.Add,
+                contentDescription = null,
+                tint = if (inWatchlist) MaterialTheme.colorScheme.primary else Color.White,
+                modifier = Modifier.size(17.dp),
+              )
+              Spacer(modifier = Modifier.width(6.dp))
+              Text(
+                if (inWatchlist) "In List" else "My List",
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.labelLarge,
+                color = Color.White,
+              )
+            }
+
+            IconButton(
+              onClick = { onOpen(currentItem) },
+              modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.16f)),
+            ) {
+              Icon(
+                Icons.Rounded.Info,
+                contentDescription = stringResource(R.string.action_view_details),
+                tint = Color.White,
+                modifier = Modifier.size(19.dp),
+              )
+            }
           }
         }
       }
@@ -32335,6 +32438,113 @@ private fun StreamQualityBandContent(
   }
 }
 
+private data class StreamSmartBadge(
+  val label: String,
+  val containerColor: Color,
+  val contentColor: Color,
+  val isBold: Boolean = false,
+)
+
+private fun extractSmartStreamBadges(stream: AddonStream): List<StreamSmartBadge> {
+  val badges = mutableListOf<StreamSmartBadge>()
+  val rawText = listOfNotNull(stream.name, stream.title, stream.description, stream.filename).joinToString(" ")
+  val lower = rawText.lowercase()
+
+  // 1. Resolution / Quality
+  when {
+    lower.contains("4k") || lower.contains("2160p") || lower.contains("uhd") -> {
+      badges += StreamSmartBadge("4K UHD", Color(0x33FFB300), Color(0xFFFFD54F), isBold = true)
+    }
+    lower.contains("1080p") || lower.contains("fhd") -> {
+      badges += StreamSmartBadge("1080p FHD", Color(0x2B00B0FF), Color(0xFF80D8FF), isBold = true)
+    }
+    lower.contains("720p") || lower.contains("hd") -> {
+      badges += StreamSmartBadge("720p HD", Color(0x269E9E9E), Color(0xFFE0E0E0))
+    }
+  }
+
+  // 2. Dynamic Range / HDR
+  if (lower.contains("dolby vision") || lower.contains("dolbyvision") || Regex("""\b(dv|dovi)\b""").containsMatchIn(lower)) {
+    badges += StreamSmartBadge("Dolby Vision", Color(0x33AB47BC), Color(0xFFE1BEE7))
+  }
+  if (lower.contains("hdr10+") || lower.contains("hdr10 plus")) {
+    badges += StreamSmartBadge("HDR10+", Color(0x33EC407A), Color(0xFFF8BBD0))
+  } else if (Regex("""\bhdr(10)?\b""").containsMatchIn(lower)) {
+    badges += StreamSmartBadge("HDR10", Color(0x33EC407A), Color(0xFFF8BBD0))
+  }
+
+  // 3. Audio & Language
+  if (Regex("""\b(hindi|hin)\b""").containsMatchIn(lower)) {
+    badges += StreamSmartBadge("Hindi Audio", Color(0x334CAF50), Color(0xFFA5D6A7), isBold = true)
+  }
+  if (Regex("""\bdual[- ]?audio\b""").containsMatchIn(lower)) {
+    badges += StreamSmartBadge("Dual Audio", Color(0x3300897B), Color(0xFF80CBC4), isBold = true)
+  } else if (Regex("""\bmulti[- ]?audio\b""").containsMatchIn(lower) || Regex("""\bmulti\b""").containsMatchIn(lower)) {
+    badges += StreamSmartBadge("Multi Audio", Color(0x330097A7), Color(0xFF80DEEA))
+  }
+
+  if (lower.contains("atmos")) {
+    badges += StreamSmartBadge("Dolby Atmos", Color(0x337E57C2), Color(0xFFD1C4E9))
+  } else if (lower.contains("5.1") || lower.contains("6ch") || lower.contains("ddp5.1") || lower.contains("dd+ 5.1")) {
+    badges += StreamSmartBadge("5.1 Surround", Color(0x2B1E88E5), Color(0xFF90CAF9))
+  } else if (lower.contains("7.1") || lower.contains("8ch")) {
+    badges += StreamSmartBadge("7.1 Audio", Color(0x2B1E88E5), Color(0xFF90CAF9))
+  }
+
+  // 4. Video Codec
+  if (lower.contains("hevc") || lower.contains("x265") || lower.contains("h265") || lower.contains("h.265")) {
+    badges += StreamSmartBadge("HEVC / x265", Color(0x26FFFFFF), Color(0xFFCFD8DC))
+  } else if (lower.contains("av1")) {
+    badges += StreamSmartBadge("AV1", Color(0x2BFF7043), Color(0xFFFFCCBC))
+  }
+
+  // 5. Debrid / Seeders
+  if (lower.contains("rd+") || lower.contains("[rd+]") || lower.contains("realdebrid") || lower.contains("real-debrid")) {
+    badges += StreamSmartBadge("RD+ Cached", Color(0x3300E676), Color(0xFF69F0AE), isBold = true)
+  } else if (lower.contains("ad+") || lower.contains("[ad+]")) {
+    badges += StreamSmartBadge("AD+ Cached", Color(0x3300E676), Color(0xFF69F0AE), isBold = true)
+  } else if (lower.contains("tb+") || lower.contains("[tb+]")) {
+    badges += StreamSmartBadge("TB+ Cached", Color(0x3300E676), Color(0xFF69F0AE), isBold = true)
+  }
+
+  val seederMatch = Regex("""(👤|seeds?[:\s]*|s[:\s]+)(\d+)""").find(rawText)
+  if (seederMatch != null) {
+    val count = seederMatch.groupValues[2]
+    badges += StreamSmartBadge("Seeds: $count", Color(0x26FFFFFF), Color(0xFFB0BEC5))
+  }
+
+  return badges.distinctBy { it.label }.take(6)
+}
+
+@Composable
+private fun SmartStreamBadgesRow(stream: AddonStream, modifier: Modifier = Modifier) {
+  val badges = remember(stream) { extractSmartStreamBadges(stream) }
+  if (badges.isEmpty()) return
+  Row(
+    modifier = modifier.fillMaxWidth(),
+    horizontalArrangement = Arrangement.spacedBy(6.dp),
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
+    badges.forEach { badge ->
+      Box(
+        modifier = Modifier
+          .clip(RoundedCornerShape(4.dp))
+          .background(badge.containerColor)
+          .padding(horizontal = 6.dp, vertical = 2.dp),
+        contentAlignment = Alignment.Center,
+      ) {
+        Text(
+          text = badge.label,
+          color = badge.contentColor,
+          style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+          fontWeight = if (badge.isBold) FontWeight.Black else FontWeight.SemiBold,
+          maxLines = 1,
+        )
+      }
+    }
+  }
+}
+
 /**
  * One result.
  *
@@ -32532,6 +32742,7 @@ private fun StreamResultCard(
           )
         }
       }
+      SmartStreamBadgesRow(stream = stream)
       if (uiState.fusionBadgesEnabled && uiState.badgePosition.equals("Bottom", ignoreCase = true)) {
         FusionBadgeRow(stream = stream, uiState = uiState)
       }

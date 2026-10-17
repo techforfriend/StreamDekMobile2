@@ -199,3 +199,4 @@ jobs:
           files: ${{ steps.apk.outputs.apk_path }}
           generate_release_notes: true
           fail_on_unmatched_files: false
+          prerelease: ${{ contains(github.ref_name, '-pre') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') || contains(github.ref_name, '-alpha') }}
