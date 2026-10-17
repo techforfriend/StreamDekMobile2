@@ -57,6 +57,7 @@ class MPVView @JvmOverloads constructor(
         private const val MPV_LOG_LEVEL_WARN = 3
         private const val DEFAULT_SUBTITLE_COLOR = "#FFFFFFFF"
         private const val DEFAULT_SUBTITLE_OUTLINE_COLOR = "#FF000000"
+        private const val DIALOGUE_ENHANCER_AF = "volume=-3dB,equalizer=f=2200:t=q:w=1.2:g=3.0,equalizer=f=3400:t=q:w=1.2:g=2.0,equalizer=f=180:t=q:w=1.5:g=-3.0,alimiter=limit=0.95"
     }
 
     private val callbackHandler = android.os.Handler(android.os.Looper.getMainLooper())
@@ -210,7 +211,7 @@ class MPVView @JvmOverloads constructor(
             MPVLib.setPropertyDouble("sub-delay", subtitleDelaySeconds)
             MPVLib.setPropertyDouble("audio-delay", audioDelaySeconds)
             if (dialogueEnhancerEnabled) {
-                MPVLib.setPropertyString("af", "equalizer=f=2000:t=q:w=1.2:g=6,equalizer=f=3500:t=q:w=1.2:g=5,equalizer=f=200:t=q:w=1.5:g=-4")
+                MPVLib.setPropertyString("af", DIALOGUE_ENHANCER_AF)
             }
 
             pendingSource?.let { source ->
@@ -775,7 +776,7 @@ class MPVView @JvmOverloads constructor(
         if (!initialized || isDestroyed) return
         if (BuildConfig.DEBUG) Log.i(TAG, "setDialogueEnhancer: $enabled")
         if (enabled) {
-            MPVLib.setPropertyString("af", "equalizer=f=2000:t=q:w=1.2:g=6,equalizer=f=3500:t=q:w=1.2:g=5,equalizer=f=200:t=q:w=1.5:g=-4")
+            MPVLib.setPropertyString("af", DIALOGUE_ENHANCER_AF)
         } else {
             MPVLib.setPropertyString("af", "")
         }

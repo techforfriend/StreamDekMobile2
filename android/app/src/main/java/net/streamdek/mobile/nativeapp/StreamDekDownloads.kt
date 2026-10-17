@@ -84,7 +84,7 @@ data class DownloadEntry(
 @OptIn(UnstableApi::class)
 object StreamDekDownloads {
   private const val DOWNLOAD_DIRECTORY = "downloads"
-  private const val USER_AGENT = "StreamDek/1.0"
+  internal const val DEFAULT_USER_AGENT = "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36 StreamDek/1.0"
 
   @Volatile private var manager: DownloadManager? = null
   @Volatile private var cache: Cache? = null
@@ -98,15 +98,14 @@ object StreamDekDownloads {
     val downloadDirectory = File(appContext.getExternalFilesDir(null) ?: appContext.filesDir, DOWNLOAD_DIRECTORY)
     val downloadCache = SimpleCache(downloadDirectory, NoOpCacheEvictor(), databaseProvider)
     cache = downloadCache
-    val httpDataSourceFactory = DefaultHttpDataSource.Factory().setUserAgent(USER_AGENT).setAllowCrossProtocolRedirects(true)
+    val httpDataSourceFactory = DefaultHttpDataSource.Factory().setUserAgent(DEFAULT_USER_AGENT).setAllowCrossProtocolRedirects(true)
     val cacheDataSourceFactory = CacheDataSource.Factory().setCache(downloadCache).setUpstreamDataSourceFactory(httpDataSourceFactory)
     val executor = Executor(Runnable::run)
-    // Built from an explicit index and downloader factory rather than the convenience constructor
-    // purely so the factory can be wrapped - see [ResilientDownloaderFactory] for why.
+    val defaultDownloaderFactory = DefaultDownloaderFactory(cacheDataSourceFactory, executor)
     manager = DownloadManager(
       appContext,
       DefaultDownloadIndex(databaseProvider),
-      ResilientDownloaderFactory(DefaultDownloaderFactory(cacheDataSourceFactory, executor)),
+      ResilientDownloaderFactory(downloadCache, executor, defaultDownloaderFactory),
     ).apply {
       maxParallelDownloads = 2
       // Done, failed and paused get a notification of their own; see [DownloadNotifications].
@@ -136,12 +135,44 @@ object StreamDekDownloads {
 
   internal fun entryOf(download: Download): DownloadEntry = download.toEntry()
 
-  fun startDownload(id: String, url: String, media: DownloadMedia, mimeType: String?) {
+  fun startDownload(
+    id: String,
+    url: String,
+    media: DownloadMedia,
+    mimeType: String? = null,
+    headers: Map<String, String> = emptyMap(),
+  ) {
+    val resolvedMime = mimeType?.takeIf { it.isNotBlank() } ?: inferMimeType(url)
     val request = DownloadRequest.Builder(id, android.net.Uri.parse(url))
-      .apply { if (!mimeType.isNullOrBlank()) setMimeType(mimeType) }
-      .setData(encodeMedia(media).toByteArray(Charsets.UTF_8))
+      .apply { if (!resolvedMime.isNullOrBlank()) setMimeType(resolvedMime) }
+      .setData(encodeMedia(media, headers).toByteArray(Charsets.UTF_8))
       .build()
-    DownloadService.sendAddDownload(appContext, StreamDekDownloadService::class.java, request, false)
+    DownloadService.sendAddDownload(appContext, StreamDekDownloadService::class.java, request, true)
+  }
+
+  fun inferMimeType(url: String?, hint: String? = null): String? {
+    val lower = (url.orEmpty() + " " + hint.orEmpty()).lowercase()
+    return when {
+      lower.contains(".mpd") || lower.contains("dash") -> androidx.media3.common.MimeTypes.APPLICATION_MPD
+      lower.contains(".m3u8") || lower.contains("hls") -> androidx.media3.common.MimeTypes.APPLICATION_M3U8
+      lower.contains(".mkv") -> androidx.media3.common.MimeTypes.VIDEO_MATROSKA
+      lower.contains(".mp4") -> androidx.media3.common.MimeTypes.VIDEO_MP4
+      else -> null
+    }
+  }
+
+  fun parseHeadersFromData(data: ByteArray?): Map<String, String> {
+    if (data == null || data.isEmpty()) return emptyMap()
+    val raw = runCatching { String(data, Charsets.UTF_8) }.getOrNull() ?: return emptyMap()
+    val json = runCatching { JSONObject(raw) }.getOrNull() ?: return emptyMap()
+    val hJson = json.optJSONObject("headers") ?: return emptyMap()
+    val result = mutableMapOf<String, String>()
+    val keys = hJson.keys()
+    while (keys.hasNext()) {
+      val k = keys.next()
+      result[k] = hJson.optString(k)
+    }
+    return result
   }
 
   fun removeDownload(id: String) {
@@ -163,7 +194,7 @@ object StreamDekDownloads {
    * The media record is stashed in [DownloadRequest.data] at download time - Media3's request
    * model has no fields of its own for any of this, and `data` is exactly what it exposes for it.
    */
-  private fun encodeMedia(media: DownloadMedia): String = JSONObject()
+  private fun encodeMedia(media: DownloadMedia, headers: Map<String, String> = emptyMap()): String = JSONObject()
     .put("v", MEDIA_DATA_VERSION)
     .put("mediaId", media.mediaId)
     .put("mediaType", media.mediaType)
@@ -176,6 +207,11 @@ object StreamDekDownloads {
     .put("episodeNumber", media.episodeNumber)
     .put("episodeTitle", media.episodeTitle)
     .put("runtimeMinutes", media.runtimeMinutes)
+    .apply {
+      if (headers.isNotEmpty()) {
+        put("headers", JSONObject(headers))
+      }
+    }
     .toString()
 
   private fun decodeMedia(download: Download): DownloadMedia = parseDownloadMedia(
@@ -246,11 +282,49 @@ object StreamDekDownloads {
  * removable in the Downloads list, which is the state the user can act on.
  */
 @OptIn(UnstableApi::class)
-private class ResilientDownloaderFactory(private val delegate: DownloaderFactory) : DownloaderFactory {
+private class ResilientDownloaderFactory(
+  private val downloadCache: Cache,
+  private val executor: Executor,
+  private val defaultFactory: DownloaderFactory,
+) : DownloaderFactory {
   override fun createDownloader(request: DownloadRequest): Downloader =
-    runCatching { delegate.createDownloader(request) }.getOrElse { error ->
-      Log.e(TAG, "No downloader for ${request.uri} (mimeType=${request.mimeType}); marking it failed", error)
-      UnsupportedDownloader(error)
+    runCatching {
+      val headers = StreamDekDownloads.parseHeadersFromData(request.data)
+      val userAgent = headers["User-Agent"] ?: headers["user-agent"] ?: StreamDekDownloads.DEFAULT_USER_AGENT
+      val httpFactory = DefaultHttpDataSource.Factory()
+        .setUserAgent(userAgent)
+        .setAllowCrossProtocolRedirects(true)
+        .setDefaultRequestProperties(headers)
+      val cacheDataSourceFactory = CacheDataSource.Factory()
+        .setCache(downloadCache)
+        .setUpstreamDataSourceFactory(httpFactory)
+        .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+
+      val inferredMime = request.mimeType?.takeIf { it.isNotBlank() } ?: StreamDekDownloads.inferMimeType(request.uri.toString())
+      val mediaItem = androidx.media3.common.MediaItem.Builder()
+        .setUri(request.uri)
+        .apply {
+          if (!inferredMime.isNullOrBlank()) setMimeType(inferredMime)
+          if (!request.customCacheKey.isNullOrBlank()) setCustomCacheKey(request.customCacheKey)
+        }
+        .build()
+
+      when (inferredMime) {
+        androidx.media3.common.MimeTypes.APPLICATION_MPD -> androidx.media3.exoplayer.dash.offline.DashDownloader(mediaItem, cacheDataSourceFactory, executor)
+        androidx.media3.common.MimeTypes.APPLICATION_M3U8 -> androidx.media3.exoplayer.hls.offline.HlsDownloader(mediaItem, cacheDataSourceFactory, executor)
+        androidx.media3.common.MimeTypes.APPLICATION_SS -> androidx.media3.exoplayer.smoothstreaming.offline.SsDownloader(mediaItem, cacheDataSourceFactory, executor)
+        else -> {
+          val uriPath = request.uri.path.orEmpty().lowercase()
+          when {
+            uriPath.endsWith(".mpd") -> androidx.media3.exoplayer.dash.offline.DashDownloader(mediaItem, cacheDataSourceFactory, executor)
+            uriPath.endsWith(".m3u8") -> androidx.media3.exoplayer.hls.offline.HlsDownloader(mediaItem, cacheDataSourceFactory, executor)
+            else -> defaultFactory.createDownloader(request)
+          }
+        }
+      }
+    }.getOrElse { error ->
+      Log.e(TAG, "No downloader for ${request.uri} (mimeType=${request.mimeType}); falling back to default", error)
+      runCatching { defaultFactory.createDownloader(request) }.getOrElse { UnsupportedDownloader(error) }
     }
 }
 

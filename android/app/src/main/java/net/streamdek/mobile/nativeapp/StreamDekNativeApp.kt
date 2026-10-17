@@ -9173,33 +9173,40 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
       (stream.url.startsWith("http://", ignoreCase = true) || stream.url.startsWith("https://", ignoreCase = true))
 
   fun downloadStream(stream: AddonStream, title: String) {
-    val url = stream.url ?: return
     if (!isDownloadEligible(stream, isLive = false)) return
-    val id = downloadIdFor(stream)
-    // Record which title this file is, not just its name. Played back later, this is the only
-    // thing that lets the download resolve to a real detail page and carry its own artwork.
-    val detail = uiState.detail
-    val episode = uiState.selectedEpisode
-    StreamDekDownloads.startDownload(
-      id = id,
-      url = url,
-      media = DownloadMedia(
-        mediaId = detail?.id.orEmpty(),
-        mediaType = detail?.type ?: "movie",
-        title = detail?.title?.takeIf { it.isNotBlank() } ?: title,
-        year = detail?.year,
-        poster = detail?.poster,
-        backdrop = detail?.backdrop,
-        titleLogo = detail?.titleLogo,
-        seasonNumber = episode?.seasonNumber,
-        episodeNumber = episode?.episodeNumber,
-        episodeTitle = episode?.name,
-        runtimeMinutes = episode?.runtime ?: detail?.runtimeMinutes,
-      ),
-      mimeType = null,
-    )
-    uiState = uiState.copy(infoMessage = strings.getString(R.string.notice_downloading_title, title))
-    refreshDownloads()
+    viewModelScope.launch {
+      val detail = uiState.detail
+      val episode = uiState.selectedEpisode
+      val resolvedStream = runCatching {
+        if (detail != null) refreshStreamForPlayback(stream, detail, episode) else stream
+      }.getOrDefault(stream)
+      val url = resolvedStream.url ?: return@launch
+      val id = downloadIdFor(resolvedStream)
+      val hint = listOfNotNull(resolvedStream.name, resolvedStream.title, resolvedStream.description, resolvedStream.filename).joinToString(" ")
+      val mime = StreamDekDownloads.inferMimeType(url, hint)
+      StreamDekDownloads.startDownload(
+        id = id,
+        url = url,
+        media = DownloadMedia(
+          mediaId = detail?.id.orEmpty(),
+          mediaType = detail?.type ?: "movie",
+          title = detail?.title?.takeIf { it.isNotBlank() } ?: title,
+          year = detail?.year,
+          poster = detail?.poster,
+          backdrop = detail?.backdrop,
+          titleLogo = detail?.titleLogo,
+          seasonNumber = episode?.seasonNumber,
+          episodeNumber = episode?.episodeNumber,
+          episodeTitle = episode?.name,
+          runtimeMinutes = episode?.runtime ?: detail?.runtimeMinutes,
+        ),
+        mimeType = mime,
+        headers = resolvedStream.requestHeaders,
+      )
+      val notice = runCatching { strings.getString(R.string.notice_downloading_title, title) }.getOrDefault("Downloading $title")
+      uiState = uiState.copy(infoMessage = notice)
+      refreshDownloads()
+    }
   }
 
   fun removeDownload(id: String) {
@@ -32537,99 +32544,103 @@ private fun StreamResultCard(
           modifier = Modifier.padding(end = cornerReserve),
         )
       }
-      Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-          // Above the result rather than under it, and in both modes.
-          //
-          // The television puts it first because it is the thing you scan by when the same
-          // release is offered by five sources. Verbatim mode keeps it too: that mode's promise
-          // is that the add-on's own text is never rewritten, and a line the app adds above it
-          // does not touch a word of what was sent.
-          if (attributionText.isNotEmpty() || originText != null) {
+      Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        // Above the result rather than under it, and in both modes.
+        //
+        // The television puts it first because it is the thing you scan by when the same
+        // release is offered by five sources. Verbatim mode keeps it too: that mode's promise
+        // is that the add-on's own text is never rewritten, and a line the app adds above it
+        // does not touch a word of what was sent.
+        if (attributionText.isNotEmpty() || originText != null) {
+          Row(
+            modifier = Modifier.fillMaxWidth().padding(end = cornerReserve),
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+          ) {
+            // The attribution and the origin travel together and give up their space to the
+            // badge, which is pinned to the right of this row rather than left where it began.
             Row(
-              modifier = Modifier.fillMaxWidth().padding(end = cornerReserve),
+              modifier = Modifier.weight(1f),
               horizontalArrangement = Arrangement.spacedBy(7.dp),
               verticalAlignment = Alignment.CenterVertically,
             ) {
-              // The attribution and the origin travel together and give up their space to the
-              // badge, which is pinned to the right of this row rather than left where it began.
-              Row(
-                modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(7.dp),
-                verticalAlignment = Alignment.CenterVertically,
-              ) {
-                if (attributionText.isNotEmpty()) {
-                  Text(
-                    attributionText,
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Black,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
-                  )
-                }
-                originText?.let {
-                  Text(
-                    it,
-                    color = streamForeground.copy(alpha = 0.48f),
-                    style = MaterialTheme.typography.labelSmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                  )
-                }
+              if (attributionText.isNotEmpty()) {
+                Text(
+                  attributionText,
+                  color = MaterialTheme.colorScheme.primary,
+                  style = MaterialTheme.typography.labelMedium,
+                  fontWeight = FontWeight.Black,
+                  maxLines = 1,
+                  overflow = TextOverflow.Ellipsis,
+                  modifier = Modifier.weight(1f, fill = false),
+                )
+              }
+              originText?.let {
+                Text(
+                  it,
+                  color = streamForeground.copy(alpha = 0.48f),
+                  style = MaterialTheme.typography.labelSmall,
+                  maxLines = 1,
+                  overflow = TextOverflow.Ellipsis,
+                )
               }
             }
-          } else if (hasCornerBadges) {
-            // No attribution line to sit beside the corner badges, so leave the line empty
-            // rather than let the result's own text run underneath them.
-            Spacer(modifier = Modifier.height(20.dp))
           }
-          if (uiState.streamDekFormattingEnabled) {
-            Text(primaryText, color = streamForeground, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
-          } else {
-            // Verbatim. Stremio add-ons put deliberate structure in these two fields — `name`
-            // is the short label ("Torrentio\n4k"), `title`/`description` the detail block with
-            // its own line breaks, emoji and columns. No line cap, no ellipsis and no
-            // substitution between fields: whatever it sent is what shows. The one thing added
-            // is a headline when neither field named anything — a row reading only "1080p" is
-            // not the add-on's text being respected, it is a result nobody can identify.
-            val rawLabel = stream.name?.takeIf { it.isNotBlank() }
-            // The detail line is the add-on's detail block -- unless it is the label over again.
-            // Plenty of sources fill `name` and `title` with the same string, and every one of
-            // their results rendered as two identical lines because of it. A line printed twice is
-            // not the add-on's text being respected, so a field that repeats the label is skipped
-            // and the next one with something else to say is used instead.
-            val rawLabelPrint = rawLabel?.let(::streamTextFingerprint)
-            val rawDetail = listOfNotNull(stream.title, stream.description)
-              .firstOrNull { it.isNotBlank() && streamTextFingerprint(it) != rawLabelPrint }
-            if (!streamTextNamesTitle(rawLabel) && !streamTextNamesTitle(rawDetail)) {
-              Text(
-                primaryText,
-                color = streamForeground,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Black,
-              )
-            }
-            rawLabel?.let {
-              Text(it, color = streamForeground, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black)
-            }
-            rawDetail?.let {
-              Text(it, color = streamForeground.copy(alpha = 0.82f), style = MaterialTheme.typography.bodyMedium)
-            }
-          }
+        } else if (hasCornerBadges) {
+          // No attribution line to sit beside the corner badges, so leave the line empty
+          // rather than let the result's own text run underneath them.
+          Spacer(modifier = Modifier.height(20.dp))
         }
-        // On the row itself rather than behind a long press, and only when this result can
-        // actually be saved — which already accounts for the Downloads switch in settings, for
-        // live channels, and for results that are a torrent hash rather than a file. A row with
-        // no icon is a row with nothing to download.
-        if (downloadable) {
-          IconButton(onClick = onDownload, modifier = Modifier.size(34.dp)) {
-            Icon(
-              Icons.Rounded.Download,
-              contentDescription = stringResource(R.string.a11y_download_this_result),
-              tint = streamForeground.copy(alpha = 0.68f),
-              modifier = Modifier.size(20.dp),
+        if (uiState.streamDekFormattingEnabled) {
+          Text(
+            primaryText,
+            color = streamForeground,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Black,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth().padding(end = cornerReserve),
+          )
+        } else {
+          // Verbatim. Stremio add-ons put deliberate structure in these two fields — `name`
+          // is the short label ("Torrentio\n4k"), `title`/`description` the detail block with
+          // its own line breaks, emoji and columns. No line cap, no ellipsis and no
+          // substitution between fields: whatever it sent is what shows. The one thing added
+          // is a headline when neither field named anything — a row reading only "1080p" is
+          // not the add-on's text being respected, it is a result nobody can identify.
+          val rawLabel = stream.name?.takeIf { it.isNotBlank() }
+          // The detail line is the add-on's detail block -- unless it is the label over again.
+          // Plenty of sources fill `name` and `title` with the same string, and every one of
+          // their results rendered as two identical lines because of it. A line printed twice is
+          // not the add-on's text being respected, so a field that repeats the label is skipped
+          // and the next one with something else to say is used instead.
+          val rawLabelPrint = rawLabel?.let(::streamTextFingerprint)
+          val rawDetail = listOfNotNull(stream.title, stream.description)
+            .firstOrNull { it.isNotBlank() && streamTextFingerprint(it) != rawLabelPrint }
+          if (!streamTextNamesTitle(rawLabel) && !streamTextNamesTitle(rawDetail)) {
+            Text(
+              primaryText,
+              color = streamForeground,
+              style = MaterialTheme.typography.titleSmall,
+              fontWeight = FontWeight.Black,
+              modifier = Modifier.fillMaxWidth().padding(end = cornerReserve),
+            )
+          }
+          rawLabel?.let {
+            Text(
+              it,
+              color = streamForeground,
+              style = MaterialTheme.typography.titleSmall,
+              fontWeight = FontWeight.Black,
+              modifier = Modifier.fillMaxWidth().padding(end = cornerReserve),
+            )
+          }
+          rawDetail?.let {
+            Text(
+              it,
+              color = streamForeground.copy(alpha = 0.82f),
+              style = MaterialTheme.typography.bodyMedium,
+              modifier = Modifier.fillMaxWidth().padding(end = if (downloadable) 44.dp else 0.dp),
             )
           }
         }
@@ -32646,11 +32657,16 @@ private fun StreamResultCard(
             style = MaterialTheme.typography.bodyMedium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth().padding(end = if (downloadable) 44.dp else 0.dp),
           )
         }
       }
       if (uiState.fusionBadgesEnabled && uiState.badgePosition.equals("Bottom", ignoreCase = true)) {
-        FusionBadgeRow(stream = stream, uiState = uiState)
+        FusionBadgeRow(
+          stream = stream,
+          uiState = uiState,
+          modifier = Modifier.padding(end = if (downloadable) 44.dp else 0.dp),
+        )
       }
     }
       // Availability and size are card-level facts, so both are pinned to the card's top right
@@ -32721,6 +32737,22 @@ private fun StreamResultCard(
               )
             }
           }
+        }
+      }
+      if (downloadable) {
+        IconButton(
+          onClick = onDownload,
+          modifier = Modifier
+            .align(Alignment.BottomEnd)
+            .padding(end = 8.dp, bottom = 6.dp)
+            .size(36.dp),
+        ) {
+          Icon(
+            Icons.Rounded.Download,
+            contentDescription = stringResource(R.string.a11y_download_this_result),
+            tint = streamForeground.copy(alpha = 0.72f),
+            modifier = Modifier.size(21.dp),
+          )
         }
       }
     }

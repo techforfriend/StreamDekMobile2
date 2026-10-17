@@ -637,7 +637,7 @@ class ExoPlaybackView @JvmOverloads constructor(
       }
       loudnessEnhancer?.let {
         if (dialogueEnhancerEnabled) {
-          it.setTargetGain(1200)
+          it.setTargetGain(250)
           it.enabled = true
         } else {
           it.enabled = false
