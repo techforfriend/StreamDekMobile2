@@ -140,6 +140,8 @@ class ExoPlaybackView @JvmOverloads constructor(
   private var externalSubtitleCues: List<androidx.media3.extractor.text.CuesWithTiming>? = null
   private var lastLoggedCueCount = -1
   private val audioSelections = mutableMapOf<Int, Pair<Tracks.Group, Int>>()
+  private var dialogueEnhancerEnabled = false
+  private var loudnessEnhancer: android.media.audiofx.LoudnessEnhancer? = null
 
   /**
    * What each player's renderers have said about themselves: which decoders started and what went
@@ -619,6 +621,30 @@ class ExoPlaybackView @JvmOverloads constructor(
    */
   @Suppress("DEPRECATION")
   fun audioDelaySupported(): Boolean = runCatching { exoPlayer?.isTunnelingEnabled != true }.getOrDefault(true)
+
+  fun setDialogueEnhancer(enabled: Boolean) {
+    dialogueEnhancerEnabled = enabled
+    applyDialogueEnhancer()
+  }
+
+  private fun applyDialogueEnhancer(target: ExoPlayer? = exoPlayer) {
+    val active = target ?: return
+    val sessionId = active.audioSessionId
+    if (sessionId == androidx.media3.common.C.AUDIO_SESSION_ID_UNSET) return
+    runCatching {
+      if (loudnessEnhancer == null) {
+        loudnessEnhancer = android.media.audiofx.LoudnessEnhancer(sessionId)
+      }
+      loudnessEnhancer?.let {
+        if (dialogueEnhancerEnabled) {
+          it.setTargetGain(1200)
+          it.enabled = true
+        } else {
+          it.enabled = false
+        }
+      }
+    }.onFailure { Log.w(TAG, "Failed to apply LoudnessEnhancer: ${it.message}") }
+  }
 
   fun setSubtitleFontSize(size: Int) {
     subtitleView?.setApplyEmbeddedStyles(false)
@@ -1229,6 +1255,8 @@ class ExoPlaybackView @JvmOverloads constructor(
   }
 
   private fun releasePlayer() {
+    runCatching { loudnessEnhancer?.release() }
+    loudnessEnhancer = null
     player = null
     exoPlayer?.removeListener(listener)
     exoPlayer?.release()

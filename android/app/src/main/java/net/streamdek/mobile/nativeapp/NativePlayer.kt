@@ -93,6 +93,8 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -182,7 +184,7 @@ private enum class PlayerPanel { None, Sources, Audio, Subtitles, Speed, Engine,
 internal data class PlayerBadgeSetting(val visible: Boolean = true, val onToggle: () -> Unit = {})
 
 internal val LocalPlayerBadgeSetting = androidx.compose.runtime.compositionLocalOf { PlayerBadgeSetting() }
-private enum class PlayerAdjustmentKind { Brightness, Volume }
+private enum class PlayerAdjustmentKind { Brightness, Volume, Zoom, AspectRatio }
 
 
 internal fun adjustedPlayerLevel(initial: Float, totalDragY: Float, playerHeight: Float): Float =
@@ -377,6 +379,8 @@ fun NativePlayerScreen(
   onToggleSourceFavourite: (String) -> Unit = {},
   /** Normal or Minimal, switched from the player's header and kept as the Settings choice. */
   onPlayerControlLayoutChange: (String) -> Unit = {},
+  onSaveDialogueEnhancer: (Boolean) -> Unit = {},
+  onSaveBackgroundPlayback: (Boolean) -> Unit = {},
   /**
    * The series being played, for the in-player episode browser. Null for a film, a live channel
    * or anything else with no episodes, which is also what keeps the Episodes control off screen.
@@ -469,6 +473,10 @@ fun NativePlayerScreen(
   var customZoom by customZoomState
   val playbackSpeedState = rememberSaveable(session.url) { mutableFloatStateOf(1f) }
   var playbackSpeed by playbackSpeedState
+  val dialogueEnhancerState = rememberSaveable(session.url) { mutableStateOf(session.dialogueEnhancerEnabled) }
+  var dialogueEnhancerEnabled by dialogueEnhancerState
+  val backgroundPlaybackState = rememberSaveable(session.url) { mutableStateOf(session.backgroundPlaybackEnabled) }
+  var backgroundPlaybackEnabled by backgroundPlaybackState
   // The one place the screen decides which engine it is talking to; see [PlaybackEngineControls].
   // Resolved at each call rather than held, because these helpers are captured by callbacks that
   // outlive the composition they were created in, and the view behind an engine changes.
@@ -497,6 +505,12 @@ fun NativePlayerScreen(
   // mpv moves its audio in every output mode; ExoPlayer cannot while tunneled. See [AudioDelayControl].
   fun activeAudioDelaySupported(): Boolean = activeControls()?.audioDelaySupported() != false
   fun activeSetSpeed(speed: Double) { activeControls()?.setSpeed(speed) }
+  fun activeSetDialogueEnhancer(enabled: Boolean) { activeControls()?.setDialogueEnhancer(enabled) }
+
+  LaunchedEffect(activeEngine, playerView, exoPlayerView, vlcPlayerView, dialogueEnhancerEnabled, backgroundPlaybackEnabled) {
+    activeSetDialogueEnhancer(dialogueEnhancerEnabled)
+    playerView?.backgroundPlaybackEnabled = backgroundPlaybackEnabled
+  }
 
   val audioFocusListener = remember(playbackIdentity) {
     AudioManager.OnAudioFocusChangeListener { change ->
@@ -1219,9 +1233,7 @@ fun NativePlayerScreen(
     } else {
       selectedAudioTrackId = audioId
       val preferredLanguage = normalizePreferredAudioLanguage(session.preferredAudioLanguage)
-      val preferredAudio = preferredAudioLanguageTags(preferredLanguage)
-        .map(::normalizeSubtitleLanguage)
-        .firstNotNullOfOrNull { wanted -> audio.firstOrNull { normalizeSubtitleLanguage(it.language) == wanted } }
+      val preferredAudio = findBestAudioTrack(audio, session.preferredAudioLanguage, session.secondaryAudioLanguage)
       if (preferredLanguage != "original" && preferredAudio != null && audioId != preferredAudio.id) {
         selectedAudioTrackId = preferredAudio.id
         activeSetAudioTrack(preferredAudio.id)
@@ -1484,6 +1496,7 @@ fun NativePlayerScreen(
           isPaused = false
         }
       },
+      onAdjustmentFeedback = { adjustmentFeedbackVersion += 1 },
     )
 
     // Seeded from the session, then owned here, so switching from the header takes effect at once
@@ -1518,6 +1531,7 @@ fun NativePlayerScreen(
       onNextEpisode = onNextEpisode,
       onPreviousEpisode = onPreviousEpisode,
       showEpisodes = episodeBrowser != null && !session.isLive,
+      onZoomFeedback = { adjustmentFeedbackVersion += 1 },
     )
 
     PlayerPanels(
@@ -1573,6 +1587,11 @@ fun NativePlayerScreen(
       onReloadStreams = onReloadStreams,
       onDownloadStream = onDownloadStream,
       onToggleSourceFavourite = onToggleSourceFavourite,
+      dialogueEnhancerState = dialogueEnhancerState,
+      backgroundPlaybackState = backgroundPlaybackState,
+      activeSetDialogueEnhancer = ::activeSetDialogueEnhancer,
+      onSaveDialogueEnhancer = onSaveDialogueEnhancer,
+      onSaveBackgroundPlayback = onSaveBackgroundPlayback,
     )
     PlayerLiveOverlays(
       session = session,
@@ -3208,14 +3227,59 @@ private fun captionFormatLabel(codec: String?): String? {
   }
 }
 
+@Composable
+private fun PlayerToggleRow(title: String, subtitle: String? = null, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+  Row(
+    modifier = Modifier
+      .fillMaxWidth()
+      .playerGlass(
+        shape = StreamDekRadius.thumbShape,
+        borderAlpha = if (checked) 0.35f else 0.16f,
+        baseColor = if (checked) Color(0x352563EB) else Color(0x50141414),
+        borderWidth = 1.dp
+      )
+      .clickable { onCheckedChange(!checked) }
+      .padding(horizontal = 18.dp, vertical = 14.dp),
+    horizontalArrangement = Arrangement.SpaceBetween,
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
+    Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+      Text(title, color = Color.White, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+      subtitle?.takeIf { it.isNotBlank() }?.let {
+        Text(it, color = Color.White.copy(alpha = 0.70f), style = MaterialTheme.typography.bodySmall)
+      }
+    }
+    Switch(
+      checked = checked,
+      onCheckedChange = onCheckedChange,
+      colors = SwitchDefaults.colors(
+        checkedThumbColor = Color.White,
+        checkedTrackColor = Color(0xFF2563EB),
+        uncheckedThumbColor = Color.White.copy(alpha = 0.8f),
+        uncheckedTrackColor = Color.White.copy(alpha = 0.16f)
+      )
+    )
+  }
+}
+
 private fun trackLanguageName(raw: String?): String? {
   val value = raw?.trim()?.takeIf { it.isNotEmpty() } ?: return null
   val normalized = Languages.normalize(value)
   return if (normalized.isEmpty()) value.uppercase() else Languages.label(normalized)
 }
 
-private fun trackLabel(track: MpvTrackInfo): String =
-  listOfNotNull(trackLanguageName(track.language), track.title, track.codec).joinToString(" - ").ifBlank { "Track ${track.id}" }
+private fun trackLabel(track: MpvTrackInfo): String {
+  var lang = trackLanguageName(track.language)
+  if (lang == null && !track.title.isNullOrBlank()) {
+    for ((code, kws) in AUDIO_LANGUAGE_KEYWORDS) {
+      if (kws.any { kw -> Regex("""(?i)(?:^|[^a-zA-Z0-9])${Regex.escape(kw)}(?:[^a-zA-Z0-9]|$)""").containsMatchIn(track.title) }) {
+        lang = Languages.label(code)
+        break
+      }
+    }
+  }
+  return listOfNotNull(lang, track.title, track.codec).distinct().joinToString(" · ").ifBlank { "Track ${track.id}" }
+}
 
 /** How many copies of the same language to try before telling the viewer none of them loaded. */
 private const val SUBTITLE_ATTEMPT_LIMIT = 4
@@ -3836,6 +3900,11 @@ private fun PlayerPanels(
   onToggleSourceFavourite: (String) -> Unit,
   episodeBrowser: PlayerEpisodeBrowser? = null,
   onBeforeEpisodeSwitch: () -> Unit = {},
+  dialogueEnhancerState: MutableState<Boolean>,
+  backgroundPlaybackState: MutableState<Boolean>,
+  activeSetDialogueEnhancer: (Boolean) -> Unit,
+  onSaveDialogueEnhancer: (Boolean) -> Unit = {},
+  onSaveBackgroundPlayback: (Boolean) -> Unit = {},
 ) {
   // Re-bound so the panel bodies below read and write exactly as they did in the screen.
   var activePanel by activePanelState
@@ -3854,6 +3923,8 @@ private fun PlayerPanels(
   var preferredSubtitleTrackKey by preferredSubtitleTrackKeyState
   var userPickedAudio by userPickedAudioState
   var userPickedSubtitle by userPickedSubtitleState
+  var dialogueEnhancerEnabled by dialogueEnhancerState
+  var backgroundPlaybackEnabled by backgroundPlaybackState
   var subtitleSelectionGeneration by remember(session.url) { mutableIntStateOf(0) }
   LaunchedEffect(subtitleErrorMessage) {
     if (subtitleErrorMessage == null) return@LaunchedEffect
@@ -3882,6 +3953,26 @@ private fun PlayerPanels(
           audioDelay = seconds.toFloat()
           activeSetAudioDelay(seconds)
         },
+      )
+      Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.10f)))
+      PlayerToggleRow(
+        title = stringResource(R.string.player_dialogue_enhancer),
+        subtitle = stringResource(R.string.player_dialogue_enhancer_desc),
+        checked = dialogueEnhancerEnabled,
+        onCheckedChange = { next ->
+          dialogueEnhancerEnabled = next
+          activeSetDialogueEnhancer(next)
+          onSaveDialogueEnhancer(next)
+        }
+      )
+      PlayerToggleRow(
+        title = stringResource(R.string.player_background_playback),
+        subtitle = stringResource(R.string.player_background_playback_desc),
+        checked = backgroundPlaybackEnabled,
+        onCheckedChange = { next ->
+          backgroundPlaybackEnabled = next
+          onSaveBackgroundPlayback(next)
+        }
       )
     }
     PlayerPanel.Subtitles -> PlayerModalPanel(title = stringResource(R.string.player_subtitles), onClose = { activePanel = PlayerPanel.None }) {
@@ -4259,6 +4350,7 @@ private fun BoxScope.PlayerOverlays(
   controlLayoutState: MutableState<String>,
   onControlLayoutChange: (String) -> Unit,
   showEpisodes: Boolean = false,
+  onZoomFeedback: () -> Unit = {},
 ) {
   // Re-bound so the overlay bodies below read and write exactly as they did in the screen.
   var controlLayout by controlLayoutState
@@ -4380,6 +4472,8 @@ private fun BoxScope.PlayerOverlays(
           when (adjustmentKind) {
             PlayerAdjustmentKind.Brightness -> StreamDekPlayerIcons.Brightness
             PlayerAdjustmentKind.Volume -> if (adjustmentLevel <= 0f) StreamDekPlayerIcons.AudioOff else StreamDekPlayerIcons.Audio
+            PlayerAdjustmentKind.Zoom,
+            PlayerAdjustmentKind.AspectRatio -> StreamDekPlayerIcons.Zoom
             null -> StreamDekPlayerIcons.Audio
           },
           contentDescription = null,
@@ -4387,12 +4481,29 @@ private fun BoxScope.PlayerOverlays(
           modifier = Modifier.size(19.dp),
         )
         Text(
-          // Whole sentences per kind, and the percentage through the locale's own formatter: a
-          // trailing "%" is not universal punctuation and the two labels do not inflect alike.
-          stringResource(
-            if (adjustmentKind == PlayerAdjustmentKind.Brightness) R.string.player_brightness_level else R.string.player_volume_level,
-            AppFormats.percent(LocalAppLanguage.current, adjustmentLevel.toDouble()),
-          ),
+          when (adjustmentKind) {
+            PlayerAdjustmentKind.Brightness -> stringResource(
+              R.string.player_brightness_level,
+              AppFormats.percent(LocalAppLanguage.current, adjustmentLevel.toDouble()),
+            )
+            PlayerAdjustmentKind.Volume -> stringResource(
+              R.string.player_volume_level,
+              AppFormats.percent(LocalAppLanguage.current, adjustmentLevel.toDouble()),
+            )
+            PlayerAdjustmentKind.Zoom -> {
+              val percentInt = (adjustmentLevel * 100).roundToInt()
+              if (percentInt <= 101) stringResource(R.string.player_fit_to_screen)
+              else stringResource(R.string.player_zoom_level, "$percentInt%")
+            }
+            PlayerAdjustmentKind.AspectRatio -> {
+              when (resizeMode) {
+                "contain" -> stringResource(R.string.player_fit_to_screen)
+                "cover" -> stringResource(R.string.player_crop_to_fill)
+                else -> stringResource(R.string.player_stretch)
+              }
+            }
+            null -> ""
+          },
           color = Color.White,
           fontWeight = FontWeight.SemiBold,
           fontSize = 12.sp,
@@ -4530,6 +4641,9 @@ private fun BoxScope.PlayerOverlays(
           else -> "contain"
         }
         customZoom = 1f
+        adjustmentKind = PlayerAdjustmentKind.AspectRatio
+        adjustmentLevel = 1f
+        onZoomFeedback()
       },
       onSpeed = { keepControlsVisible(); activePanel = PlayerPanel.Speed },
       onSubtitles = { keepControlsVisible(); activePanel = PlayerPanel.Subtitles },
@@ -4677,6 +4791,7 @@ DisposableEffect(activity) {
     }
     decorView?.systemUiVisibility = previousSystemUi
     if (scrobbleStarted && !session.isLive) onScrobble("stop", progressPercent())
+    playerView?.destroyView()
   }
 }
 
@@ -5038,6 +5153,7 @@ private fun BoxScope.PlayerSurfaceOverlays(
   onAddToWatchlist: (MediaItem) -> Unit,
   onDismissUpNext: () -> Unit,
   onTogglePause: () -> Unit,
+  onAdjustmentFeedback: () -> Unit = {},
 ) {
   // Re-bound so the bodies below read and write exactly as they did in the screen.
   var activePanel by activePanelState
@@ -5300,6 +5416,9 @@ private fun BoxScope.PlayerSurfaceOverlays(
           if (zoom != 1f) {
             customZoom = (customZoom * zoom).coerceIn(1f, 3f)
             resizeModeState.value = if (customZoom <= 1.01f) "contain" else "custom"
+            adjustmentKind = PlayerAdjustmentKind.Zoom
+            adjustmentLevel = customZoom
+            onAdjustmentFeedback()
           }
         }
       }

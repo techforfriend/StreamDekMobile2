@@ -101,6 +101,7 @@ class VlcPlaybackView @JvmOverloads constructor(
   private var subtitleLanguages: List<String> = emptyList()
   private var audioDelaySec = 0.0
   private var subtitleDelaySec = 0.0
+  private var dialogueEnhancerEnabled = false
 
   // Subtitle appearance: read when the libVLC instance is created, see the class comment.
   private var subtitleFontSize = 55
@@ -319,6 +320,7 @@ class VlcPlaybackView @JvmOverloads constructor(
           playingSeen = true
           playingSince = SystemClock.elapsedRealtime()
           applyDelays()
+          applyDialogueEnhancer()
           main.postDelayed({ maybeReportLoaded(force = true) }, LOAD_GRACE_MS)
           if (reselect != null) main.postDelayed({ reselectTracks() }, RESELECT_DELAY_MS)
         }
@@ -625,6 +627,33 @@ class VlcPlaybackView @JvmOverloads constructor(
   }
 
   fun audioDelaySupported(): Boolean = true
+
+  fun setDialogueEnhancer(enabled: Boolean) {
+    dialogueEnhancerEnabled = enabled
+    applyDialogueEnhancer()
+  }
+
+  private fun applyDialogueEnhancer() {
+    val current = player ?: return
+    runCatching {
+      if (dialogueEnhancerEnabled) {
+        val eq = org.videolan.libvlc.MediaPlayer.Equalizer.create()
+        val count = org.videolan.libvlc.MediaPlayer.Equalizer.getBandCount()
+        for (i in 0 until count) {
+          val freq = org.videolan.libvlc.MediaPlayer.Equalizer.getBandFrequency(i)
+          val amp = when {
+            freq in 1000f..4000f -> 6.0f
+            freq < 300f -> -3.0f
+            else -> 0.0f
+          }
+          eq.setAmp(i, amp)
+        }
+        current.setEqualizer(eq)
+      } else {
+        current.setEqualizer(null)
+      }
+    }.onFailure { Log.w(TAG, "Failed to apply VLC equalizer", it) }
+  }
 
   private fun applyDelays() {
     val current = player ?: return

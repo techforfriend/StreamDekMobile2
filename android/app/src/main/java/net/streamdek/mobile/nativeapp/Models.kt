@@ -752,6 +752,10 @@ data class PlayerSession(
   val levelGesturesEnabled: Boolean = true,
   /** Stable source descriptors only; never temporary resolved URLs. */
   val favoriteSourceKeys: Set<String> = emptySet(),
+  /** Vocal clarity & dialogue equalizer boost mode. */
+  val dialogueEnhancerEnabled: Boolean = false,
+  /** Allow audio to keep playing when screen is locked or app is in background. */
+  val backgroundPlaybackEnabled: Boolean = false,
 )
 
 

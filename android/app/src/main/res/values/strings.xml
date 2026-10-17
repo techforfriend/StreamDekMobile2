@@ -392,6 +392,14 @@
   <string name="player_speed_multiplier">%1$sx speed</string>
   <string name="player_brightness_level">Brightness %1$s</string>
   <string name="player_volume_level">Volume %1$s</string>
+  <string name="player_zoom_level">Zoom %1$s</string>
+  <string name="player_fit_to_screen">Fit to Screen</string>
+  <string name="player_crop_to_fill">Crop to Fill</string>
+  <string name="player_stretch">Stretch</string>
+  <string name="player_dialogue_enhancer">Dialogue Enhancer</string>
+  <string name="player_dialogue_enhancer_desc">Boost vocal clarity &amp; quiet background noise</string>
+  <string name="player_background_playback">Listen in Background</string>
+  <string name="player_background_playback_desc">Continue playing audio when screen is locked or app is minimized</string>
   <string name="player_hold_to_unlock">Hold to unlock</string>
   <string name="player_dismiss_countdown">Dismiss · %1$ds</string>
   <string name="player_seek_feedback_forward">+%1$ds</string>

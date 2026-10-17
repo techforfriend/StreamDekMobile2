@@ -33,6 +33,7 @@ internal interface PlaybackEngineControls {
   /** False when the engine cannot move the sound for what is playing (Media3 while tunneled). */
   fun audioDelaySupported(): Boolean
   fun setSpeed(speed: Double)
+  fun setDialogueEnhancer(enabled: Boolean)
   fun playbackStats(): PlaybackStats
   fun bufferedRanges(): List<BufferedRange>
 }
@@ -55,6 +56,7 @@ internal fun ExoPlaybackView.asEngineControls(): PlaybackEngineControls = object
   override fun setAudioDelay(seconds: Double) { view.setAudioDelay(seconds) }
   override fun audioDelaySupported(): Boolean = view.audioDelaySupported()
   override fun setSpeed(speed: Double) { view.setSpeed(speed) }
+  override fun setDialogueEnhancer(enabled: Boolean) { view.setDialogueEnhancer(enabled) }
   override fun playbackStats(): PlaybackStats = view.playbackStats()
   override fun bufferedRanges(): List<BufferedRange> = view.bufferedRanges()
 }
@@ -78,6 +80,7 @@ internal fun MPVView.asEngineControls(): PlaybackEngineControls = object : Playb
   // mpv moves its audio in every output mode.
   override fun audioDelaySupported(): Boolean = true
   override fun setSpeed(speed: Double) { view.setSpeed(speed) }
+  override fun setDialogueEnhancer(enabled: Boolean) { view.setDialogueEnhancer(enabled) }
   override fun playbackStats(): PlaybackStats = view.playbackStats()
   override fun bufferedRanges(): List<BufferedRange> = view.bufferedRanges()
 }
@@ -100,6 +103,7 @@ internal fun VlcPlaybackView.asEngineControls(): PlaybackEngineControls = object
   override fun setAudioDelay(seconds: Double) { view.setAudioDelay(seconds) }
   override fun audioDelaySupported(): Boolean = view.audioDelaySupported()
   override fun setSpeed(speed: Double) { view.setSpeed(speed) }
+  override fun setDialogueEnhancer(enabled: Boolean) { view.setDialogueEnhancer(enabled) }
   override fun playbackStats(): PlaybackStats = view.playbackStats()
   override fun bufferedRanges(): List<BufferedRange> = view.bufferedRanges()
 }

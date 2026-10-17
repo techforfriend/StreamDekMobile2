@@ -160,13 +160,23 @@ class MPVView @JvmOverloads constructor(
         keepScreenOn = true
     }
 
+    var backgroundPlaybackEnabled: Boolean = false
+    private var dialogueEnhancerEnabled: Boolean = false
+
     override fun onSurfaceTextureAvailable(surfaceTexture: SurfaceTexture, width: Int, height: Int) {
         try {
+            surface = Surface(surfaceTexture)
+            if (initialized && !isDestroyed) {
+                if (BuildConfig.DEBUG) Log.i(TAG, "onSurfaceTextureAvailable: Reattaching surface to existing MPV instance")
+                MPVLib.attachSurface(surface!!)
+                MPVLib.setPropertyString("android-surface-size", "${width}x${height}")
+                keepScreenOn = true
+                return
+            }
             uiCallbacks.start()
             isDestroyed = false
             if (BuildConfig.DEBUG) Log.i(TAG, "onSurfaceTextureAvailable (${width}x${height}) pendingSource=${!pendingSource.isNullOrBlank()}")
             keepScreenOn = true
-            surface = Surface(surfaceTexture)
             MPVLib.create(context.applicationContext)
             initOptions()
             MPVLib.init()
@@ -199,6 +209,9 @@ class MPVView @JvmOverloads constructor(
             // Likewise the two timing offsets, which an engine switch mid-video sets straight away.
             MPVLib.setPropertyDouble("sub-delay", subtitleDelaySeconds)
             MPVLib.setPropertyDouble("audio-delay", audioDelaySeconds)
+            if (dialogueEnhancerEnabled) {
+                MPVLib.setPropertyString("af", "equalizer=f=2000:t=q:w=1.2:g=6,equalizer=f=3500:t=q:w=1.2:g=5,equalizer=f=200:t=q:w=1.5:g=-4")
+            }
 
             pendingSource?.let { source ->
                 if (BuildConfig.DEBUG) Log.i(TAG, "Applying pending source after surface ready")
@@ -219,6 +232,19 @@ class MPVView @JvmOverloads constructor(
     }
 
     override fun onSurfaceTextureDestroyed(surfaceTexture: SurfaceTexture): Boolean {
+        if (backgroundPlaybackEnabled && initialized && !isDestroyed) {
+            if (BuildConfig.DEBUG) Log.i(TAG, "onSurfaceTextureDestroyed: Detaching surface for background audio playback")
+            runCatching { MPVLib.detachSurface() }
+            surface?.release()
+            surface = null
+            return true
+        }
+        destroyInternal()
+        return true
+    }
+
+    private fun destroyInternal() {
+        if (isDestroyed && !initialized) return
         isDestroyed = true
         uiCallbacks.stop()
         callbackHandler.removeCallbacksAndMessages(null)
@@ -238,15 +264,20 @@ class MPVView @JvmOverloads constructor(
         onTracksChangedCallback = null
         onStallChangedCallback = null
         if (wasInitialized) {
-            MPVLib.removeObserver(this)
-            MPVLib.removeLogObserver(this)
-            MPVLib.detachSurface()
-            MPVLib.destroy()
+            runCatching {
+                MPVLib.removeObserver(this)
+                MPVLib.removeLogObserver(this)
+                MPVLib.detachSurface()
+                MPVLib.destroy()
+            }
         }
         surface?.release()
         surface = null
         keepScreenOn = false
-        return true
+    }
+
+    fun destroyView() {
+        destroyInternal()
     }
 
     override fun onSurfaceTextureUpdated(surfaceTexture: SurfaceTexture) {
@@ -734,6 +765,20 @@ class MPVView @JvmOverloads constructor(
         if (!initialized || isDestroyed) return
         if (BuildConfig.DEBUG) Log.i(TAG, "setAudioDelay: $seconds")
         MPVLib.setPropertyDouble("audio-delay", seconds)
+    }
+
+    /**
+     * Boost vocal/speech frequencies and quiet background music/explosions.
+     */
+    fun setDialogueEnhancer(enabled: Boolean) {
+        dialogueEnhancerEnabled = enabled
+        if (!initialized || isDestroyed) return
+        if (BuildConfig.DEBUG) Log.i(TAG, "setDialogueEnhancer: $enabled")
+        if (enabled) {
+            MPVLib.setPropertyString("af", "equalizer=f=2000:t=q:w=1.2:g=6,equalizer=f=3500:t=q:w=1.2:g=5,equalizer=f=200:t=q:w=1.5:g=-4")
+        } else {
+            MPVLib.setPropertyString("af", "")
+        }
     }
 
     /** Set subtitle font size (mpv default is 55). */

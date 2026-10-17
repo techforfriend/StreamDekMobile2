@@ -2627,6 +2627,10 @@ private class AppSettingsStore(
       .putString("active_fusion_badge_url", activeUrl)
       .apply()
   }
+  fun isDialogueEnhancerEnabled(): Boolean = profilePrefs.getBoolean("dialogue_enhancer_enabled", false)
+  fun saveDialogueEnhancerEnabled(value: Boolean) { profilePrefs.edit().putBoolean("dialogue_enhancer_enabled", value).apply() }
+  fun isBackgroundPlaybackEnabled(): Boolean = profilePrefs.getBoolean("background_playback_enabled", false)
+  fun saveBackgroundPlaybackEnabled(value: Boolean) { profilePrefs.edit().putBoolean("background_playback_enabled", value).apply() }
 }
 
 private fun parseFusionBadgeUrls(raw: String?): List<String> {
@@ -12244,6 +12248,12 @@ private fun watchedOwnerKey(session: AuthSession?, activeProfileId: String?): St
     uiState = uiState.copy(playbackSettings = uiState.playbackSettings.copy(subtitleDefaultSource = normalized))
     syncCloudPreferences()
   }
+  fun setDialogueEnhancerEnabled(value: Boolean) {
+    appSettingsStore.saveDialogueEnhancerEnabled(value)
+  }
+  fun setBackgroundPlaybackEnabled(value: Boolean) {
+    appSettingsStore.saveBackgroundPlaybackEnabled(value)
+  }
   fun setSecondaryAudioLanguage(value: String) {
     val normalized = Languages.normalize(value)
     appSettingsStore.saveSecondaryAudioLanguage(normalized)
@@ -14467,6 +14477,8 @@ private fun watchedOwnerKey(session: AuthSession?, activeProfileId: String?): St
     addonSubtitleSources = addonSubtitleSources(),
     userSubtitleSources = UserSubtitleSourceStore.load(getApplication<Application>().applicationContext, activeOwnerKey() ?: GUEST_OWNER_KEY),
     isProxied = stream.isLikelyProxied(uiState.addons.firstOrNull { it.id == stream.addonId }),
+    dialogueEnhancerEnabled = appSettingsStore.isDialogueEnhancerEnabled(),
+    backgroundPlaybackEnabled = appSettingsStore.isBackgroundPlaybackEnabled(),
   )
 
   /** Metadata-only session for the unified player loading scene; no playback engine sees this. */
@@ -14778,6 +14790,8 @@ private fun StreamDekNativeAppContent(
                 onSubtitleSourceChange = viewModel::setSubtitleDefaultSource,
                 onToggleSourceFavourite = viewModel::toggleFavoriteSource,
                 onPlayerControlLayoutChange = viewModel::setPlayerControlLayout,
+                onSaveDialogueEnhancer = viewModel::setDialogueEnhancerEnabled,
+                onSaveBackgroundPlayback = viewModel::setBackgroundPlaybackEnabled,
                 onBack = viewModel::dismissPlayer,
                 onScrobble = viewModel::scrobblePlayer,
                 onProgressCheckpoint = viewModel::savePlayerProgressCheckpoint,
