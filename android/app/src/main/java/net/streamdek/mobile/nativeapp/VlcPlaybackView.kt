@@ -489,6 +489,7 @@ class VlcPlaybackView @JvmOverloads constructor(
 
   fun setAudioTrack(trackId: Int) {
     runCatching { player?.setAudioTrack(trackId) }
+    applyDialogueEnhancer()
     dispatchTracks()
   }
 
@@ -638,12 +639,12 @@ class VlcPlaybackView @JvmOverloads constructor(
     runCatching {
       if (dialogueEnhancerEnabled) {
         val eq = org.videolan.libvlc.MediaPlayer.Equalizer.create()
-        eq.setPreAmp(-2.5f)
+        eq.setPreAmp(-2.0f)
         val count = org.videolan.libvlc.MediaPlayer.Equalizer.getBandCount()
         for (i in 0 until count) {
           val freq = org.videolan.libvlc.MediaPlayer.Equalizer.getBandFrequency(i)
           val amp = when {
-            freq in 1000f..4000f -> 3.0f
+            freq in 1000f..4000f -> 4.5f
             freq < 300f -> -2.5f
             else -> 0.0f
           }

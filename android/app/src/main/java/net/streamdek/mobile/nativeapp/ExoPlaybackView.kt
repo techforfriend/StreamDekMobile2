@@ -142,6 +142,8 @@ class ExoPlaybackView @JvmOverloads constructor(
   private val audioSelections = mutableMapOf<Int, Pair<Tracks.Group, Int>>()
   private var dialogueEnhancerEnabled = false
   private var loudnessEnhancer: android.media.audiofx.LoudnessEnhancer? = null
+  private var equalizer: android.media.audiofx.Equalizer? = null
+  private var lastAudioSessionId: Int = androidx.media3.common.C.AUDIO_SESSION_ID_UNSET
 
   /**
    * What each player's renderers have said about themselves: which decoders started and what went
@@ -631,17 +633,47 @@ class ExoPlaybackView @JvmOverloads constructor(
     val active = target ?: return
     val sessionId = active.audioSessionId
     if (sessionId == androidx.media3.common.C.AUDIO_SESSION_ID_UNSET) return
+
+    val sessionChanged = (lastAudioSessionId != sessionId)
+    if (sessionChanged) {
+      runCatching { equalizer?.release() }
+      runCatching { loudnessEnhancer?.release() }
+      equalizer = null
+      loudnessEnhancer = null
+      lastAudioSessionId = sessionId
+    }
+
+    if (!dialogueEnhancerEnabled) {
+      runCatching { equalizer?.enabled = false }
+      runCatching { loudnessEnhancer?.enabled = false }
+      return
+    }
+
+    runCatching {
+      if (equalizer == null) {
+        equalizer = android.media.audiofx.Equalizer(0, sessionId)
+      }
+      equalizer?.let { eq ->
+        val numBands = eq.numberOfBands
+        for (i in 0 until numBands) {
+          val centerFreqHz = eq.getCenterFreq(i.toShort()) / 1000
+          when {
+            centerFreqHz < 250 -> eq.setBandLevel(i.toShort(), (-250).toShort())
+            centerFreqHz in 1000..4000 -> eq.setBandLevel(i.toShort(), 450.toShort())
+            else -> eq.setBandLevel(i.toShort(), 0)
+          }
+        }
+        eq.enabled = true
+      }
+    }.onFailure { Log.w(TAG, "Failed to apply Equalizer: ${it.message}") }
+
     runCatching {
       if (loudnessEnhancer == null) {
         loudnessEnhancer = android.media.audiofx.LoudnessEnhancer(sessionId)
       }
       loudnessEnhancer?.let {
-        if (dialogueEnhancerEnabled) {
-          it.setTargetGain(250)
-          it.enabled = true
-        } else {
-          it.enabled = false
-        }
+        it.setTargetGain(200)
+        it.enabled = true
       }
     }.onFailure { Log.w(TAG, "Failed to apply LoudnessEnhancer: ${it.message}") }
   }
@@ -787,8 +819,14 @@ class ExoPlaybackView @JvmOverloads constructor(
     val rendererLog = RendererLog()
     rendererLogs[active] = rendererLog
     active.addAnalyticsListener(object : androidx.media3.exoplayer.analytics.AnalyticsListener {
+      override fun onAudioSessionIdChanged(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, audioSessionId: Int) {
+        if (exoPlayer === active) applyDialogueEnhancer(active)
+      }
       override fun onAudioPositionAdvancing(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, playoutStartSystemTimeMs: Long) {
-        if (exoPlayer === active) providerProbe.audio()
+        if (exoPlayer === active) {
+          providerProbe.audio()
+          applyDialogueEnhancer(active)
+        }
       }
       override fun onAudioSinkError(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, audioSinkError: Exception) {
         if (exoPlayer === active) providerProbe.fail()
@@ -907,6 +945,7 @@ class ExoPlaybackView @JvmOverloads constructor(
     awaitingFirstFrameAfterPromotion = true
     candidate.addListener(listener)
     player = candidate
+    applyDialogueEnhancer(candidate)
     confirmedCaptionKeys.clear()
     lastTracks = null
     dispatchTracks(candidate.currentTracks)
@@ -925,6 +964,7 @@ class ExoPlaybackView @JvmOverloads constructor(
       onStallChangedCallback?.invoke(state == Player.STATE_BUFFERING)
       when (state) {
         Player.STATE_READY -> {
+          applyDialogueEnhancer(exoPlayer)
           // A background-prepared replacement was already READY before it was attached to
           // PlayerView. Its switch is complete only after onRenderedFirstFrame(), not here.
           if (!awaitingFirstFrameAfterPromotion) dispatchLoaded(exoPlayer ?: return)
@@ -972,7 +1012,10 @@ class ExoPlaybackView @JvmOverloads constructor(
       onErrorCallback?.invoke(error.localizedMessage ?: "This source could not be played.")
     }
 
-    override fun onTracksChanged(tracks: Tracks) = dispatchTracks(tracks)
+    override fun onTracksChanged(tracks: Tracks) {
+      dispatchTracks(tracks)
+      applyDialogueEnhancer(exoPlayer)
+    }
 
     override fun onCues(cueGroup: CueGroup) {
       if (externalSubtitleCues != null) return
@@ -1255,8 +1298,11 @@ class ExoPlaybackView @JvmOverloads constructor(
   }
 
   private fun releasePlayer() {
+    runCatching { equalizer?.release() }
     runCatching { loudnessEnhancer?.release() }
+    equalizer = null
     loudnessEnhancer = null
+    lastAudioSessionId = androidx.media3.common.C.AUDIO_SESSION_ID_UNSET
     player = null
     exoPlayer?.removeListener(listener)
     exoPlayer?.release()
