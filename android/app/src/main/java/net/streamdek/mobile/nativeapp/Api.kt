@@ -42,7 +42,7 @@ const val API_PATH_PREFIX = "/api/v1"
  * Official version metadata sent to the StreamDek backend so custom or patched builds are
  * accepted as verified clients rather than failing with CLIENT_VERSION_UNSUPPORTED.
  *
- * Defaults to the latest official release (2.2.3, build 87) and self-heals dynamically
+ * Defaults to the latest official release (2.2.4, build 88) and self-heals dynamically
  * if the server updates its version policy or returns HTTP 426 Upgrade Required.
  */
 object CompatVersionProvider {
@@ -50,8 +50,8 @@ object CompatVersionProvider {
   private const val KEY_VERSION = "compat_version_name"
   private const val KEY_BUILD = "compat_version_code"
 
-  const val DEFAULT_VERSION_NAME = "2.2.3"
-  const val DEFAULT_VERSION_CODE = "87"
+  const val DEFAULT_VERSION_NAME = "2.2.4"
+  const val DEFAULT_VERSION_CODE = "88"
 
   @Volatile
   var versionName: String = DEFAULT_VERSION_NAME
