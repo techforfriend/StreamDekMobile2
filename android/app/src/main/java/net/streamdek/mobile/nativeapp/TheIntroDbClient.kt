@@ -18,12 +18,12 @@ internal data class TheIntroDbMedia(
   val preview: List<TheIntroDbTimestamp>,
 )
 
-/** Typed Kotlin transport for the public TheIntroDB v3 media contract. */
+/** Typed Kotlin transport for the public TheIntroDB v4 media contract. */
 internal class TheIntroDbClient(private val http: OkHttpClient) {
   fun getMedia(tmdbId: Int, season: Int? = null, episode: Int? = null, durationMs: Long? = null, apiKey: String? = null): Result<TheIntroDbMedia> = runCatching {
     require(tmdbId > 0) { "A positive TMDB id is required." }
     val url = buildString {
-      append("https://api.theintrodb.org/v3/media?tmdb_id=")
+      append("https://api.theintrodb.org/v4/media?tmdb_id=")
       append(tmdbId)
       season?.let { append("&season=").append(it) }
       episode?.let { append("&episode=").append(it) }

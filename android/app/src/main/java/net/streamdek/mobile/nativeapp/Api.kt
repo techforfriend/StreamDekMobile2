@@ -42,7 +42,7 @@ const val API_PATH_PREFIX = "/api/v1"
  * Official version metadata sent to the StreamDek backend so custom or patched builds are
  * accepted as verified clients rather than failing with CLIENT_VERSION_UNSUPPORTED.
  *
- * Defaults to the latest official release (2.2.4, build 88) and self-heals dynamically
+ * Defaults to the latest official release (2.2.5, build 89) and self-heals dynamically
  * if the server updates its version policy or returns HTTP 426 Upgrade Required.
  */
 object CompatVersionProvider {
@@ -50,8 +50,8 @@ object CompatVersionProvider {
   private const val KEY_VERSION = "compat_version_name"
   private const val KEY_BUILD = "compat_version_code"
 
-  const val DEFAULT_VERSION_NAME = "2.2.4"
-  const val DEFAULT_VERSION_CODE = "88"
+  const val DEFAULT_VERSION_NAME = "2.2.5"
+  const val DEFAULT_VERSION_CODE = "89"
 
   @Volatile
   var versionName: String = DEFAULT_VERSION_NAME
@@ -3458,7 +3458,7 @@ class StreamDekApiClient(context: Context? = null) {
           .post("{}".toRequestBody("application/json".toMediaType()))
           .build()
         ContentService.TheIntroDb -> Request.Builder()
-          .url("https://api.theintrodb.org/v3/media?tmdb_id=949")
+          .url("https://api.theintrodb.org/v4/media?tmdb_id=949")
           .addHeader("Accept", "application/json")
           .addHeader("Authorization", "Bearer $trimmed")
           .build()
@@ -3473,12 +3473,12 @@ class StreamDekApiClient(context: Context? = null) {
         }
       }
       if (service == ContentService.TheIntroDb && response.ok) {
-        // V3 media reads are public, so an unknown bearer also receives HTTP 200. Compare its
+        // V4 media reads are public, so an unknown bearer also receives HTTP 200. Compare its
         // allowance with a public request: a recognised account key receives its own higher
         // limit, while an invalid key silently remains on the public allowance.
         val anonymous = execute(
           Request.Builder()
-            .url("https://api.theintrodb.org/v3/media?tmdb_id=949")
+            .url("https://api.theintrodb.org/v4/media?tmdb_id=949")
             .addHeader("Accept", "application/json")
             .build(),
           credentialValidationClient,
