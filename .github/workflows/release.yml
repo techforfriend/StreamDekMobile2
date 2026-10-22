@@ -160,6 +160,7 @@ jobs:
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: streamdek-${{ steps.version.outputs.tag_name }}-arm64-apk
           path: ${{ steps.apk.outputs.apk_path }}
@@ -167,6 +168,7 @@ jobs:
 
       - name: Preserve release crash mappings
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: streamdek-${{ steps.version.outputs.tag_name }}-${{ github.run_number }}-mapping
           path: android/app/build/outputs/mapping/release/
