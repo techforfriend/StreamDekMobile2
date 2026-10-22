@@ -144,6 +144,8 @@ class ExoPlaybackView @JvmOverloads constructor(
   private var loudnessEnhancer: android.media.audiofx.LoudnessEnhancer? = null
   private var equalizer: android.media.audiofx.Equalizer? = null
   private var lastAudioSessionId: Int = androidx.media3.common.C.AUDIO_SESSION_ID_UNSET
+  private var appliedAudioSessionId: Int = androidx.media3.common.C.AUDIO_SESSION_ID_UNSET
+  private var appliedDialogueEnhancerState: Boolean? = null
 
   /**
    * What each player's renderers have said about themselves: which decoders started and what went
@@ -625,8 +627,24 @@ class ExoPlaybackView @JvmOverloads constructor(
   fun audioDelaySupported(): Boolean = runCatching { exoPlayer?.isTunnelingEnabled != true }.getOrDefault(true)
 
   fun setDialogueEnhancer(enabled: Boolean) {
+    if (dialogueEnhancerEnabled == enabled && appliedDialogueEnhancerState == enabled) return
     dialogueEnhancerEnabled = enabled
     applyDialogueEnhancer()
+  }
+
+  private fun releaseAudioEffects() {
+    runCatching {
+      equalizer?.enabled = false
+      equalizer?.release()
+    }
+    runCatching {
+      loudnessEnhancer?.enabled = false
+      loudnessEnhancer?.release()
+    }
+    equalizer = null
+    loudnessEnhancer = null
+    appliedAudioSessionId = androidx.media3.common.C.AUDIO_SESSION_ID_UNSET
+    appliedDialogueEnhancerState = null
   }
 
   private fun applyDialogueEnhancer(target: ExoPlayer? = exoPlayer, explicitSessionId: Int? = null) {
@@ -636,61 +654,59 @@ class ExoPlaybackView @JvmOverloads constructor(
       ?: lastAudioSessionId)
       .takeIf { it != androidx.media3.common.C.AUDIO_SESSION_ID_UNSET && it > 0 } ?: return
 
-    val sessionChanged = (lastAudioSessionId != sessionId)
-    if (sessionChanged) {
-      runCatching { equalizer?.release() }
-      runCatching { loudnessEnhancer?.release() }
-      equalizer = null
-      loudnessEnhancer = null
-      lastAudioSessionId = sessionId
-    }
+    lastAudioSessionId = sessionId
 
     if (!dialogueEnhancerEnabled) {
-      runCatching {
-        equalizer?.enabled = false
-        equalizer?.release()
+      if (appliedDialogueEnhancerState == false && equalizer == null && loudnessEnhancer == null) {
+        return
       }
-      runCatching {
-        loudnessEnhancer?.enabled = false
-        loudnessEnhancer?.release()
-      }
-      equalizer = null
-      loudnessEnhancer = null
+      releaseAudioEffects()
+      appliedDialogueEnhancerState = false
       return
     }
 
-    runCatching {
-      if (equalizer == null) {
-        equalizer = android.media.audiofx.Equalizer(1000, sessionId)
-      }
-      equalizer?.let { eq ->
-        val range = runCatching { eq.bandLevelRange }.getOrNull() ?: shortArrayOf(-1500, 1500)
-        val minLevel = range[0]
-        val maxLevel = range[1]
-        val speechBoost = 600.toShort().coerceIn(minLevel, maxLevel)
-        val bassCut = (-300).toShort().coerceIn(minLevel, maxLevel)
-        val numBands = eq.numberOfBands
-        for (i in 0 until numBands) {
-          val centerFreqHz = eq.getCenterFreq(i.toShort()) / 1000
-          when {
-            centerFreqHz < 250 -> eq.setBandLevel(i.toShort(), bassCut)
-            centerFreqHz in 1000..4000 -> eq.setBandLevel(i.toShort(), speechBoost)
-            else -> eq.setBandLevel(i.toShort(), 0)
-          }
-        }
-        eq.enabled = true
-      }
-    }.onFailure { Log.w(TAG, "Failed to apply Equalizer: ${it.message}") }
+    if (appliedAudioSessionId == sessionId && appliedDialogueEnhancerState == true && equalizer != null) {
+      return
+    }
+
+    if (appliedAudioSessionId != sessionId) {
+      releaseAudioEffects()
+    }
 
     runCatching {
-      if (loudnessEnhancer == null) {
-        loudnessEnhancer = android.media.audiofx.LoudnessEnhancer(sessionId)
+      val eq = equalizer ?: android.media.audiofx.Equalizer(0, sessionId).also { equalizer = it }
+      val range = runCatching { eq.bandLevelRange }.getOrNull() ?: shortArrayOf(-1500, 1500)
+      val minLevel = range[0]
+      val maxLevel = range[1]
+      val speechBoost = 600.toShort().coerceIn(minLevel, maxLevel)
+      val bassCut = (-300).toShort().coerceIn(minLevel, maxLevel)
+      val numBands = eq.numberOfBands
+      for (i in 0 until numBands) {
+        val centerFreqHz = eq.getCenterFreq(i.toShort()) / 1000
+        when {
+          centerFreqHz < 250 -> eq.setBandLevel(i.toShort(), bassCut)
+          centerFreqHz in 1000..4000 -> eq.setBandLevel(i.toShort(), speechBoost)
+          else -> eq.setBandLevel(i.toShort(), 0)
+        }
       }
-      loudnessEnhancer?.let {
-        it.setTargetGain(350)
-        it.enabled = true
-      }
-    }.onFailure { Log.w(TAG, "Failed to apply LoudnessEnhancer: ${it.message}") }
+      eq.enabled = true
+      appliedAudioSessionId = sessionId
+      appliedDialogueEnhancerState = true
+    }.onFailure {
+      Log.w(TAG, "Failed to apply Equalizer: ${it.message}")
+      releaseAudioEffects()
+    }
+
+    if (equalizer != null) {
+      runCatching {
+        if (loudnessEnhancer == null) {
+          loudnessEnhancer = android.media.audiofx.LoudnessEnhancer(sessionId).apply {
+            setTargetGain(250)
+            enabled = true
+          }
+        }
+      }.onFailure { Log.w(TAG, "Failed to apply LoudnessEnhancer: ${it.message}") }
+    }
   }
 
   fun setSubtitleFontSize(size: Int) {
@@ -837,13 +853,15 @@ class ExoPlaybackView @JvmOverloads constructor(
       override fun onAudioSessionIdChanged(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, audioSessionId: Int) {
         if (audioSessionId != androidx.media3.common.C.AUDIO_SESSION_ID_UNSET && audioSessionId > 0) {
           lastAudioSessionId = audioSessionId
+          if (exoPlayer === active) applyDialogueEnhancer(active, audioSessionId)
         }
-        if (exoPlayer === active) applyDialogueEnhancer(active, audioSessionId)
       }
       override fun onAudioPositionAdvancing(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, playoutStartSystemTimeMs: Long) {
         if (exoPlayer === active) {
           providerProbe.audio()
-          applyDialogueEnhancer(active)
+          if (dialogueEnhancerEnabled && appliedAudioSessionId == androidx.media3.common.C.AUDIO_SESSION_ID_UNSET) {
+            applyDialogueEnhancer(active)
+          }
         }
       }
       override fun onAudioSinkError(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, audioSinkError: Exception) {
@@ -1316,10 +1334,7 @@ class ExoPlaybackView @JvmOverloads constructor(
   }
 
   private fun releasePlayer() {
-    runCatching { equalizer?.release() }
-    runCatching { loudnessEnhancer?.release() }
-    equalizer = null
-    loudnessEnhancer = null
+    releaseAudioEffects()
     lastAudioSessionId = androidx.media3.common.C.AUDIO_SESSION_ID_UNSET
     player = null
     exoPlayer?.removeListener(listener)

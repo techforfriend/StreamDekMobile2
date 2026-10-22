@@ -51,7 +51,7 @@ object CompatVersionProvider {
   private const val KEY_BUILD = "compat_version_code"
 
   const val DEFAULT_VERSION_NAME = "2.2.5"
-  const val DEFAULT_VERSION_CODE = "89"
+  const val DEFAULT_VERSION_CODE = "90"
 
   @Volatile
   var versionName: String = DEFAULT_VERSION_NAME
