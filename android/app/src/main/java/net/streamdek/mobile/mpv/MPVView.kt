@@ -57,7 +57,7 @@ class MPVView @JvmOverloads constructor(
         private const val MPV_LOG_LEVEL_WARN = 3
         private const val DEFAULT_SUBTITLE_COLOR = "#FFFFFFFF"
         private const val DEFAULT_SUBTITLE_OUTLINE_COLOR = "#FF000000"
-        private const val DIALOGUE_ENHANCER_AF = "lavfi=[dynaudnorm=f=150:g=15:m=4.5:p=0.85,equalizer=f=100:t=q:w=1.5:g=2.5,equalizer=f=250:t=q:w=1.5:g=2.5,equalizer=f=1000:t=q:w=1.5:g=6.0,equalizer=f=2500:t=q:w=1.2:g=6.5,equalizer=f=3500:t=q:w=1.2:g=5.0,alimiter=limit=0.98]"
+        private const val DIALOGUE_ENHANCER_AF = "lavfi=[dynaudnorm=f=150:g=15:m=3.5:p=0.85],lavfi=[equalizer=f=90:t=q:w=1.2:g=2.5],lavfi=[equalizer=f=2800:t=q:w=1.2:g=4.8],lavfi=[equalizer=f=10000:t=q:w=1.0:g=1.5],lavfi=[alimiter=limit=0.95]"
     }
 
     private val callbackHandler = android.os.Handler(android.os.Looper.getMainLooper())
@@ -232,7 +232,9 @@ class MPVView @JvmOverloads constructor(
     }
 
     override fun onSurfaceTextureDestroyed(surfaceTexture: SurfaceTexture): Boolean {
-        destroyInternal()
+        runCatching { MPVLib.detachSurface() }
+        surface?.release()
+        surface = null
         return true
     }
 

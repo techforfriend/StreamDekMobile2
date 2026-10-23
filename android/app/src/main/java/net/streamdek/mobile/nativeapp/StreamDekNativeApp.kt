@@ -1235,7 +1235,7 @@ private data class AppearanceUiSettings(
 )
 
 private data class AppUiState(
-  val booting: Boolean = true,
+  val booting: Boolean = false,
   /**
    * A sign-in is in flight.
    *
@@ -14746,7 +14746,6 @@ private fun StreamDekNativeAppContent(
           // The player owns its loading visuals, so a direct switch is also the intended handoff.
           val rootPlayerSession = uiState.playerSession ?: uiState.playerLaunchSession
           when {
-              uiState.booting -> SplashScene(density = uiState.homeDensity)
               rootPlayerSession != null -> {
                 // Stable across the provisional-to-real session handoff. NativePlayerScreen's
                 // richer handler wins while composed; this catches a system-back gesture during
