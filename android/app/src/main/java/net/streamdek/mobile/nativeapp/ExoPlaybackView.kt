@@ -674,22 +674,29 @@ class ExoPlaybackView @JvmOverloads constructor(
     }
 
     runCatching {
-      val eq = equalizer ?: android.media.audiofx.Equalizer(0, sessionId).also { equalizer = it }
+      val eq = equalizer ?: runCatching {
+        android.media.audiofx.Equalizer(100, sessionId)
+      }.getOrElse {
+        android.media.audiofx.Equalizer(0, sessionId)
+      }.also { equalizer = it }
+
       val range = runCatching { eq.bandLevelRange }.getOrNull() ?: shortArrayOf(-1500, 1500)
       val minLevel = range[0]
       val maxLevel = range[1]
-      val speechBoost = 600.toShort().coerceIn(minLevel, maxLevel)
-      val bassCut = (-300).toShort().coerceIn(minLevel, maxLevel)
+      val speechBoost = 800.toShort().coerceIn(minLevel, maxLevel)
+      val bassCut = (-350).toShort().coerceIn(minLevel, maxLevel)
+      val presenceBoost = 200.toShort().coerceIn(minLevel, maxLevel)
+
+      eq.enabled = true
       val numBands = eq.numberOfBands
       for (i in 0 until numBands) {
         val centerFreqHz = eq.getCenterFreq(i.toShort()) / 1000
         when {
-          centerFreqHz < 250 -> eq.setBandLevel(i.toShort(), bassCut)
-          centerFreqHz in 1000..4000 -> eq.setBandLevel(i.toShort(), speechBoost)
-          else -> eq.setBandLevel(i.toShort(), 0)
+          centerFreqHz <= 300 -> eq.setBandLevel(i.toShort(), bassCut)
+          centerFreqHz in 350..5000 -> eq.setBandLevel(i.toShort(), speechBoost)
+          else -> eq.setBandLevel(i.toShort(), presenceBoost)
         }
       }
-      eq.enabled = true
       appliedAudioSessionId = sessionId
       appliedDialogueEnhancerState = true
     }.onFailure {
@@ -699,12 +706,9 @@ class ExoPlaybackView @JvmOverloads constructor(
 
     if (equalizer != null) {
       runCatching {
-        if (loudnessEnhancer == null) {
-          loudnessEnhancer = android.media.audiofx.LoudnessEnhancer(sessionId).apply {
-            setTargetGain(250)
-            enabled = true
-          }
-        }
+        val le = loudnessEnhancer ?: android.media.audiofx.LoudnessEnhancer(sessionId).also { loudnessEnhancer = it }
+        le.setTargetGain(500)
+        le.enabled = true
       }.onFailure { Log.w(TAG, "Failed to apply LoudnessEnhancer: ${it.message}") }
     }
   }
