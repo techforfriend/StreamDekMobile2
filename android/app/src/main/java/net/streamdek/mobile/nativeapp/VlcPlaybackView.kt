@@ -639,14 +639,14 @@ class VlcPlaybackView @JvmOverloads constructor(
     runCatching {
       if (dialogueEnhancerEnabled) {
         val eq = org.videolan.libvlc.MediaPlayer.Equalizer.create()
-        eq.setPreAmp(2.5f)
+        eq.setPreAmp(1.5f)
         val count = org.videolan.libvlc.MediaPlayer.Equalizer.getBandCount()
         for (i in 0 until count) {
           val freq = org.videolan.libvlc.MediaPlayer.Equalizer.getBandFrequency(i)
           val amp = when {
-            freq in 350f..5000f -> 8.0f
-            freq < 300f -> -3.5f
-            else -> 1.5f
+            freq in 350f..5000f -> 5.5f
+            freq < 300f -> 1.0f
+            else -> 1.0f
           }
           eq.setAmp(i, amp)
         }
