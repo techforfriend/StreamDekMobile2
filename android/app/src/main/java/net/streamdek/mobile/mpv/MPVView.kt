@@ -57,7 +57,7 @@ class MPVView @JvmOverloads constructor(
         private const val MPV_LOG_LEVEL_WARN = 3
         private const val DEFAULT_SUBTITLE_COLOR = "#FFFFFFFF"
         private const val DEFAULT_SUBTITLE_OUTLINE_COLOR = "#FF000000"
-        private const val DIALOGUE_ENHANCER_AF = "lavfi=[dynaudnorm=f=150:g=15:m=3.5:p=0.85],lavfi=[equalizer=f=90:t=q:w=1.2:g=2.5],lavfi=[equalizer=f=2800:t=q:w=1.2:g=4.8],lavfi=[equalizer=f=10000:t=q:w=1.0:g=1.5],lavfi=[alimiter=limit=0.95]"
+        private const val DIALOGUE_ENHANCER_AF = "lavfi=[dynaudnorm=f=150:g=15:m=3.5:p=0.85,equalizer=f=2500:t=q:w=1.2:g=5.0]"
     }
 
     private val callbackHandler = android.os.Handler(android.os.Looper.getMainLooper())
