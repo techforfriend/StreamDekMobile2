@@ -507,9 +507,8 @@ fun NativePlayerScreen(
   fun activeSetSpeed(speed: Double) { activeControls()?.setSpeed(speed) }
   fun activeSetDialogueEnhancer(enabled: Boolean) { activeControls()?.setDialogueEnhancer(enabled) }
 
-  LaunchedEffect(activeEngine, playerView, exoPlayerView, vlcPlayerView, dialogueEnhancerEnabled, backgroundPlaybackEnabled) {
+  LaunchedEffect(activeEngine, playerView, exoPlayerView, vlcPlayerView, dialogueEnhancerEnabled) {
     activeSetDialogueEnhancer(dialogueEnhancerEnabled)
-    playerView?.backgroundPlaybackEnabled = backgroundPlaybackEnabled
   }
 
   val audioFocusListener = remember(playbackIdentity) {
@@ -3963,15 +3962,6 @@ private fun PlayerPanels(
           dialogueEnhancerEnabled = next
           activeSetDialogueEnhancer(next)
           onSaveDialogueEnhancer(next)
-        }
-      )
-      PlayerToggleRow(
-        title = stringResource(R.string.player_background_playback),
-        subtitle = stringResource(R.string.player_background_playback_desc),
-        checked = backgroundPlaybackEnabled,
-        onCheckedChange = { next ->
-          backgroundPlaybackEnabled = next
-          onSaveBackgroundPlayback(next)
         }
       )
     }

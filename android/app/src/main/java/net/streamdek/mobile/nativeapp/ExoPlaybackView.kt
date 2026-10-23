@@ -683,9 +683,9 @@ class ExoPlaybackView @JvmOverloads constructor(
       val range = runCatching { eq.bandLevelRange }.getOrNull() ?: shortArrayOf(-1500, 1500)
       val minLevel = range[0]
       val maxLevel = range[1]
-      val speechBoost = 550.toShort().coerceIn(minLevel, maxLevel)
-      val bassBoost = 100.toShort().coerceIn(minLevel, maxLevel)
-      val presenceBoost = 100.toShort().coerceIn(minLevel, maxLevel)
+      val speechBoost = 650.toShort().coerceIn(minLevel, maxLevel)
+      val bassBoost = 250.toShort().coerceIn(minLevel, maxLevel)
+      val presenceBoost = 200.toShort().coerceIn(minLevel, maxLevel)
 
       eq.enabled = true
       val numBands = eq.numberOfBands
@@ -707,7 +707,7 @@ class ExoPlaybackView @JvmOverloads constructor(
     if (equalizer != null) {
       runCatching {
         val le = loudnessEnhancer ?: android.media.audiofx.LoudnessEnhancer(sessionId).also { loudnessEnhancer = it }
-        le.setTargetGain(300)
+        le.setTargetGain(500)
         le.enabled = true
       }.onFailure { Log.w(TAG, "Failed to apply LoudnessEnhancer: ${it.message}") }
     }

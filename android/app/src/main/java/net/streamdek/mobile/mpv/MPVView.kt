@@ -57,7 +57,7 @@ class MPVView @JvmOverloads constructor(
         private const val MPV_LOG_LEVEL_WARN = 3
         private const val DEFAULT_SUBTITLE_COLOR = "#FFFFFFFF"
         private const val DEFAULT_SUBTITLE_OUTLINE_COLOR = "#FF000000"
-        private const val DIALOGUE_ENHANCER_AF = "lavfi=[dynaudnorm=f=150:g=15:m=3.0:p=0.85,equalizer=f=1000:t=q:w=1.5:g=5.0,equalizer=f=2500:t=q:w=1.2:g=5.5,equalizer=f=3500:t=q:w=1.2:g=4.0,equalizer=f=180:t=q:w=1.5:g=1.0,alimiter=limit=0.95]"
+        private const val DIALOGUE_ENHANCER_AF = "lavfi=[dynaudnorm=f=150:g=15:m=4.5:p=0.85,equalizer=f=100:t=q:w=1.5:g=2.5,equalizer=f=250:t=q:w=1.5:g=2.5,equalizer=f=1000:t=q:w=1.5:g=6.0,equalizer=f=2500:t=q:w=1.2:g=6.5,equalizer=f=3500:t=q:w=1.2:g=5.0,alimiter=limit=0.98]"
     }
 
     private val callbackHandler = android.os.Handler(android.os.Looper.getMainLooper())
@@ -161,7 +161,6 @@ class MPVView @JvmOverloads constructor(
         keepScreenOn = true
     }
 
-    var backgroundPlaybackEnabled: Boolean = false
     private var dialogueEnhancerEnabled: Boolean = false
 
     override fun onSurfaceTextureAvailable(surfaceTexture: SurfaceTexture, width: Int, height: Int) {
@@ -233,13 +232,6 @@ class MPVView @JvmOverloads constructor(
     }
 
     override fun onSurfaceTextureDestroyed(surfaceTexture: SurfaceTexture): Boolean {
-        if (backgroundPlaybackEnabled && initialized && !isDestroyed) {
-            if (BuildConfig.DEBUG) Log.i(TAG, "onSurfaceTextureDestroyed: Detaching surface for background audio playback")
-            runCatching { MPVLib.detachSurface() }
-            surface?.release()
-            surface = null
-            return true
-        }
         destroyInternal()
         return true
     }
