@@ -788,7 +788,9 @@ class MPVView @JvmOverloads constructor(
             val dynFilter = if (audioEnhancerDynamic) "dynaudnorm=f=150:g=15:m=3.5:p=0.85" else "dynaudnorm=f=150:g=15:m=1.5:p=0.85"
             val bassFilter = if (audioEnhancerBassDb > 0.05f) ",equalizer=f=90:t=q:w=1.2:g=${String.format(java.util.Locale.US, "%.1f", audioEnhancerBassDb)}" else ""
             val voiceFilter = if (audioEnhancerVoiceDb > 0.05f) ",equalizer=f=2500:t=q:w=1.2:g=${String.format(java.util.Locale.US, "%.1f", audioEnhancerVoiceDb)}" else ""
-            val afString = "lavfi=[${dynFilter}${bassFilter}${voiceFilter}]"
+            val loudnessDb = (audioEnhancerLoudnessMb / 100.0f)
+            val volumeFilter = if (loudnessDb > 0.05f) ",volume=${String.format(java.util.Locale.US, "%.1f", loudnessDb)}dB" else ""
+            val afString = "lavfi=[${dynFilter}${bassFilter}${voiceFilter}${volumeFilter}]"
             if (BuildConfig.DEBUG) Log.i(TAG, "applyAudioEnhancer: $afString")
             MPVLib.setPropertyString("af", afString)
         } else {

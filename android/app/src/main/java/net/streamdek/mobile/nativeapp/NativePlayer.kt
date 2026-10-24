@@ -292,6 +292,9 @@ private enum class SubtitlePanelTab(@StringRes val labelRes: Int, val isSource: 
   Style(R.string.subtitle_tab_style, isSource = false),
   Timing(R.string.subtitle_tab_timing, isSource = false),
 }
+
+private enum class AudioModalTab { Tracks, Enhancer }
+
 internal enum class ExternalSubtitleOrigin { BuiltIn, Addon }
 internal fun externalSubtitleOrigin(sourceId: String): ExternalSubtitleOrigin =
   if (sourceId.startsWith("addon:")) ExternalSubtitleOrigin.Addon else ExternalSubtitleOrigin.BuiltIn
@@ -3974,46 +3977,276 @@ private fun PlayerPanels(
     subtitleErrorMessage = null
   }
   when (activePanel) {
-    PlayerPanel.Audio -> PlayerModalPanel(title = stringResource(R.string.player_audio), onClose = { activePanel = PlayerPanel.None }) {
-      if (audioTracks.isEmpty()) {
-        PlayerOptionRow(stringResource(R.string.player_default_audio), selected = true, onClick = {})
-      } else {
-        audioTracks.forEach { track ->
-          PlayerOptionRow(trackLabel(track), selected = selectedAudioTrackId == track.id) {
-            userPickedAudio = true
-            selectedAudioTrackId = track.id
-            preferredAudioTrackKey = trackPreferenceKey(track)
-            activeSetAudioTrack(track.id)
+    PlayerPanel.Audio, PlayerPanel.Enhancer -> {
+      var audioModalTab by remember(activePanel) {
+        mutableStateOf(if (activePanel == PlayerPanel.Enhancer) AudioModalTab.Enhancer else AudioModalTab.Tracks)
+      }
+      PlayerModalPanel(
+        title = if (audioModalTab == AudioModalTab.Enhancer) "Audio Enhancer" else stringResource(R.string.player_audio),
+        onClose = { activePanel = PlayerPanel.None }
+      ) {
+        Row(
+          modifier = Modifier
+            .fillMaxWidth()
+            .clip(StreamDekRadius.panelShape)
+            .background(Color.White.copy(alpha = 0.06f))
+            .padding(6.dp),
+          horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+          listOf(
+            AudioModalTab.Tracks to stringResource(R.string.player_audio),
+            AudioModalTab.Enhancer to "Enhancer"
+          ).forEach { (tab, label) ->
+            val selected = audioModalTab == tab
+            Box(
+              modifier = Modifier
+                .weight(1f)
+                .clip(StreamDekRadius.cardShape)
+                .background(if (selected) Color.White else Color.Transparent)
+                .clickable { audioModalTab = tab }
+                .padding(vertical = 11.dp),
+              contentAlignment = Alignment.Center,
+            ) {
+              Text(
+                label,
+                color = if (selected) Color.Black else Color.White.copy(alpha = 0.72f),
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+              )
+            }
+          }
+        }
+        when (audioModalTab) {
+          AudioModalTab.Tracks -> {
+            if (audioTracks.isEmpty()) {
+              PlayerOptionRow(stringResource(R.string.player_default_audio), selected = true, onClick = {})
+            } else {
+              audioTracks.forEach { track ->
+                PlayerOptionRow(trackLabel(track), selected = selectedAudioTrackId == track.id) {
+                  userPickedAudio = true
+                  selectedAudioTrackId = track.id
+                  preferredAudioTrackKey = trackPreferenceKey(track)
+                  activeSetAudioTrack(track.id)
+                }
+              }
+            }
+            Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.10f)))
+            AudioDelayControl(
+              valueSeconds = audioDelay.toDouble(),
+              supported = remember(activeEngine, audioTracks) { activeAudioDelaySupported() },
+              onChange = { seconds ->
+                audioDelay = seconds.toFloat()
+                activeSetAudioDelay(seconds)
+              },
+            )
+          }
+          AudioModalTab.Enhancer -> {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxWidth()) {
+              PlayerToggleRow(
+                title = "Enable Audio Enhancer",
+                subtitle = if (dialogueEnhancerEnabled) "Active ($audioEnhancerProfile)" else "Off (Stock audio)",
+                checked = dialogueEnhancerEnabled,
+                onCheckedChange = { next ->
+                  dialogueEnhancerEnabled = next
+                  onSaveDialogueEnhancer(next)
+                  activeSetAudioEnhancer(next, audioEnhancerVoiceDb, audioEnhancerBassDb, audioEnhancerLoudnessMb, audioEnhancerProfile != "Movie & Bass")
+                }
+              )
+
+              Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.10f)))
+
+              Text(
+                "Profiles",
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleSmall
+              )
+
+              val presetProfiles = listOf(
+                "Clear Dialogue" to "Vocal clarity, natural flat bass",
+                "Movie & Bass" to "Action cinema, warm low-end punch",
+                "Night Mode" to "Quiet speech boost, limited explosions",
+                "Vocal Max" to "Maximum speech volume boost",
+                "Custom" to "User adjustable sliders (+2 dB headroom)"
+              )
+
+              FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+              ) {
+                presetProfiles.forEach { (name, _) ->
+                  val isSelected = audioEnhancerProfile == name
+                  FilterChip(
+                    selected = isSelected,
+                    onClick = {
+                      audioEnhancerProfile = name
+                      onSaveAudioEnhancerProfile(name)
+                      var vDb = audioEnhancerVoiceDb
+                      var bDb = audioEnhancerBassDb
+                      var lMb = audioEnhancerLoudnessMb
+                      when (name) {
+                        "Clear Dialogue" -> {
+                          vDb = 5.0f; bDb = 0.0f; lMb = 350
+                          audioEnhancerVoiceDb = 5.0f
+                          audioEnhancerBassDb = 0.0f
+                          audioEnhancerLoudnessMb = 350
+                          onSaveAudioEnhancerVoiceDb(5.0f)
+                          onSaveAudioEnhancerBassDb(0.0f)
+                          onSaveAudioEnhancerLoudnessMb(350)
+                        }
+                        "Movie & Bass" -> {
+                          vDb = 4.0f; bDb = 3.0f; lMb = 400
+                          audioEnhancerVoiceDb = 4.0f
+                          audioEnhancerBassDb = 3.0f
+                          audioEnhancerLoudnessMb = 400
+                          onSaveAudioEnhancerVoiceDb(4.0f)
+                          onSaveAudioEnhancerBassDb(3.0f)
+                          onSaveAudioEnhancerLoudnessMb(400)
+                        }
+                        "Night Mode" -> {
+                          vDb = 4.5f; bDb = 1.0f; lMb = 200
+                          audioEnhancerVoiceDb = 4.5f
+                          audioEnhancerBassDb = 1.0f
+                          audioEnhancerLoudnessMb = 200
+                          onSaveAudioEnhancerVoiceDb(4.5f)
+                          onSaveAudioEnhancerBassDb(1.0f)
+                          onSaveAudioEnhancerLoudnessMb(200)
+                        }
+                        "Vocal Max" -> {
+                          vDb = 7.5f; bDb = 0.0f; lMb = 500
+                          audioEnhancerVoiceDb = 7.5f
+                          audioEnhancerBassDb = 0.0f
+                          audioEnhancerLoudnessMb = 500
+                          onSaveAudioEnhancerVoiceDb(7.5f)
+                          onSaveAudioEnhancerBassDb(0.0f)
+                          onSaveAudioEnhancerLoudnessMb(500)
+                        }
+                        "Custom" -> {
+                          // Retain current custom levels
+                        }
+                      }
+                      if (!dialogueEnhancerEnabled) {
+                        dialogueEnhancerEnabled = true
+                        onSaveDialogueEnhancer(true)
+                      }
+                      activeSetAudioEnhancer(true, vDb, bDb, lMb, name != "Movie & Bass")
+                    },
+                    label = {
+                      Text(name, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+                    }
+                  )
+                }
+              }
+
+              val desc = presetProfiles.firstOrNull { it.first == audioEnhancerProfile }?.second.orEmpty()
+              if (desc.isNotBlank()) {
+                Text(desc, color = Color.White.copy(alpha = 0.70f), style = MaterialTheme.typography.bodySmall)
+              }
+
+              Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.10f)))
+
+              Text(
+                if (audioEnhancerProfile == "Custom") "Custom Controls (+2 dB Extended)" else "Current Profile Levels",
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleSmall
+              )
+
+              // 1. Voice Clarity Slider: 0 dB to 10 dB (+2 dB extended on custom)
+              Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                  Text("Voice Clarity", color = Color.White, style = MaterialTheme.typography.bodyMedium)
+                  Text(
+                    String.format(java.util.Locale.US, "+%.1f dB", audioEnhancerVoiceDb),
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.bodyMedium
+                  )
+                }
+                Slider(
+                  value = audioEnhancerVoiceDb,
+                  valueRange = 0.0f..10.0f,
+                  steps = 19,
+                  onValueChange = { newVal ->
+                    audioEnhancerProfile = "Custom"
+                    onSaveAudioEnhancerProfile("Custom")
+                    val stepped = (newVal * 2).roundToInt() / 2f
+                    audioEnhancerVoiceDb = stepped
+                    onSaveAudioEnhancerVoiceDb(stepped)
+                    if (!dialogueEnhancerEnabled) {
+                      dialogueEnhancerEnabled = true
+                      onSaveDialogueEnhancer(true)
+                    }
+                    activeSetAudioEnhancer(true, stepped, audioEnhancerBassDb, audioEnhancerLoudnessMb, true)
+                  }
+                )
+              }
+
+              // 2. Bass Boost Slider: 0 dB to 8 dB (+2 dB extended on custom)
+              Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                  Text("Bass Boost", color = Color.White, style = MaterialTheme.typography.bodyMedium)
+                  Text(
+                    String.format(java.util.Locale.US, "+%.1f dB", audioEnhancerBassDb),
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.bodyMedium
+                  )
+                }
+                Slider(
+                  value = audioEnhancerBassDb,
+                  valueRange = 0.0f..8.0f,
+                  steps = 15,
+                  onValueChange = { newVal ->
+                    audioEnhancerProfile = "Custom"
+                    onSaveAudioEnhancerProfile("Custom")
+                    val stepped = (newVal * 2).roundToInt() / 2f
+                    audioEnhancerBassDb = stepped
+                    onSaveAudioEnhancerBassDb(stepped)
+                    if (!dialogueEnhancerEnabled) {
+                      dialogueEnhancerEnabled = true
+                      onSaveDialogueEnhancer(true)
+                    }
+                    activeSetAudioEnhancer(true, audioEnhancerVoiceDb, stepped, audioEnhancerLoudnessMb, true)
+                  }
+                )
+              }
+
+              // 3. Loudness Gain Slider: 0 to 800 mB (0 to +8.0 dB, +2 dB extended on custom)
+              Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                  Text("Loudness Gain", color = Color.White, style = MaterialTheme.typography.bodyMedium)
+                  Text(
+                    String.format(java.util.Locale.US, "+%.1f dB", audioEnhancerLoudnessMb / 100f),
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.bodyMedium
+                  )
+                }
+                Slider(
+                  value = audioEnhancerLoudnessMb.toFloat(),
+                  valueRange = 0f..800f,
+                  steps = 15,
+                  onValueChange = { newVal ->
+                    audioEnhancerProfile = "Custom"
+                    onSaveAudioEnhancerProfile("Custom")
+                    val stepped = ((newVal / 50f).roundToInt() * 50)
+                    audioEnhancerLoudnessMb = stepped
+                    onSaveAudioEnhancerLoudnessMb(stepped)
+                    if (!dialogueEnhancerEnabled) {
+                      dialogueEnhancerEnabled = true
+                      onSaveDialogueEnhancer(true)
+                    }
+                    activeSetAudioEnhancer(true, audioEnhancerVoiceDb, audioEnhancerBassDb, stepped, true)
+                  }
+                )
+              }
+            }
           }
         }
       }
-      Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.10f)))
-      AudioDelayControl(
-        valueSeconds = audioDelay.toDouble(),
-        supported = remember(activeEngine, audioTracks) { activeAudioDelaySupported() },
-        onChange = { seconds ->
-          audioDelay = seconds.toFloat()
-          activeSetAudioDelay(seconds)
-        },
-      )
-      Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.10f)))
-      PlayerToggleRow(
-        title = stringResource(R.string.player_dialogue_enhancer),
-        subtitle = stringResource(R.string.player_dialogue_enhancer_desc),
-        checked = dialogueEnhancerEnabled,
-        onCheckedChange = { next ->
-          dialogueEnhancerEnabled = next
-          onSaveDialogueEnhancer(next)
-        }
-      )
-      PlayerOptionRow(
-        label = "Audio Enhancer Settings",
-        supportingText = if (dialogueEnhancerEnabled) "Active ($audioEnhancerProfile)" else "Off",
-        selected = dialogueEnhancerEnabled,
-        onClick = {
-          activePanel = PlayerPanel.Enhancer
-        }
-      )
     }
     PlayerPanel.Subtitles -> PlayerModalPanel(title = stringResource(R.string.player_subtitles), onClose = { activePanel = PlayerPanel.None }) {
       Row(
@@ -4344,198 +4577,6 @@ private fun PlayerPanels(
       )
     } else {
       LaunchedEffect(Unit) { activePanel = PlayerPanel.None }
-    }
-    PlayerPanel.Enhancer -> PlayerModalPanel(title = "Audio Enhancer", onClose = { activePanel = PlayerPanel.None }, compact = false) {
-      Column(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxWidth()) {
-        PlayerToggleRow(
-          title = "Enable Audio Enhancer",
-          subtitle = if (dialogueEnhancerEnabled) "Active ($audioEnhancerProfile)" else "Off (Stock audio)",
-          checked = dialogueEnhancerEnabled,
-          onCheckedChange = { next ->
-            dialogueEnhancerEnabled = next
-            onSaveDialogueEnhancer(next)
-          }
-        )
-
-        Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.10f)))
-
-        Text(
-          "Profiles",
-          color = Color.White,
-          fontWeight = FontWeight.Bold,
-          style = MaterialTheme.typography.titleSmall
-        )
-
-        val presetProfiles = listOf(
-          "Clear Dialogue" to "Vocal clarity, natural flat bass",
-          "Movie & Bass" to "Action cinema, warm low-end punch",
-          "Night Mode" to "Quiet speech boost, limited explosions",
-          "Vocal Max" to "Maximum speech volume boost",
-          "Custom" to "User adjustable sliders (+2 dB headroom)"
-        )
-
-        FlowRow(
-          horizontalArrangement = Arrangement.spacedBy(8.dp),
-          verticalArrangement = Arrangement.spacedBy(8.dp),
-          modifier = Modifier.fillMaxWidth()
-        ) {
-          presetProfiles.forEach { (name, _) ->
-            val isSelected = audioEnhancerProfile == name
-            FilterChip(
-              selected = isSelected,
-              onClick = {
-                audioEnhancerProfile = name
-                onSaveAudioEnhancerProfile(name)
-                when (name) {
-                  "Clear Dialogue" -> {
-                    audioEnhancerVoiceDb = 5.0f
-                    audioEnhancerBassDb = 0.0f
-                    audioEnhancerLoudnessMb = 350
-                    onSaveAudioEnhancerVoiceDb(5.0f)
-                    onSaveAudioEnhancerBassDb(0.0f)
-                    onSaveAudioEnhancerLoudnessMb(350)
-                  }
-                  "Movie & Bass" -> {
-                    audioEnhancerVoiceDb = 4.0f
-                    audioEnhancerBassDb = 3.0f
-                    audioEnhancerLoudnessMb = 400
-                    onSaveAudioEnhancerVoiceDb(4.0f)
-                    onSaveAudioEnhancerBassDb(3.0f)
-                    onSaveAudioEnhancerLoudnessMb(400)
-                  }
-                  "Night Mode" -> {
-                    audioEnhancerVoiceDb = 4.5f
-                    audioEnhancerBassDb = 1.0f
-                    audioEnhancerLoudnessMb = 200
-                    onSaveAudioEnhancerVoiceDb(4.5f)
-                    onSaveAudioEnhancerBassDb(1.0f)
-                    onSaveAudioEnhancerLoudnessMb(200)
-                  }
-                  "Vocal Max" -> {
-                    audioEnhancerVoiceDb = 7.5f
-                    audioEnhancerBassDb = 0.0f
-                    audioEnhancerLoudnessMb = 500
-                    onSaveAudioEnhancerVoiceDb(7.5f)
-                    onSaveAudioEnhancerBassDb(0.0f)
-                    onSaveAudioEnhancerLoudnessMb(500)
-                  }
-                  "Custom" -> {
-                    // Retain current custom levels
-                  }
-                }
-                if (!dialogueEnhancerEnabled) {
-                  dialogueEnhancerEnabled = true
-                  onSaveDialogueEnhancer(true)
-                }
-              },
-              label = {
-                Text(name, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
-              }
-            )
-          }
-        }
-
-        val desc = presetProfiles.firstOrNull { it.first == audioEnhancerProfile }?.second.orEmpty()
-        if (desc.isNotBlank()) {
-          Text(desc, color = Color.White.copy(alpha = 0.70f), style = MaterialTheme.typography.bodySmall)
-        }
-
-        Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.10f)))
-
-        Text(
-          if (audioEnhancerProfile == "Custom") "Custom Controls (+2 dB Extended)" else "Current Profile Levels",
-          color = Color.White,
-          fontWeight = FontWeight.Bold,
-          style = MaterialTheme.typography.titleSmall
-        )
-
-        // 1. Voice Clarity Slider: 0 dB to 10 dB (+2 dB extended on custom)
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
-          Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Voice Clarity", color = Color.White, style = MaterialTheme.typography.bodyMedium)
-            Text(
-              String.format(java.util.Locale.US, "+%.1f dB", audioEnhancerVoiceDb),
-              color = MaterialTheme.colorScheme.primary,
-              fontWeight = FontWeight.Bold,
-              style = MaterialTheme.typography.bodyMedium
-            )
-          }
-          Slider(
-            value = audioEnhancerVoiceDb,
-            valueRange = 0.0f..10.0f,
-            steps = 19,
-            onValueChange = { newVal ->
-              audioEnhancerProfile = "Custom"
-              onSaveAudioEnhancerProfile("Custom")
-              val stepped = (newVal * 2).roundToInt() / 2f
-              audioEnhancerVoiceDb = stepped
-              onSaveAudioEnhancerVoiceDb(stepped)
-              if (!dialogueEnhancerEnabled) {
-                dialogueEnhancerEnabled = true
-                onSaveDialogueEnhancer(true)
-              }
-            }
-          )
-        }
-
-        // 2. Bass Boost Slider: 0 dB to 8 dB (+2 dB extended on custom)
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
-          Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Bass Boost", color = Color.White, style = MaterialTheme.typography.bodyMedium)
-            Text(
-              String.format(java.util.Locale.US, "+%.1f dB", audioEnhancerBassDb),
-              color = MaterialTheme.colorScheme.primary,
-              fontWeight = FontWeight.Bold,
-              style = MaterialTheme.typography.bodyMedium
-            )
-          }
-          Slider(
-            value = audioEnhancerBassDb,
-            valueRange = 0.0f..8.0f,
-            steps = 15,
-            onValueChange = { newVal ->
-              audioEnhancerProfile = "Custom"
-              onSaveAudioEnhancerProfile("Custom")
-              val stepped = (newVal * 2).roundToInt() / 2f
-              audioEnhancerBassDb = stepped
-              onSaveAudioEnhancerBassDb(stepped)
-              if (!dialogueEnhancerEnabled) {
-                dialogueEnhancerEnabled = true
-                onSaveDialogueEnhancer(true)
-              }
-            }
-          )
-        }
-
-        // 3. Loudness Gain Slider: 0 to 800 mB (0 to +8.0 dB, +2 dB extended on custom)
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
-          Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Loudness Gain", color = Color.White, style = MaterialTheme.typography.bodyMedium)
-            Text(
-              String.format(java.util.Locale.US, "+%.1f dB", audioEnhancerLoudnessMb / 100f),
-              color = MaterialTheme.colorScheme.primary,
-              fontWeight = FontWeight.Bold,
-              style = MaterialTheme.typography.bodyMedium
-            )
-          }
-          Slider(
-            value = audioEnhancerLoudnessMb.toFloat(),
-            valueRange = 0f..800f,
-            steps = 15,
-            onValueChange = { newVal ->
-              audioEnhancerProfile = "Custom"
-              onSaveAudioEnhancerProfile("Custom")
-              val stepped = ((newVal / 50f).roundToInt() * 50)
-              audioEnhancerLoudnessMb = stepped
-              onSaveAudioEnhancerLoudnessMb(stepped)
-              if (!dialogueEnhancerEnabled) {
-                dialogueEnhancerEnabled = true
-                onSaveDialogueEnhancer(true)
-              }
-            }
-          )
-        }
-      }
     }
     PlayerPanel.None -> Unit
   }

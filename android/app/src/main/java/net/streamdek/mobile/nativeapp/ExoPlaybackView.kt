@@ -684,50 +684,55 @@ class ExoPlaybackView @JvmOverloads constructor(
 
     if (appliedAudioSessionId != sessionId) {
       releaseAudioEffects()
+      appliedAudioSessionId = sessionId
     }
 
     runCatching {
       val eq = equalizer ?: runCatching {
-        android.media.audiofx.Equalizer(100, sessionId)
-      }.getOrElse {
         android.media.audiofx.Equalizer(0, sessionId)
-      }.also { equalizer = it }
+      }.getOrNull()?.also { equalizer = it }
 
-      val range = runCatching { eq.bandLevelRange }.getOrNull() ?: shortArrayOf(-1500, 1500)
-      val minLevel = range[0]
-      val maxLevel = range[1]
-      val speechBoost = (audioEnhancerVoiceDb * 100).toInt().toShort().coerceIn(minLevel, maxLevel)
-      val bassBoost = (audioEnhancerBassDb * 100).toInt().toShort().coerceIn(minLevel, maxLevel)
-      val flatLevel: Short = 0
+      if (eq != null) {
+        val range = runCatching { eq.bandLevelRange }.getOrNull() ?: shortArrayOf(-1500, 1500)
+        val minLevel = range[0]
+        val maxLevel = range[1]
+        val speechBoost = (audioEnhancerVoiceDb * 100).toInt().toShort().coerceIn(minLevel, maxLevel)
+        val bassBoost = (audioEnhancerBassDb * 100).toInt().toShort().coerceIn(minLevel, maxLevel)
+        val flatLevel: Short = 0
 
-      eq.enabled = true
-      val numBands = eq.numberOfBands
-      for (i in 0 until numBands) {
-        val centerFreqHz = eq.getCenterFreq(i.toShort()) / 1000
-        when {
-          centerFreqHz <= 300 -> eq.setBandLevel(i.toShort(), bassBoost)
-          centerFreqHz in 350..5000 -> eq.setBandLevel(i.toShort(), speechBoost)
-          else -> eq.setBandLevel(i.toShort(), flatLevel)
+        eq.enabled = true
+        val numBands = eq.numberOfBands
+        for (i in 0 until numBands) {
+          val centerFreqHz = eq.getCenterFreq(i.toShort()) / 1000
+          when {
+            centerFreqHz <= 300 -> eq.setBandLevel(i.toShort(), bassBoost)
+            centerFreqHz in 350..5000 -> eq.setBandLevel(i.toShort(), speechBoost)
+            else -> eq.setBandLevel(i.toShort(), flatLevel)
+          }
         }
+        appliedVoiceDb = audioEnhancerVoiceDb
+        appliedBassDb = audioEnhancerBassDb
       }
-      appliedAudioSessionId = sessionId
-      appliedDialogueEnhancerState = true
-      appliedVoiceDb = audioEnhancerVoiceDb
-      appliedBassDb = audioEnhancerBassDb
     }.onFailure {
-      Log.w(TAG, "Failed to apply Equalizer: ${it.message}")
-      releaseAudioEffects()
+      Log.w(TAG, "Audio Equalizer unavailable on audio session $sessionId: ${it.message}")
     }
 
-    if (equalizer != null) {
-      runCatching {
-        val le = loudnessEnhancer ?: android.media.audiofx.LoudnessEnhancer(sessionId).also { loudnessEnhancer = it }
+    runCatching {
+      val le = loudnessEnhancer ?: runCatching {
+        android.media.audiofx.LoudnessEnhancer(sessionId)
+      }.getOrNull()?.also { loudnessEnhancer = it }
+
+      if (le != null) {
         val gain = audioEnhancerLoudnessMb.coerceIn(0, 1500)
         le.setTargetGain(gain)
         le.enabled = gain > 0
         appliedLoudnessMb = gain
-      }.onFailure { Log.w(TAG, "Failed to apply LoudnessEnhancer: ${it.message}") }
+      }
+    }.onFailure {
+      Log.w(TAG, "LoudnessEnhancer unavailable on audio session $sessionId: ${it.message}")
     }
+
+    appliedDialogueEnhancerState = true
   }
 
   fun setSubtitleFontSize(size: Int) {
