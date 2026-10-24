@@ -1533,6 +1533,7 @@ fun NativePlayerScreen(
       resizeModeState = resizeModeState,
       customZoomState = customZoomState,
       showLiveProgressState = showLiveProgressState,
+      dialogueEnhancerState = dialogueEnhancerState,
       adjustmentKindState = adjustmentKindState,
       adjustmentLevelState = adjustmentLevelState,
       activeSeekTo = ::activeSeekTo,
@@ -4565,6 +4566,7 @@ private fun BoxScope.PlayerOverlays(
   resizeModeState: MutableState<String>,
   customZoomState: MutableFloatState,
   showLiveProgressState: MutableState<Boolean>,
+  dialogueEnhancerState: MutableState<Boolean>,
   adjustmentKindState: MutableState<PlayerAdjustmentKind?>,
   adjustmentLevelState: MutableFloatState,
   activeSeekTo: (Double) -> Unit,
@@ -4591,6 +4593,7 @@ private fun BoxScope.PlayerOverlays(
   var resizeMode by resizeModeState
   var customZoom by customZoomState
   var showLiveProgress by showLiveProgressState
+  var dialogueEnhancerEnabled by dialogueEnhancerState
   var isPaused by playback.isPaused
   var pausedForAudioFocus by playback.pausedForAudioFocus
   var currentTime by playback.currentTime
