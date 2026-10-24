@@ -104,7 +104,7 @@ internal fun SkyStreamDetailsDialog(
 ) {
   val single = providers.singleOrNull()?.takeIf { it.downloadUrl == url }
   Dialog(onDismissRequest = onDismiss) {
-    Surface(shape = StreamDekRadius.panelShape, color = MaterialTheme.colorScheme.surface) {
+    LiquidGlassDialog(shape = StreamDekRadius.panelShape) {
       Column(Modifier.fillMaxWidth().heightIn(max = 560.dp).verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text(stringResource(if (single != null) R.string.sky_source_details else R.string.plugin_collection_details), style = MaterialTheme.typography.labelMedium)

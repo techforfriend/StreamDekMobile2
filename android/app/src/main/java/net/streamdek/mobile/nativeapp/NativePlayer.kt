@@ -3071,56 +3071,94 @@ private fun buildPlayerSourceLabel(stream: AddonStream): String? =
 @Composable
 private fun PlayerModalPanel(title: String, onClose: () -> Unit, trailing: @Composable (() -> Unit)? = null, compact: Boolean = false, content: @Composable () -> Unit) {
   val panelSizeModifier = if (compact) Modifier.fillMaxWidth(0.44f) else Modifier.fillMaxWidth(0.62f).fillMaxHeight(0.86f)
+  val accentColor = LocalStreamDekThemeColors.current.accent
+  val panelShape = StreamDekRadius.sheetShape
   Box(
     modifier = Modifier.fillMaxSize().clickable(onClick = onClose),
     contentAlignment = Alignment.Center,
   ) {
-    Column(
+    Box(
       modifier = panelSizeModifier
-        .playerGlass(
-          shape = StreamDekRadius.sheetShape,
-          borderAlpha = 0.20f,
-          baseColor = Color(0xE8121212),
-          borderWidth = 1.dp
+        .clip(panelShape)
+        .background(
+          Brush.verticalGradient(
+            colors = listOf(
+              Color(0xF2161A24),
+              Color(0xF60D0F15),
+            ),
+          ),
         )
-        .clickable(onClick = {})
-        .padding(22.dp),
-      verticalArrangement = Arrangement.spacedBy(16.dp),
+        .border(
+          width = 1.dp,
+          brush = Brush.verticalGradient(
+            colors = listOf(
+              Color.White.copy(alpha = 0.35f),
+              accentColor.copy(alpha = 0.28f),
+              Color.White.copy(alpha = 0.10f),
+            ),
+          ),
+          shape = panelShape,
+        )
+        .clickable(onClick = {}),
     ) {
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-      ) {
-        // Weighted, and the buttons are not. A Row measures its unweighted children first, so the
-        // close button keeps its natural width and the heading takes whatever is left - which is
-        // what stops a long title (German's "Wiedergabegeschwindigkeit" against English's
-        // "Playback Speed") from crushing the button into a column one letter wide.
-        Text(
-          title,
-          modifier = Modifier.weight(1f),
-          color = Color.White,
-          style = MaterialTheme.typography.headlineSmall,
-          fontWeight = FontWeight.Black,
-          maxLines = 2,
-          overflow = TextOverflow.Ellipsis,
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-          trailing?.invoke()
-          Button(
-            onClick = onClose,
-            colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.14f), contentColor = Color.White),
-            shape = StreamDekRadius.cardShape,
-            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
-          ) { Text(stringResource(R.string.action_close)) }
-        }
-      }
-      val panelContentModifier = if (compact) Modifier.fillMaxWidth().heightIn(max = 220.dp) else Modifier.weight(1f).fillMaxWidth()
+      Box(
+        modifier = Modifier
+          .matchParentSize()
+          .background(
+            Brush.verticalGradient(
+              colorStops = arrayOf(
+                0.00f to Color.White.copy(alpha = 0.09f),
+                0.25f to Color.White.copy(alpha = 0.02f),
+                0.55f to Color.Transparent,
+              ),
+            ),
+          ),
+      )
+      Box(
+        modifier = Modifier
+          .matchParentSize()
+          .background(accentColor.copy(alpha = 0.035f)),
+      )
       Column(
-        modifier = panelContentModifier.verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = (if (compact) Modifier.fillMaxWidth() else Modifier.fillMaxSize())
+          .padding(22.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
       ) {
-        content()
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.spacedBy(12.dp),
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
+          // Weighted, and the buttons are not. A Row measures its unweighted children first, so the
+          // close button keeps its natural width and the heading takes whatever is left - which is
+          // what stops a long title (German's "Wiedergabegeschwindigkeit" against English's
+          // "Playback Speed") from crushing the button into a column one letter wide.
+          Text(
+            title,
+            modifier = Modifier.weight(1f),
+            color = Color.White,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Black,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+          )
+          Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            trailing?.invoke()
+            Button(
+              onClick = onClose,
+              colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.14f), contentColor = Color.White),
+              shape = StreamDekRadius.cardShape,
+              border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
+            ) { Text(stringResource(R.string.action_close)) }
+          }
+        }
+        val panelContentModifier = if (compact) Modifier.fillMaxWidth().heightIn(max = 220.dp) else Modifier.weight(1f).fillMaxWidth()
+        Column(
+          modifier = panelContentModifier.verticalScroll(rememberScrollState()),
+          verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+          content()
+        }
       }
     }
   }
@@ -4029,14 +4067,39 @@ private fun PlayerPanels(
               modifier = Modifier
                 .weight(1f)
                 .clip(StreamDekRadius.cardShape)
-                .background(if (selected) Color.White else Color.Transparent)
+                .background(
+                  if (selected) {
+                    Brush.verticalGradient(
+                      colors = listOf(
+                        LocalStreamDekThemeColors.current.accent.copy(alpha = 0.95f),
+                        LocalStreamDekThemeColors.current.accent.copy(alpha = 0.80f),
+                      ),
+                    )
+                  } else {
+                    Brush.linearGradient(listOf(Color.Transparent, Color.Transparent))
+                  },
+                )
+                .then(
+                  if (selected) {
+                    Modifier.border(
+                      1.dp,
+                      Brush.verticalGradient(
+                        colors = listOf(
+                          Color.White.copy(alpha = 0.45f),
+                          LocalStreamDekThemeColors.current.accent,
+                        ),
+                      ),
+                      StreamDekRadius.cardShape,
+                    )
+                  } else Modifier
+                )
                 .clickable { audioModalTab = tab }
                 .padding(vertical = 11.dp),
               contentAlignment = Alignment.Center,
             ) {
               Text(
                 label,
-                color = if (selected) Color.Black else Color.White.copy(alpha = 0.72f),
+                color = if (selected) LocalStreamDekThemeColors.current.onAccent else Color.White.copy(alpha = 0.72f),
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -4286,7 +4349,32 @@ private fun PlayerPanels(
             modifier = Modifier
               .weight(1f)
               .clip(StreamDekRadius.cardShape)
-              .background(if (selected) Color.White else Color.Transparent)
+              .background(
+                if (selected) {
+                  Brush.verticalGradient(
+                    colors = listOf(
+                      LocalStreamDekThemeColors.current.accent.copy(alpha = 0.95f),
+                      LocalStreamDekThemeColors.current.accent.copy(alpha = 0.80f),
+                    ),
+                  )
+                } else {
+                  Brush.linearGradient(listOf(Color.Transparent, Color.Transparent))
+                },
+              )
+              .then(
+                if (selected) {
+                  Modifier.border(
+                    1.dp,
+                    Brush.verticalGradient(
+                      colors = listOf(
+                        Color.White.copy(alpha = 0.45f),
+                        LocalStreamDekThemeColors.current.accent,
+                      ),
+                    ),
+                    StreamDekRadius.cardShape,
+                  )
+                } else Modifier
+              )
               .clickable {
                 subtitleTab = tab
                 // Style is a set of controls, not a place subtitles come from, so it is not
@@ -4298,7 +4386,7 @@ private fun PlayerPanels(
           ) {
             Text(
               stringResource(tab.labelRes),
-              color = if (selected) Color.Black else Color.White.copy(alpha = 0.72f),
+              color = if (selected) LocalStreamDekThemeColors.current.onAccent else Color.White.copy(alpha = 0.72f),
               fontWeight = FontWeight.Bold,
               maxLines = 1,
               overflow = TextOverflow.Ellipsis,

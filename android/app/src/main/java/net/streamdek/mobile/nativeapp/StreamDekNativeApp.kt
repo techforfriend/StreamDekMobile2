@@ -22074,22 +22074,264 @@ private fun LibraryTabScreen(viewModel: NativeAppViewModel) {
 }
 
 @Composable
+internal fun LiquidGlassCard(
+  modifier: Modifier = Modifier,
+  shape: Shape = StreamDekRadius.panelShape,
+  accentColor: Color = LocalStreamDekThemeColors.current.accent,
+  accentTinted: Boolean = true,
+  contentPadding: PaddingValues = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+  content: @Composable ColumnScope.() -> Unit,
+) {
+  val lightSurface = MaterialTheme.colorScheme.background.luminance() > 0.5f
+  val baseColor = if (lightSurface) Color(0xFFFFFFFF) else Color(0xFF0D1017)
+  val baseAlpha = if (lightSurface) 0.84f else 0.72f
+
+  val topTint = if (lightSurface) Color(0xFFFFFFFF) else Color(0xFF1A1F2C)
+  val middleTint = if (lightSurface) Color(0xFFF6F7F9) else Color(0xFF10141D)
+  val bottomTint = if (lightSurface) Color(0xFFECEEF2) else Color(0xFF080A0E)
+  val gradientAlpha = if (lightSurface) 0.85f else 0.65f
+
+  val borderBrush = Brush.linearGradient(
+    0.0f to Color.White.copy(alpha = if (lightSurface) 0.45f else 0.22f),
+    0.28f to (if (accentTinted) accentColor else Color.White).copy(alpha = if (lightSurface) 0.35f else 0.28f),
+    0.72f to MaterialTheme.colorScheme.onSurface.copy(alpha = if (lightSurface) 0.12f else 0.08f),
+    1.0f to Color.Transparent,
+    start = Offset(0f, 0f),
+    end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
+  )
+
+  Box(
+    modifier = modifier
+      .clip(shape)
+      .background(baseColor.copy(alpha = baseAlpha)),
+  ) {
+    Box(
+      modifier = Modifier
+        .matchParentSize()
+        .background(
+          Brush.verticalGradient(
+            colors = listOf(
+              topTint.copy(alpha = gradientAlpha),
+              middleTint.copy(alpha = gradientAlpha * 0.72f),
+              bottomTint.copy(alpha = gradientAlpha),
+            ),
+          ),
+        ),
+    )
+    if (accentTinted) {
+      Box(
+        modifier = Modifier
+          .matchParentSize()
+          .background(accentColor.copy(alpha = if (lightSurface) 0.025f else 0.045f)),
+      )
+    }
+    Box(
+      modifier = Modifier
+        .matchParentSize()
+        .background(
+          Brush.verticalGradient(
+            colorStops = arrayOf(
+              0.00f to Color.White.copy(alpha = if (lightSurface) 0.35f else 0.10f),
+              0.28f to Color.White.copy(alpha = if (lightSurface) 0.10f else 0.02f),
+              0.55f to Color.Transparent,
+              1.00f to Color.Black.copy(alpha = if (lightSurface) 0.02f else 0.08f),
+            ),
+          ),
+        ),
+    )
+    Box(
+      modifier = Modifier
+        .matchParentSize()
+        .border(1.dp, borderBrush, shape),
+    )
+    Column(
+      modifier = Modifier
+        .fillMaxWidth()
+        .padding(contentPadding),
+      content = content,
+    )
+  }
+}
+
+@Composable
+internal fun LiquidGlassSheet(
+  modifier: Modifier = Modifier,
+  shape: Shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
+  accentColor: Color = LocalStreamDekThemeColors.current.accent,
+  content: @Composable ColumnScope.() -> Unit,
+) {
+  val lightSurface = MaterialTheme.colorScheme.background.luminance() > 0.5f
+  val baseColor = if (lightSurface) Color(0xFFFFFFFF) else Color(0xFF0F1219)
+  val baseAlpha = if (lightSurface) 0.88f else 0.82f
+
+  val borderBrush = Brush.verticalGradient(
+    colors = listOf(
+      Color.White.copy(alpha = if (lightSurface) 0.40f else 0.22f),
+      accentColor.copy(alpha = if (lightSurface) 0.30f else 0.22f),
+      MaterialTheme.colorScheme.onSurface.copy(alpha = if (lightSurface) 0.10f else 0.06f),
+    ),
+  )
+
+  Box(
+    modifier = modifier
+      .clip(shape)
+      .background(baseColor.copy(alpha = baseAlpha)),
+  ) {
+    Box(
+      modifier = Modifier
+        .matchParentSize()
+        .background(
+          Brush.verticalGradient(
+            colors = listOf(
+              (if (lightSurface) Color.White else Color(0xFF181D28)).copy(alpha = 0.85f),
+              (if (lightSurface) Color(0xFFF5F6F8) else Color(0xFF0B0D13)).copy(alpha = 0.70f),
+            ),
+          ),
+        ),
+    )
+    Box(
+      modifier = Modifier
+        .matchParentSize()
+        .background(accentColor.copy(alpha = if (lightSurface) 0.025f else 0.04f)),
+    )
+    Box(
+      modifier = Modifier
+        .matchParentSize()
+        .background(
+          Brush.verticalGradient(
+            colorStops = arrayOf(
+              0.00f to Color.White.copy(alpha = if (lightSurface) 0.36f else 0.12f),
+              0.22f to Color.White.copy(alpha = if (lightSurface) 0.08f else 0.02f),
+              0.48f to Color.Transparent,
+            ),
+          ),
+        ),
+    )
+    Box(
+      modifier = Modifier
+        .matchParentSize()
+        .border(1.dp, borderBrush, shape),
+    )
+    Column(
+      modifier = Modifier.fillMaxWidth(),
+      content = content,
+    )
+  }
+}
+
+@Composable
+internal fun LiquidGlassDialog(
+  modifier: Modifier = Modifier,
+  shape: Shape = StreamDekRadius.panelShape,
+  accentColor: Color = LocalStreamDekThemeColors.current.accent,
+  content: @Composable ColumnScope.() -> Unit,
+) {
+  val lightSurface = MaterialTheme.colorScheme.background.luminance() > 0.5f
+  val baseColor = if (lightSurface) Color(0xFFFFFFFF) else Color(0xFF10131B)
+  val baseAlpha = if (lightSurface) 0.90f else 0.84f
+
+  val borderBrush = Brush.linearGradient(
+    0.0f to Color.White.copy(alpha = if (lightSurface) 0.42f else 0.22f),
+    0.30f to accentColor.copy(alpha = if (lightSurface) 0.30f else 0.25f),
+    0.75f to MaterialTheme.colorScheme.onSurface.copy(alpha = if (lightSurface) 0.12f else 0.08f),
+    1.0f to Color.Transparent,
+    start = Offset(0f, 0f),
+    end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
+  )
+
+  Box(
+    modifier = modifier
+      .clip(shape)
+      .background(baseColor.copy(alpha = baseAlpha)),
+  ) {
+    Box(
+      modifier = Modifier
+        .matchParentSize()
+        .background(
+          Brush.verticalGradient(
+            colors = listOf(
+              (if (lightSurface) Color.White else Color(0xFF191F2B)).copy(alpha = 0.85f),
+              (if (lightSurface) Color(0xFFF3F4F6) else Color(0xFF0C0E15)).copy(alpha = 0.75f),
+            ),
+          ),
+        ),
+    )
+    Box(
+      modifier = Modifier
+        .matchParentSize()
+        .background(accentColor.copy(alpha = if (lightSurface) 0.025f else 0.04f)),
+    )
+    Box(
+      modifier = Modifier
+        .matchParentSize()
+        .background(
+          Brush.verticalGradient(
+            colorStops = arrayOf(
+              0.00f to Color.White.copy(alpha = if (lightSurface) 0.35f else 0.12f),
+              0.25f to Color.White.copy(alpha = if (lightSurface) 0.08f else 0.02f),
+              0.50f to Color.Transparent,
+            ),
+          ),
+        ),
+    )
+    Box(
+      modifier = Modifier
+        .matchParentSize()
+        .border(1.dp, borderBrush, shape),
+    )
+    Column(
+      modifier = Modifier.fillMaxWidth(),
+      content = content,
+    )
+  }
+}
+
+@Composable
 internal fun SettingsSection(title: String, content: @Composable ColumnScope.() -> Unit) {
   Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-    Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-    Card(
-      colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    Text(
+      title,
+      style = MaterialTheme.typography.titleMedium,
+      fontWeight = FontWeight.Bold,
+      color = MaterialTheme.colorScheme.onSurface,
+      modifier = Modifier.padding(start = 4.dp),
+    )
+    LiquidGlassCard(
       shape = StreamDekRadius.panelShape,
-    ) {
-      Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), content = content)
-    }
+      contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+      content = content,
+    )
   }
 }
 
 @Composable
 private fun SettingsRow(icon: String, iconColor: Color, title: String, subtitle: String, trailing: @Composable (() -> Unit)? = null) {
   Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-    Box(modifier = Modifier.size(36.dp).clip(StreamDekRadius.controlShape).background(iconColor.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
+    Box(
+      modifier = Modifier
+        .size(36.dp)
+        .clip(StreamDekRadius.controlShape)
+        .background(
+          Brush.linearGradient(
+            colors = listOf(
+              iconColor.copy(alpha = 0.22f),
+              iconColor.copy(alpha = 0.10f),
+            ),
+          ),
+        )
+        .border(
+          width = 1.dp,
+          brush = Brush.verticalGradient(
+            colors = listOf(
+              Color.White.copy(alpha = 0.25f),
+              iconColor.copy(alpha = 0.20f),
+              Color.Transparent,
+            ),
+          ),
+          shape = StreamDekRadius.controlShape,
+        ),
+      contentAlignment = Alignment.Center,
+    ) {
       Text(icon, color = iconColor, fontWeight = FontWeight.Black)
     }
     Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
@@ -22102,7 +22344,21 @@ private fun SettingsRow(icon: String, iconColor: Color, title: String, subtitle:
 
 @Composable
 internal fun SettingsDivider() {
-  Box(modifier = Modifier.fillMaxWidth().padding(start = 54.dp).height(1.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.09f)))
+  Box(
+    modifier = Modifier
+      .fillMaxWidth()
+      .padding(start = 54.dp, end = 6.dp)
+      .height(1.dp)
+      .background(
+        Brush.horizontalGradient(
+          colors = listOf(
+            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f),
+            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+            Color.Transparent,
+          ),
+        ),
+      ),
+  )
 }
 @Composable
 private fun AmbientTintSlider(percent: Int, enabled: Boolean, surface: String, onPercentChange: (Int) -> Unit) {
@@ -22247,11 +22503,9 @@ private fun FusionBadgeUrlsDialog(
 ) {
   var newUrl by rememberSaveable { mutableStateOf("") }
   Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-    Surface(
+    LiquidGlassDialog(
       modifier = adaptiveDialogWidth(0.96f).heightIn(max = 720.dp),
-      color = MaterialTheme.colorScheme.surface,
       shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp, bottomStart = 24.dp, bottomEnd = 24.dp),
-      border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f)),
     ) {
       Column(modifier = Modifier.padding(18.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(18.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -22313,11 +22567,9 @@ private fun FusionBadgeUrlsDialog(
 @Composable
 private fun FusionBadgePreviewDialog(source: FusionBadgeSource, onDismiss: () -> Unit) {
   Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-    Surface(
+    LiquidGlassDialog(
       modifier = adaptiveDialogWidth(0.92f).heightIn(max = 760.dp),
-      color = MaterialTheme.colorScheme.surface,
       shape = StreamDekRadius.panelShape,
-      border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f)),
     ) {
       Column(modifier = Modifier.padding(18.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(18.dp)) {
         Text(stringResource(R.string.badges_preview_title), color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black)
@@ -22946,9 +23198,11 @@ private fun SettingsTab(
                 singleLine = true,
                 shape = StreamDekRadius.cardShape,
                 colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                  focusedContainerColor = MaterialTheme.colorScheme.surface,
-                  unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                  disabledContainerColor = MaterialTheme.colorScheme.surface,
+                  focusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.70f),
+                  unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.45f),
+                  disabledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.30f),
+                  focusedBorderColor = LocalStreamDekThemeColors.current.accent.copy(alpha = 0.85f),
+                  unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f),
                 ),
               )
               if (settingsSearchQuery.isNotBlank()) {
@@ -25427,13 +25681,11 @@ private fun SettingsChoiceSheet(
         .clickable(onClick = onDismiss),
       contentAlignment = Alignment.BottomCenter,
     ) {
-      Surface(
+      LiquidGlassSheet(
         // Same cap as the language sheet: the style previews inside are laid out two to a row, and
         // across a tablet's full width each one stretches into a band rather than a card.
         modifier = Modifier.fillMaxWidth().widthIn(max = 640.dp).heightIn(max = 680.dp).clickable(enabled = false, onClick = {}),
-        color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)),
       ) {
         Column(modifier = Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 28.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
           Text(title, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
@@ -25940,22 +26192,85 @@ private fun settingsOptionDescription(choice: SettingsChoice?, option: String): 
 
 @Composable
 internal fun SettingsIcon(icon: String, iconColor: Color) {
-  Box(modifier = Modifier.size(34.dp).clip(StreamDekRadius.controlShape).background(iconColor.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
+  val shape = StreamDekRadius.controlShape
+  Box(
+    modifier = Modifier
+      .size(34.dp)
+      .clip(shape)
+      .background(
+        Brush.linearGradient(
+          colors = listOf(
+            iconColor.copy(alpha = 0.22f),
+            iconColor.copy(alpha = 0.10f),
+          ),
+        ),
+      )
+      .border(
+        width = 1.dp,
+        brush = Brush.verticalGradient(
+          colors = listOf(
+            Color.White.copy(alpha = 0.28f),
+            iconColor.copy(alpha = 0.20f),
+            Color.Transparent,
+          ),
+        ),
+        shape = shape,
+      ),
+    contentAlignment = Alignment.Center,
+  ) {
     Icon(settingsGlyph(icon), contentDescription = null, tint = iconColor, modifier = Modifier.size(20.dp))
   }
 }
 
 @Composable
 private fun SettingsSegment(text: String, selected: Boolean, modifier: Modifier = Modifier) {
+  val accent = LocalStreamDekThemeColors.current.accent
+  val onAccent = LocalStreamDekThemeColors.current.onAccent
   Box(
     modifier = modifier
       .height(34.dp)
       .clip(StreamDekRadius.pill)
-      .background(if (selected) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
-      .border(1.dp, if (selected) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.86f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f), StreamDekRadius.pill),
+      .background(
+        if (selected) {
+          Brush.verticalGradient(
+            colors = listOf(
+              accent.copy(alpha = 0.90f),
+              accent.copy(alpha = 0.75f),
+            ),
+          )
+        } else {
+          Brush.verticalGradient(
+            colors = listOf(
+              MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+              MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f),
+            ),
+          )
+        },
+      )
+      .border(
+        1.dp,
+        if (selected) {
+          Brush.verticalGradient(
+            colors = listOf(
+              Color.White.copy(alpha = 0.40f),
+              accent,
+            ),
+          )
+        } else {
+          SolidColor(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
+        },
+        StreamDekRadius.pill,
+      ),
     contentAlignment = Alignment.Center,
   ) {
-    Text(text, color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.58f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    Text(
+      text,
+      color = if (selected) onAccent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.70f),
+      style = MaterialTheme.typography.bodyMedium,
+      fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+      maxLines = 1,
+      overflow = TextOverflow.Ellipsis,
+    )
   }
 }
 
@@ -26337,7 +26652,7 @@ internal fun DetailUrlRow(label: String, url: String) {
 private fun AddonDetailsDialog(addon: InstalledAddon, displayName: String, onRenamed: () -> Unit, onDismiss: () -> Unit) {
   var nameField by remember(addon.id) { mutableStateOf(displayName) }
   Dialog(onDismissRequest = onDismiss) {
-    Surface(shape = StreamDekRadius.panelShape, color = MaterialTheme.colorScheme.surface, border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f))) {
+    LiquidGlassDialog(shape = StreamDekRadius.panelShape) {
       Column(modifier = Modifier.fillMaxWidth().heightIn(max = 560.dp).verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
           AddonLogo(addon)
@@ -27698,7 +28013,7 @@ private fun CloudStreamDetailsDialog(
   onDismiss: () -> Unit,
 ) {
   Dialog(onDismissRequest = onDismiss) {
-    Surface(shape = StreamDekRadius.panelShape, color = MaterialTheme.colorScheme.surface) {
+    LiquidGlassDialog(shape = StreamDekRadius.panelShape) {
       Column(Modifier.fillMaxWidth().heightIn(max = 560.dp).verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text(stringResource(R.string.plugin_collection_details), style = MaterialTheme.typography.labelMedium)
@@ -27723,7 +28038,7 @@ private fun PluginRepoDetailsDialog(repository: PluginRepo, providers: List<Plug
   val overrideKey = "plugin:" + repository.url
   var nameField by remember(repository.url) { mutableStateOf(DisplayNameOverrides.resolve(overrideKey, repository.name)) }
   Dialog(onDismissRequest = onDismiss) {
-    Surface(shape = StreamDekRadius.panelShape, color = MaterialTheme.colorScheme.surface, border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f))) {
+    LiquidGlassDialog(shape = StreamDekRadius.panelShape) {
       Column(modifier = Modifier.fillMaxWidth().heightIn(max = 560.dp).verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text(stringResource(R.string.plugin_collection_details), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.56f))
         Text(repository.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black)
@@ -36423,7 +36738,7 @@ private fun HubPicker(title: String, entries: List<Pair<String, String>>, select
   var query by rememberSaveable { mutableStateOf("") }
   val filtered = remember(entries, query) { entries.filter { it.second.contains(query.trim(), true) } }
   Dialog(onDismissRequest = onDismiss) {
-    Surface(shape = StreamDekRadius.cardShape) {
+    LiquidGlassDialog(shape = StreamDekRadius.cardShape) {
       Column(Modifier.fillMaxWidth().heightIn(max = 560.dp).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         if (entries.size > 12) OutlinedTextField(value = query, onValueChange = { query = it },
