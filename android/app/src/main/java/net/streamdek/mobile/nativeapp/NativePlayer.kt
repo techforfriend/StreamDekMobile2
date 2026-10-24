@@ -632,6 +632,20 @@ fun NativePlayerScreen(
       abandonPlayerAudioFocus()
     }
   }
+
+  val currentActiveControls by rememberUpdatedState(activeControls())
+  val currentPlayerView by rememberUpdatedState(playerView)
+  val currentExoPlayerView by rememberUpdatedState(exoPlayerView)
+  val currentVlcPlayerView by rememberUpdatedState(vlcPlayerView)
+  DisposableEffect(Unit) {
+    onDispose {
+      runCatching { currentActiveControls?.setPaused(true) }
+      runCatching { currentPlayerView?.destroyView() }
+      runCatching { currentExoPlayerView?.destroyView() }
+      runCatching { currentVlcPlayerView?.release() }
+      abandonPlayerAudioFocus()
+    }
+  }
   LaunchedEffect(session.title, session.seasonNumber, session.episodeNumber) {
     nativeMediaSession.setMetadata(
       MediaMetadata.Builder()
@@ -925,7 +939,14 @@ fun NativePlayerScreen(
     }
   }
 
-  fun closePlayer() = onBack(progressPercent())
+  fun closePlayer() {
+    runCatching { activeControls()?.setPaused(true) }
+    runCatching { playerView?.destroyView() }
+    runCatching { exoPlayerView?.destroyView() }
+    runCatching { vlcPlayerView?.release() }
+    abandonPlayerAudioFocus()
+    onBack(progressPercent())
+  }
   fun finishPlayback() {
     if (completionDispatched) return
     completionDispatched = true
@@ -1751,6 +1772,9 @@ private fun PlayerSurface(
           view.setSubtitleDelay(subtitleDelay.toDouble())
           view.setAudioDelay(audioDelay.toDouble())
         },
+        onRelease = { view ->
+          view.release()
+        },
       )
     } else if (activeEngine == ActivePlaybackEngine.Media3) {
       AndroidView(
@@ -1822,6 +1846,9 @@ private fun PlayerSurface(
           view.setSubtitleOutline(session.subtitleOutline, session.subtitleOutlineColor)
           view.setSubtitleBold(session.subtitleBold)
         },
+        onRelease = { view ->
+          view.destroyView()
+        },
       )
     } else {
       AndroidView(
@@ -1886,6 +1913,9 @@ private fun PlayerSurface(
           view.setSubtitleBackgroundColor(session.subtitleBackgroundColor)
           view.setSubtitleOutline(session.subtitleOutline, session.subtitleOutlineColor)
           view.setSubtitleBold(session.subtitleBold)
+        },
+        onRelease = { view ->
+          view.destroyView()
         },
       )
     }
@@ -5063,7 +5093,9 @@ DisposableEffect(activity) {
     }
     decorView?.systemUiVisibility = previousSystemUi
     if (scrobbleStarted && !session.isLive) onScrobble("stop", progressPercent())
-    playerView?.destroyView()
+    runCatching { playerView?.destroyView() }
+    runCatching { exoPlayerView?.destroyView() }
+    runCatching { vlcPlayerView?.release() }
   }
 }
 

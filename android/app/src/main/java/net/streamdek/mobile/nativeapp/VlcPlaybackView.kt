@@ -864,6 +864,7 @@ class VlcPlaybackView @JvmOverloads constructor(
     setStalled(false)
     if (oldPlayer != null) {
       runCatching { oldPlayer.setEventListener(null) }
+      runCatching { oldPlayer.stop() }
       if (viewsAttached) runCatching { oldPlayer.detachViews() }
     }
     viewsAttached = false

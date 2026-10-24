@@ -239,6 +239,11 @@ class MPVView @JvmOverloads constructor(
         return true
     }
 
+    override fun onDetachedFromWindow() {
+        destroyInternal()
+        super.onDetachedFromWindow()
+    }
+
     private fun destroyInternal() {
         if (isDestroyed && !initialized) return
         isDestroyed = true
@@ -263,6 +268,8 @@ class MPVView @JvmOverloads constructor(
             runCatching {
                 MPVLib.removeObserver(this)
                 MPVLib.removeLogObserver(this)
+                MPVLib.command(arrayOf("stop"))
+                MPVLib.setPropertyBoolean("pause", true)
                 MPVLib.detachSurface()
                 MPVLib.destroy()
             }

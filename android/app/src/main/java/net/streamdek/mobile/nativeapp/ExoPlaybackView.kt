@@ -264,12 +264,16 @@ class ExoPlaybackView @JvmOverloads constructor(
     source?.let(::prepareSource)
   }
 
-  override fun onDetachedFromWindow() {
+  fun destroyView() {
     removeCallbacks(progressTicker)
     clearExternalSubtitleOverlay()
     releasePendingPlayer()
     releasePlayer()
     clearCallbacks()
+  }
+
+  override fun onDetachedFromWindow() {
+    destroyView()
     super.onDetachedFromWindow()
   }
 
@@ -1023,6 +1027,7 @@ class ExoPlaybackView @JvmOverloads constructor(
     pendingListener?.let(pending::removeListener)
     pendingListener = null
     pendingPlayer = null
+    runCatching { pending.stop() }
     pending.release()
   }
 
@@ -1369,6 +1374,7 @@ class ExoPlaybackView @JvmOverloads constructor(
     lastAudioSessionId = androidx.media3.common.C.AUDIO_SESSION_ID_UNSET
     player = null
     exoPlayer?.removeListener(listener)
+    runCatching { exoPlayer?.stop() }
     exoPlayer?.release()
     exoPlayer = null
     activeSource = null
