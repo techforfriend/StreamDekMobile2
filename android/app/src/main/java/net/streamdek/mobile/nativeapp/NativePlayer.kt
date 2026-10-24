@@ -2551,8 +2551,6 @@ private fun PlayerBottomControls(
   showLiveProgress: Boolean,
   onToggleLiveProgress: () -> Unit,
   onAudio: () -> Unit,
-  onEnhancer: () -> Unit = {},
-  enhancerActive: Boolean = false,
   onSources: () -> Unit,
   onEngine: () -> Unit,
   onInfo: () -> Unit,
@@ -2765,7 +2763,6 @@ private fun PlayerBottomControls(
           PlayerDockButton(stringResource(R.string.player_speed), StreamDekPlayerIcons.Speed, onSpeed, showLabel = showLabels && !minimal, compact = layout == "Compact", minimal = minimal)
           PlayerDockButton(stringResource(R.string.player_subs), StreamDekPlayerIcons.Subtitles, onSubtitles, showLabel = showLabels && !minimal, compact = layout == "Compact", minimal = minimal)
           PlayerDockButton(stringResource(R.string.player_audio), StreamDekPlayerIcons.Audio, onAudio, showLabel = showLabels && !minimal, compact = layout == "Compact", minimal = minimal)
-          PlayerDockButton("Enhancer", Icons.Rounded.Tune, onEnhancer, active = enhancerActive, showLabel = showLabels && !minimal, compact = layout == "Compact", minimal = minimal)
         }
         PlayerDockButton(stringResource(R.string.player_sources), StreamDekPlayerIcons.Sources, onSources, showLabel = showLabels && !minimal, compact = layout == "Compact", minimal = minimal)
         PlayerDockButton(stringResource(R.string.player_engine), StreamDekPlayerIcons.Engine, onEngine, showLabel = showLabels && !minimal, compact = layout == "Compact", minimal = minimal)
@@ -4040,6 +4037,25 @@ private fun PlayerPanels(
                 activeSetAudioDelay(seconds)
               },
             )
+            Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.10f)))
+            PlayerToggleRow(
+              title = "Audio Enhancer",
+              subtitle = if (dialogueEnhancerEnabled) "Active ($audioEnhancerProfile)" else "Off (Stock audio)",
+              checked = dialogueEnhancerEnabled,
+              onCheckedChange = { next ->
+                dialogueEnhancerEnabled = next
+                onSaveDialogueEnhancer(next)
+                activeSetAudioEnhancer(next, audioEnhancerVoiceDb, audioEnhancerBassDb, audioEnhancerLoudnessMb, audioEnhancerProfile != "Movie & Bass")
+              }
+            )
+            PlayerOptionRow(
+              label = "Audio Enhancer Settings",
+              supportingText = "Profiles, Clarity, Bass & Loudness",
+              selected = false,
+              onClick = {
+                audioModalTab = AudioModalTab.Enhancer
+              }
+            )
           }
           AudioModalTab.Enhancer -> {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxWidth()) {
@@ -4923,8 +4939,6 @@ private fun BoxScope.PlayerOverlays(
       onSpeed = { keepControlsVisible(); activePanel = PlayerPanel.Speed },
       onSubtitles = { keepControlsVisible(); activePanel = PlayerPanel.Subtitles },
       onAudio = { keepControlsVisible(); activePanel = PlayerPanel.Audio },
-      onEnhancer = { keepControlsVisible(); activePanel = PlayerPanel.Enhancer },
-      enhancerActive = dialogueEnhancerEnabled,
       onSources = { keepControlsVisible(); activePanel = PlayerPanel.Sources },
       onEngine = { keepControlsVisible(); activePanel = PlayerPanel.Engine },
       onInfo = { keepControlsVisible(); activePanel = PlayerPanel.Info },

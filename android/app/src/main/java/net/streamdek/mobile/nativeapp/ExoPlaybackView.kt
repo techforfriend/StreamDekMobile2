@@ -667,11 +667,13 @@ class ExoPlaybackView @JvmOverloads constructor(
   private fun applyDialogueEnhancer(target: ExoPlayer? = exoPlayer, explicitSessionId: Int? = null) {
     val active = target ?: return
     val sessionId = (explicitSessionId
-      ?: active.audioSessionId.takeIf { it != androidx.media3.common.C.AUDIO_SESSION_ID_UNSET && it > 0 }
+      ?: runCatching { active.audioSessionId }.getOrNull()?.takeIf { it != androidx.media3.common.C.AUDIO_SESSION_ID_UNSET && it > 0 }
       ?: lastAudioSessionId)
-      .takeIf { it != androidx.media3.common.C.AUDIO_SESSION_ID_UNSET && it > 0 } ?: return
+      .takeIf { it != androidx.media3.common.C.AUDIO_SESSION_ID_UNSET && it > 0 }
 
-    lastAudioSessionId = sessionId
+    if (sessionId != null) {
+      lastAudioSessionId = sessionId
+    }
 
     if (!dialogueEnhancerEnabled) {
       if (appliedDialogueEnhancerState == false && equalizer == null && loudnessEnhancer == null) {
@@ -681,6 +683,8 @@ class ExoPlaybackView @JvmOverloads constructor(
       appliedDialogueEnhancerState = false
       return
     }
+
+    if (sessionId == null) return
 
     if (appliedAudioSessionId != sessionId) {
       releaseAudioEffects()
@@ -723,9 +727,10 @@ class ExoPlaybackView @JvmOverloads constructor(
       }.getOrNull()?.also { loudnessEnhancer = it }
 
       if (le != null) {
-        val gain = audioEnhancerLoudnessMb.coerceIn(0, 1500)
-        le.setTargetGain(gain)
+        val voiceAddonMb = if (equalizer == null) (audioEnhancerVoiceDb * 50).toInt() else 0
+        val gain = (audioEnhancerLoudnessMb + voiceAddonMb).coerceIn(0, 1500)
         le.enabled = gain > 0
+        le.setTargetGain(gain)
         appliedLoudnessMb = gain
       }
     }.onFailure {
@@ -879,7 +884,7 @@ class ExoPlaybackView @JvmOverloads constructor(
       override fun onAudioSessionIdChanged(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, audioSessionId: Int) {
         if (audioSessionId != androidx.media3.common.C.AUDIO_SESSION_ID_UNSET && audioSessionId > 0) {
           lastAudioSessionId = audioSessionId
-          if (exoPlayer === active) applyDialogueEnhancer(active, audioSessionId)
+          applyDialogueEnhancer(active, audioSessionId)
         }
       }
       override fun onAudioPositionAdvancing(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime, playoutStartSystemTimeMs: Long) {
