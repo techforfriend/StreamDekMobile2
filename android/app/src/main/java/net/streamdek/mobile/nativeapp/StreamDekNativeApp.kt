@@ -2629,6 +2629,14 @@ private class AppSettingsStore(
   }
   fun isDialogueEnhancerEnabled(): Boolean = profilePrefs.getBoolean("dialogue_enhancer_enabled", false)
   fun saveDialogueEnhancerEnabled(value: Boolean) { profilePrefs.edit().putBoolean("dialogue_enhancer_enabled", value).apply() }
+  fun audioEnhancerProfile(): String = profilePrefs.getString("audio_enhancer_profile", "Clear Dialogue") ?: "Clear Dialogue"
+  fun saveAudioEnhancerProfile(value: String) { profilePrefs.edit().putString("audio_enhancer_profile", value).apply() }
+  fun audioEnhancerVoiceDb(): Float = profilePrefs.getFloat("audio_enhancer_voice_db", 5.0f)
+  fun saveAudioEnhancerVoiceDb(value: Float) { profilePrefs.edit().putFloat("audio_enhancer_voice_db", value).apply() }
+  fun audioEnhancerBassDb(): Float = profilePrefs.getFloat("audio_enhancer_bass_db", 0.0f)
+  fun saveAudioEnhancerBassDb(value: Float) { profilePrefs.edit().putFloat("audio_enhancer_bass_db", value).apply() }
+  fun audioEnhancerLoudnessMb(): Int = profilePrefs.getInt("audio_enhancer_loudness_mb", 350)
+  fun saveAudioEnhancerLoudnessMb(value: Int) { profilePrefs.edit().putInt("audio_enhancer_loudness_mb", value).apply() }
   fun isBackgroundPlaybackEnabled(): Boolean = profilePrefs.getBoolean("background_playback_enabled", false)
   fun saveBackgroundPlaybackEnabled(value: Boolean) { profilePrefs.edit().putBoolean("background_playback_enabled", value).apply() }
 }
@@ -12258,6 +12266,18 @@ private fun watchedOwnerKey(session: AuthSession?, activeProfileId: String?): St
   fun setDialogueEnhancerEnabled(value: Boolean) {
     appSettingsStore.saveDialogueEnhancerEnabled(value)
   }
+  fun setAudioEnhancerProfile(value: String) {
+    appSettingsStore.saveAudioEnhancerProfile(value)
+  }
+  fun setAudioEnhancerVoiceDb(value: Float) {
+    appSettingsStore.saveAudioEnhancerVoiceDb(value)
+  }
+  fun setAudioEnhancerBassDb(value: Float) {
+    appSettingsStore.saveAudioEnhancerBassDb(value)
+  }
+  fun setAudioEnhancerLoudnessMb(value: Int) {
+    appSettingsStore.saveAudioEnhancerLoudnessMb(value)
+  }
   fun setBackgroundPlaybackEnabled(value: Boolean) {
     appSettingsStore.saveBackgroundPlaybackEnabled(value)
   }
@@ -14485,6 +14505,10 @@ private fun watchedOwnerKey(session: AuthSession?, activeProfileId: String?): St
     userSubtitleSources = UserSubtitleSourceStore.load(getApplication<Application>().applicationContext, activeOwnerKey() ?: GUEST_OWNER_KEY),
     isProxied = stream.isLikelyProxied(uiState.addons.firstOrNull { it.id == stream.addonId }),
     dialogueEnhancerEnabled = appSettingsStore.isDialogueEnhancerEnabled(),
+    audioEnhancerProfile = appSettingsStore.audioEnhancerProfile(),
+    audioEnhancerVoiceDb = appSettingsStore.audioEnhancerVoiceDb(),
+    audioEnhancerBassDb = appSettingsStore.audioEnhancerBassDb(),
+    audioEnhancerLoudnessMb = appSettingsStore.audioEnhancerLoudnessMb(),
     backgroundPlaybackEnabled = appSettingsStore.isBackgroundPlaybackEnabled(),
   )
 
@@ -14797,6 +14821,10 @@ private fun StreamDekNativeAppContent(
                 onToggleSourceFavourite = viewModel::toggleFavoriteSource,
                 onPlayerControlLayoutChange = viewModel::setPlayerControlLayout,
                 onSaveDialogueEnhancer = viewModel::setDialogueEnhancerEnabled,
+                onSaveAudioEnhancerProfile = viewModel::setAudioEnhancerProfile,
+                onSaveAudioEnhancerVoiceDb = viewModel::setAudioEnhancerVoiceDb,
+                onSaveAudioEnhancerBassDb = viewModel::setAudioEnhancerBassDb,
+                onSaveAudioEnhancerLoudnessMb = viewModel::setAudioEnhancerLoudnessMb,
                 onSaveBackgroundPlayback = viewModel::setBackgroundPlaybackEnabled,
                 onBack = viewModel::dismissPlayer,
                 onScrobble = viewModel::scrobblePlayer,

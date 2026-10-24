@@ -102,6 +102,10 @@ class VlcPlaybackView @JvmOverloads constructor(
   private var audioDelaySec = 0.0
   private var subtitleDelaySec = 0.0
   private var dialogueEnhancerEnabled = false
+  private var audioEnhancerVoiceDb = 5.0f
+  private var audioEnhancerBassDb = 0.0f
+  private var audioEnhancerLoudnessMb = 350
+  private var audioEnhancerDynamic = true
 
   // Subtitle appearance: read when the libVLC instance is created, see the class comment.
   private var subtitleFontSize = 55
@@ -629,9 +633,17 @@ class VlcPlaybackView @JvmOverloads constructor(
 
   fun audioDelaySupported(): Boolean = true
 
-  fun setDialogueEnhancer(enabled: Boolean) {
+  fun setAudioEnhancer(enabled: Boolean, voiceDb: Float, bassDb: Float, loudnessMb: Int, dynamic: Boolean = true) {
     dialogueEnhancerEnabled = enabled
+    audioEnhancerVoiceDb = voiceDb
+    audioEnhancerBassDb = bassDb
+    audioEnhancerLoudnessMb = loudnessMb
+    audioEnhancerDynamic = dynamic
     applyDialogueEnhancer()
+  }
+
+  fun setDialogueEnhancer(enabled: Boolean) {
+    setAudioEnhancer(enabled, audioEnhancerVoiceDb, audioEnhancerBassDb, audioEnhancerLoudnessMb, audioEnhancerDynamic)
   }
 
   private fun applyDialogueEnhancer() {
@@ -639,12 +651,14 @@ class VlcPlaybackView @JvmOverloads constructor(
     runCatching {
       if (dialogueEnhancerEnabled) {
         val eq = org.videolan.libvlc.MediaPlayer.Equalizer.create()
-        eq.setPreAmp(2.5f)
+        val preAmpGain = (audioEnhancerLoudnessMb / 150f).coerceIn(0f, 6f)
+        eq.setPreAmp(preAmpGain)
         val count = org.videolan.libvlc.MediaPlayer.Equalizer.getBandCount()
         for (i in 0 until count) {
           val freq = org.videolan.libvlc.MediaPlayer.Equalizer.getBandFrequency(i)
           val amp = when {
-            freq in 350f..5000f -> 5.0f
+            freq <= 300f -> audioEnhancerBassDb
+            freq in 350f..5000f -> audioEnhancerVoiceDb
             else -> 0.0f
           }
           eq.setAmp(i, amp)

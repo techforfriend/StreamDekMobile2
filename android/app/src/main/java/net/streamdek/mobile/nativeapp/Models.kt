@@ -754,6 +754,10 @@ data class PlayerSession(
   val favoriteSourceKeys: Set<String> = emptySet(),
   /** Vocal clarity & dialogue equalizer boost mode. */
   val dialogueEnhancerEnabled: Boolean = false,
+  val audioEnhancerProfile: String = "Clear Dialogue",
+  val audioEnhancerVoiceDb: Float = 5.0f,
+  val audioEnhancerBassDb: Float = 0.0f,
+  val audioEnhancerLoudnessMb: Int = 350,
   /** Allow audio to keep playing when screen is locked or app is in background. */
   val backgroundPlaybackEnabled: Boolean = false,
 )

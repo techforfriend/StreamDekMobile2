@@ -81,6 +81,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.Sensors
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Surface
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -172,7 +173,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.roundToInt
 import android.widget.Toast
 
-private enum class PlayerPanel { None, Sources, Audio, Subtitles, Speed, Engine, Info, Captions, Episodes }
+private enum class PlayerPanel { None, Sources, Audio, Subtitles, Speed, Engine, Info, Captions, Episodes, Enhancer }
 
 /**
  * Whether the player draws its Live / VOD badge, and the in-player switch for it.
@@ -380,6 +381,10 @@ fun NativePlayerScreen(
   /** Normal or Minimal, switched from the player's header and kept as the Settings choice. */
   onPlayerControlLayoutChange: (String) -> Unit = {},
   onSaveDialogueEnhancer: (Boolean) -> Unit = {},
+  onSaveAudioEnhancerProfile: (String) -> Unit = {},
+  onSaveAudioEnhancerVoiceDb: (Float) -> Unit = {},
+  onSaveAudioEnhancerBassDb: (Float) -> Unit = {},
+  onSaveAudioEnhancerLoudnessMb: (Int) -> Unit = {},
   onSaveBackgroundPlayback: (Boolean) -> Unit = {},
   /**
    * The series being played, for the in-player episode browser. Null for a film, a live channel
@@ -475,6 +480,14 @@ fun NativePlayerScreen(
   var playbackSpeed by playbackSpeedState
   val dialogueEnhancerState = rememberSaveable(session.url) { mutableStateOf(session.dialogueEnhancerEnabled) }
   var dialogueEnhancerEnabled by dialogueEnhancerState
+  val audioEnhancerProfileState = rememberSaveable(session.url) { mutableStateOf(session.audioEnhancerProfile) }
+  var audioEnhancerProfile by audioEnhancerProfileState
+  val audioEnhancerVoiceDbState = rememberSaveable(session.url) { mutableFloatStateOf(session.audioEnhancerVoiceDb) }
+  var audioEnhancerVoiceDb by audioEnhancerVoiceDbState
+  val audioEnhancerBassDbState = rememberSaveable(session.url) { mutableFloatStateOf(session.audioEnhancerBassDb) }
+  var audioEnhancerBassDb by audioEnhancerBassDbState
+  val audioEnhancerLoudnessMbState = rememberSaveable(session.url) { mutableIntStateOf(session.audioEnhancerLoudnessMb) }
+  var audioEnhancerLoudnessMb by audioEnhancerLoudnessMbState
   val backgroundPlaybackState = rememberSaveable(session.url) { mutableStateOf(session.backgroundPlaybackEnabled) }
   var backgroundPlaybackEnabled by backgroundPlaybackState
   // The one place the screen decides which engine it is talking to; see [PlaybackEngineControls].
@@ -506,9 +519,13 @@ fun NativePlayerScreen(
   fun activeAudioDelaySupported(): Boolean = activeControls()?.audioDelaySupported() != false
   fun activeSetSpeed(speed: Double) { activeControls()?.setSpeed(speed) }
   fun activeSetDialogueEnhancer(enabled: Boolean) { activeControls()?.setDialogueEnhancer(enabled) }
+  fun activeSetAudioEnhancer(enabled: Boolean, voiceDb: Float, bassDb: Float, loudnessMb: Int, dynamic: Boolean = true) {
+    activeControls()?.setAudioEnhancer(enabled, voiceDb, bassDb, loudnessMb, dynamic)
+  }
 
-  LaunchedEffect(activeEngine, playerView, exoPlayerView, vlcPlayerView, dialogueEnhancerEnabled) {
-    activeSetDialogueEnhancer(dialogueEnhancerEnabled)
+  LaunchedEffect(activeEngine, playerView, exoPlayerView, vlcPlayerView, dialogueEnhancerEnabled, audioEnhancerVoiceDb, audioEnhancerBassDb, audioEnhancerLoudnessMb, audioEnhancerProfile) {
+    val dynamic = audioEnhancerProfile != "Movie & Bass"
+    activeSetAudioEnhancer(dialogueEnhancerEnabled, audioEnhancerVoiceDb, audioEnhancerBassDb, audioEnhancerLoudnessMb, dynamic)
   }
 
   val audioFocusListener = remember(playbackIdentity) {
@@ -1587,9 +1604,18 @@ fun NativePlayerScreen(
       onDownloadStream = onDownloadStream,
       onToggleSourceFavourite = onToggleSourceFavourite,
       dialogueEnhancerState = dialogueEnhancerState,
+      audioEnhancerProfileState = audioEnhancerProfileState,
+      audioEnhancerVoiceDbState = audioEnhancerVoiceDbState,
+      audioEnhancerBassDbState = audioEnhancerBassDbState,
+      audioEnhancerLoudnessMbState = audioEnhancerLoudnessMbState,
       backgroundPlaybackState = backgroundPlaybackState,
       activeSetDialogueEnhancer = ::activeSetDialogueEnhancer,
+      activeSetAudioEnhancer = ::activeSetAudioEnhancer,
       onSaveDialogueEnhancer = onSaveDialogueEnhancer,
+      onSaveAudioEnhancerProfile = onSaveAudioEnhancerProfile,
+      onSaveAudioEnhancerVoiceDb = onSaveAudioEnhancerVoiceDb,
+      onSaveAudioEnhancerBassDb = onSaveAudioEnhancerBassDb,
+      onSaveAudioEnhancerLoudnessMb = onSaveAudioEnhancerLoudnessMb,
       onSaveBackgroundPlayback = onSaveBackgroundPlayback,
     )
     PlayerLiveOverlays(
@@ -2521,6 +2547,8 @@ private fun PlayerBottomControls(
   showLiveProgress: Boolean,
   onToggleLiveProgress: () -> Unit,
   onAudio: () -> Unit,
+  onEnhancer: () -> Unit = {},
+  enhancerActive: Boolean = false,
   onSources: () -> Unit,
   onEngine: () -> Unit,
   onInfo: () -> Unit,
@@ -2733,6 +2761,7 @@ private fun PlayerBottomControls(
           PlayerDockButton(stringResource(R.string.player_speed), StreamDekPlayerIcons.Speed, onSpeed, showLabel = showLabels && !minimal, compact = layout == "Compact", minimal = minimal)
           PlayerDockButton(stringResource(R.string.player_subs), StreamDekPlayerIcons.Subtitles, onSubtitles, showLabel = showLabels && !minimal, compact = layout == "Compact", minimal = minimal)
           PlayerDockButton(stringResource(R.string.player_audio), StreamDekPlayerIcons.Audio, onAudio, showLabel = showLabels && !minimal, compact = layout == "Compact", minimal = minimal)
+          PlayerDockButton("Enhancer", Icons.Rounded.Tune, onEnhancer, active = enhancerActive, showLabel = showLabels && !minimal, compact = layout == "Compact", minimal = minimal)
         }
         PlayerDockButton(stringResource(R.string.player_sources), StreamDekPlayerIcons.Sources, onSources, showLabel = showLabels && !minimal, compact = layout == "Compact", minimal = minimal)
         PlayerDockButton(stringResource(R.string.player_engine), StreamDekPlayerIcons.Engine, onEngine, showLabel = showLabels && !minimal, compact = layout == "Compact", minimal = minimal)
@@ -3900,9 +3929,18 @@ private fun PlayerPanels(
   episodeBrowser: PlayerEpisodeBrowser? = null,
   onBeforeEpisodeSwitch: () -> Unit = {},
   dialogueEnhancerState: MutableState<Boolean>,
+  audioEnhancerProfileState: MutableState<String>,
+  audioEnhancerVoiceDbState: MutableFloatState,
+  audioEnhancerBassDbState: MutableFloatState,
+  audioEnhancerLoudnessMbState: MutableIntState,
   backgroundPlaybackState: MutableState<Boolean>,
   activeSetDialogueEnhancer: (Boolean) -> Unit,
+  activeSetAudioEnhancer: (Boolean, Float, Float, Int, Boolean) -> Unit,
   onSaveDialogueEnhancer: (Boolean) -> Unit = {},
+  onSaveAudioEnhancerProfile: (String) -> Unit = {},
+  onSaveAudioEnhancerVoiceDb: (Float) -> Unit = {},
+  onSaveAudioEnhancerBassDb: (Float) -> Unit = {},
+  onSaveAudioEnhancerLoudnessMb: (Int) -> Unit = {},
   onSaveBackgroundPlayback: (Boolean) -> Unit = {},
 ) {
   // Re-bound so the panel bodies below read and write exactly as they did in the screen.
@@ -3923,6 +3961,10 @@ private fun PlayerPanels(
   var userPickedAudio by userPickedAudioState
   var userPickedSubtitle by userPickedSubtitleState
   var dialogueEnhancerEnabled by dialogueEnhancerState
+  var audioEnhancerProfile by audioEnhancerProfileState
+  var audioEnhancerVoiceDb by audioEnhancerVoiceDbState
+  var audioEnhancerBassDb by audioEnhancerBassDbState
+  var audioEnhancerLoudnessMb by audioEnhancerLoudnessMbState
   var backgroundPlaybackEnabled by backgroundPlaybackState
   var subtitleSelectionGeneration by remember(session.url) { mutableIntStateOf(0) }
   LaunchedEffect(subtitleErrorMessage) {
@@ -3960,8 +4002,15 @@ private fun PlayerPanels(
         checked = dialogueEnhancerEnabled,
         onCheckedChange = { next ->
           dialogueEnhancerEnabled = next
-          activeSetDialogueEnhancer(next)
           onSaveDialogueEnhancer(next)
+        }
+      )
+      PlayerOptionRow(
+        label = "Audio Enhancer Settings",
+        supportingText = if (dialogueEnhancerEnabled) "Active ($audioEnhancerProfile)" else "Off",
+        selected = dialogueEnhancerEnabled,
+        onClick = {
+          activePanel = PlayerPanel.Enhancer
         }
       )
     }
@@ -4294,6 +4343,198 @@ private fun PlayerPanels(
       )
     } else {
       LaunchedEffect(Unit) { activePanel = PlayerPanel.None }
+    }
+    PlayerPanel.Enhancer -> PlayerModalPanel(title = "Audio Enhancer", onClose = { activePanel = PlayerPanel.None }, compact = false) {
+      Column(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxWidth()) {
+        PlayerToggleRow(
+          title = "Enable Audio Enhancer",
+          subtitle = if (dialogueEnhancerEnabled) "Active ($audioEnhancerProfile)" else "Off (Stock audio)",
+          checked = dialogueEnhancerEnabled,
+          onCheckedChange = { next ->
+            dialogueEnhancerEnabled = next
+            onSaveDialogueEnhancer(next)
+          }
+        )
+
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.10f)))
+
+        Text(
+          "Profiles",
+          color = Color.White,
+          fontWeight = FontWeight.Bold,
+          style = MaterialTheme.typography.titleSmall
+        )
+
+        val presetProfiles = listOf(
+          "Clear Dialogue" to "Vocal clarity, natural flat bass",
+          "Movie & Bass" to "Action cinema, warm low-end punch",
+          "Night Mode" to "Quiet speech boost, limited explosions",
+          "Vocal Max" to "Maximum speech volume boost",
+          "Custom" to "User adjustable sliders (+2 dB headroom)"
+        )
+
+        FlowRow(
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+          verticalArrangement = Arrangement.spacedBy(8.dp),
+          modifier = Modifier.fillMaxWidth()
+        ) {
+          presetProfiles.forEach { (name, _) ->
+            val isSelected = audioEnhancerProfile == name
+            FilterChip(
+              selected = isSelected,
+              onClick = {
+                audioEnhancerProfile = name
+                onSaveAudioEnhancerProfile(name)
+                when (name) {
+                  "Clear Dialogue" -> {
+                    audioEnhancerVoiceDb = 5.0f
+                    audioEnhancerBassDb = 0.0f
+                    audioEnhancerLoudnessMb = 350
+                    onSaveAudioEnhancerVoiceDb(5.0f)
+                    onSaveAudioEnhancerBassDb(0.0f)
+                    onSaveAudioEnhancerLoudnessMb(350)
+                  }
+                  "Movie & Bass" -> {
+                    audioEnhancerVoiceDb = 4.0f
+                    audioEnhancerBassDb = 3.0f
+                    audioEnhancerLoudnessMb = 400
+                    onSaveAudioEnhancerVoiceDb(4.0f)
+                    onSaveAudioEnhancerBassDb(3.0f)
+                    onSaveAudioEnhancerLoudnessMb(400)
+                  }
+                  "Night Mode" -> {
+                    audioEnhancerVoiceDb = 4.5f
+                    audioEnhancerBassDb = 1.0f
+                    audioEnhancerLoudnessMb = 200
+                    onSaveAudioEnhancerVoiceDb(4.5f)
+                    onSaveAudioEnhancerBassDb(1.0f)
+                    onSaveAudioEnhancerLoudnessMb(200)
+                  }
+                  "Vocal Max" -> {
+                    audioEnhancerVoiceDb = 7.5f
+                    audioEnhancerBassDb = 0.0f
+                    audioEnhancerLoudnessMb = 500
+                    onSaveAudioEnhancerVoiceDb(7.5f)
+                    onSaveAudioEnhancerBassDb(0.0f)
+                    onSaveAudioEnhancerLoudnessMb(500)
+                  }
+                  "Custom" -> {
+                    // Retain current custom levels
+                  }
+                }
+                if (!dialogueEnhancerEnabled) {
+                  dialogueEnhancerEnabled = true
+                  onSaveDialogueEnhancer(true)
+                }
+              },
+              label = {
+                Text(name, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+              }
+            )
+          }
+        }
+
+        val desc = presetProfiles.firstOrNull { it.first == audioEnhancerProfile }?.second.orEmpty()
+        if (desc.isNotBlank()) {
+          Text(desc, color = Color.White.copy(alpha = 0.70f), style = MaterialTheme.typography.bodySmall)
+        }
+
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.10f)))
+
+        Text(
+          if (audioEnhancerProfile == "Custom") "Custom Controls (+2 dB Extended)" else "Current Profile Levels",
+          color = Color.White,
+          fontWeight = FontWeight.Bold,
+          style = MaterialTheme.typography.titleSmall
+        )
+
+        // 1. Voice Clarity Slider: 0 dB to 10 dB (+2 dB extended on custom)
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
+          Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("Voice Clarity", color = Color.White, style = MaterialTheme.typography.bodyMedium)
+            Text(
+              String.format(java.util.Locale.US, "+%.1f dB", audioEnhancerVoiceDb),
+              color = MaterialTheme.colorScheme.primary,
+              fontWeight = FontWeight.Bold,
+              style = MaterialTheme.typography.bodyMedium
+            )
+          }
+          Slider(
+            value = audioEnhancerVoiceDb,
+            valueRange = 0.0f..10.0f,
+            steps = 19,
+            onValueChange = { newVal ->
+              audioEnhancerProfile = "Custom"
+              onSaveAudioEnhancerProfile("Custom")
+              val stepped = (newVal * 2).roundToInt() / 2f
+              audioEnhancerVoiceDb = stepped
+              onSaveAudioEnhancerVoiceDb(stepped)
+              if (!dialogueEnhancerEnabled) {
+                dialogueEnhancerEnabled = true
+                onSaveDialogueEnhancer(true)
+              }
+            }
+          )
+        }
+
+        // 2. Bass Boost Slider: 0 dB to 8 dB (+2 dB extended on custom)
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
+          Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("Bass Boost", color = Color.White, style = MaterialTheme.typography.bodyMedium)
+            Text(
+              String.format(java.util.Locale.US, "+%.1f dB", audioEnhancerBassDb),
+              color = MaterialTheme.colorScheme.primary,
+              fontWeight = FontWeight.Bold,
+              style = MaterialTheme.typography.bodyMedium
+            )
+          }
+          Slider(
+            value = audioEnhancerBassDb,
+            valueRange = 0.0f..8.0f,
+            steps = 15,
+            onValueChange = { newVal ->
+              audioEnhancerProfile = "Custom"
+              onSaveAudioEnhancerProfile("Custom")
+              val stepped = (newVal * 2).roundToInt() / 2f
+              audioEnhancerBassDb = stepped
+              onSaveAudioEnhancerBassDb(stepped)
+              if (!dialogueEnhancerEnabled) {
+                dialogueEnhancerEnabled = true
+                onSaveDialogueEnhancer(true)
+              }
+            }
+          )
+        }
+
+        // 3. Loudness Gain Slider: 0 to 800 mB (0 to +8.0 dB, +2 dB extended on custom)
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
+          Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("Loudness Gain", color = Color.White, style = MaterialTheme.typography.bodyMedium)
+            Text(
+              String.format(java.util.Locale.US, "+%.1f dB", audioEnhancerLoudnessMb / 100f),
+              color = MaterialTheme.colorScheme.primary,
+              fontWeight = FontWeight.Bold,
+              style = MaterialTheme.typography.bodyMedium
+            )
+          }
+          Slider(
+            value = audioEnhancerLoudnessMb.toFloat(),
+            valueRange = 0f..800f,
+            steps = 15,
+            onValueChange = { newVal ->
+              audioEnhancerProfile = "Custom"
+              onSaveAudioEnhancerProfile("Custom")
+              val stepped = ((newVal / 50f).roundToInt() * 50)
+              audioEnhancerLoudnessMb = stepped
+              onSaveAudioEnhancerLoudnessMb(stepped)
+              if (!dialogueEnhancerEnabled) {
+                dialogueEnhancerEnabled = true
+                onSaveDialogueEnhancer(true)
+              }
+            }
+          )
+        }
+      }
     }
     PlayerPanel.None -> Unit
   }
@@ -4638,6 +4879,8 @@ private fun BoxScope.PlayerOverlays(
       onSpeed = { keepControlsVisible(); activePanel = PlayerPanel.Speed },
       onSubtitles = { keepControlsVisible(); activePanel = PlayerPanel.Subtitles },
       onAudio = { keepControlsVisible(); activePanel = PlayerPanel.Audio },
+      onEnhancer = { keepControlsVisible(); activePanel = PlayerPanel.Enhancer },
+      enhancerActive = dialogueEnhancerEnabled,
       onSources = { keepControlsVisible(); activePanel = PlayerPanel.Sources },
       onEngine = { keepControlsVisible(); activePanel = PlayerPanel.Engine },
       onInfo = { keepControlsVisible(); activePanel = PlayerPanel.Info },

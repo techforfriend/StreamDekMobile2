@@ -141,6 +141,13 @@ class ExoPlaybackView @JvmOverloads constructor(
   private var lastLoggedCueCount = -1
   private val audioSelections = mutableMapOf<Int, Pair<Tracks.Group, Int>>()
   private var dialogueEnhancerEnabled = false
+  private var audioEnhancerVoiceDb = 5.0f
+  private var audioEnhancerBassDb = 0.0f
+  private var audioEnhancerLoudnessMb = 350
+  private var audioEnhancerDynamic = true
+  private var appliedVoiceDb: Float? = null
+  private var appliedBassDb: Float? = null
+  private var appliedLoudnessMb: Int? = null
   private var loudnessEnhancer: android.media.audiofx.LoudnessEnhancer? = null
   private var equalizer: android.media.audiofx.Equalizer? = null
   private var lastAudioSessionId: Int = androidx.media3.common.C.AUDIO_SESSION_ID_UNSET
@@ -626,10 +633,17 @@ class ExoPlaybackView @JvmOverloads constructor(
   @Suppress("DEPRECATION")
   fun audioDelaySupported(): Boolean = runCatching { exoPlayer?.isTunnelingEnabled != true }.getOrDefault(true)
 
-  fun setDialogueEnhancer(enabled: Boolean) {
-    if (dialogueEnhancerEnabled == enabled && appliedDialogueEnhancerState == enabled) return
+  fun setAudioEnhancer(enabled: Boolean, voiceDb: Float, bassDb: Float, loudnessMb: Int, dynamic: Boolean = true) {
     dialogueEnhancerEnabled = enabled
+    audioEnhancerVoiceDb = voiceDb
+    audioEnhancerBassDb = bassDb
+    audioEnhancerLoudnessMb = loudnessMb
+    audioEnhancerDynamic = dynamic
     applyDialogueEnhancer()
+  }
+
+  fun setDialogueEnhancer(enabled: Boolean) {
+    setAudioEnhancer(enabled, audioEnhancerVoiceDb, audioEnhancerBassDb, audioEnhancerLoudnessMb, audioEnhancerDynamic)
   }
 
   private fun releaseAudioEffects() {
@@ -645,6 +659,9 @@ class ExoPlaybackView @JvmOverloads constructor(
     loudnessEnhancer = null
     appliedAudioSessionId = androidx.media3.common.C.AUDIO_SESSION_ID_UNSET
     appliedDialogueEnhancerState = null
+    appliedVoiceDb = null
+    appliedBassDb = null
+    appliedLoudnessMb = null
   }
 
   private fun applyDialogueEnhancer(target: ExoPlayer? = exoPlayer, explicitSessionId: Int? = null) {
@@ -665,10 +682,6 @@ class ExoPlaybackView @JvmOverloads constructor(
       return
     }
 
-    if (appliedAudioSessionId == sessionId && appliedDialogueEnhancerState == true && equalizer != null) {
-      return
-    }
-
     if (appliedAudioSessionId != sessionId) {
       releaseAudioEffects()
     }
@@ -683,7 +696,8 @@ class ExoPlaybackView @JvmOverloads constructor(
       val range = runCatching { eq.bandLevelRange }.getOrNull() ?: shortArrayOf(-1500, 1500)
       val minLevel = range[0]
       val maxLevel = range[1]
-      val speechBoost = 500.toShort().coerceIn(minLevel, maxLevel)
+      val speechBoost = (audioEnhancerVoiceDb * 100).toInt().toShort().coerceIn(minLevel, maxLevel)
+      val bassBoost = (audioEnhancerBassDb * 100).toInt().toShort().coerceIn(minLevel, maxLevel)
       val flatLevel: Short = 0
 
       eq.enabled = true
@@ -691,12 +705,15 @@ class ExoPlaybackView @JvmOverloads constructor(
       for (i in 0 until numBands) {
         val centerFreqHz = eq.getCenterFreq(i.toShort()) / 1000
         when {
+          centerFreqHz <= 300 -> eq.setBandLevel(i.toShort(), bassBoost)
           centerFreqHz in 350..5000 -> eq.setBandLevel(i.toShort(), speechBoost)
           else -> eq.setBandLevel(i.toShort(), flatLevel)
         }
       }
       appliedAudioSessionId = sessionId
       appliedDialogueEnhancerState = true
+      appliedVoiceDb = audioEnhancerVoiceDb
+      appliedBassDb = audioEnhancerBassDb
     }.onFailure {
       Log.w(TAG, "Failed to apply Equalizer: ${it.message}")
       releaseAudioEffects()
@@ -705,8 +722,10 @@ class ExoPlaybackView @JvmOverloads constructor(
     if (equalizer != null) {
       runCatching {
         val le = loudnessEnhancer ?: android.media.audiofx.LoudnessEnhancer(sessionId).also { loudnessEnhancer = it }
-        le.setTargetGain(400)
-        le.enabled = true
+        val gain = audioEnhancerLoudnessMb.coerceIn(0, 1500)
+        le.setTargetGain(gain)
+        le.enabled = gain > 0
+        appliedLoudnessMb = gain
       }.onFailure { Log.w(TAG, "Failed to apply LoudnessEnhancer: ${it.message}") }
     }
   }

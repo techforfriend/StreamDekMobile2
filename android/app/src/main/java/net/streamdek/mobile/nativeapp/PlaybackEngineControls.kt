@@ -34,6 +34,7 @@ internal interface PlaybackEngineControls {
   fun audioDelaySupported(): Boolean
   fun setSpeed(speed: Double)
   fun setDialogueEnhancer(enabled: Boolean)
+  fun setAudioEnhancer(enabled: Boolean, voiceDb: Float, bassDb: Float, loudnessMb: Int, dynamic: Boolean = true)
   fun playbackStats(): PlaybackStats
   fun bufferedRanges(): List<BufferedRange>
 }
@@ -57,6 +58,9 @@ internal fun ExoPlaybackView.asEngineControls(): PlaybackEngineControls = object
   override fun audioDelaySupported(): Boolean = view.audioDelaySupported()
   override fun setSpeed(speed: Double) { view.setSpeed(speed) }
   override fun setDialogueEnhancer(enabled: Boolean) { view.setDialogueEnhancer(enabled) }
+  override fun setAudioEnhancer(enabled: Boolean, voiceDb: Float, bassDb: Float, loudnessMb: Int, dynamic: Boolean) {
+    view.setAudioEnhancer(enabled, voiceDb, bassDb, loudnessMb, dynamic)
+  }
   override fun playbackStats(): PlaybackStats = view.playbackStats()
   override fun bufferedRanges(): List<BufferedRange> = view.bufferedRanges()
 }
@@ -81,6 +85,9 @@ internal fun MPVView.asEngineControls(): PlaybackEngineControls = object : Playb
   override fun audioDelaySupported(): Boolean = true
   override fun setSpeed(speed: Double) { view.setSpeed(speed) }
   override fun setDialogueEnhancer(enabled: Boolean) { view.setDialogueEnhancer(enabled) }
+  override fun setAudioEnhancer(enabled: Boolean, voiceDb: Float, bassDb: Float, loudnessMb: Int, dynamic: Boolean) {
+    view.setAudioEnhancer(enabled, voiceDb, bassDb, loudnessMb, dynamic)
+  }
   override fun playbackStats(): PlaybackStats = view.playbackStats()
   override fun bufferedRanges(): List<BufferedRange> = view.bufferedRanges()
 }
@@ -104,6 +111,9 @@ internal fun VlcPlaybackView.asEngineControls(): PlaybackEngineControls = object
   override fun audioDelaySupported(): Boolean = view.audioDelaySupported()
   override fun setSpeed(speed: Double) { view.setSpeed(speed) }
   override fun setDialogueEnhancer(enabled: Boolean) { view.setDialogueEnhancer(enabled) }
+  override fun setAudioEnhancer(enabled: Boolean, voiceDb: Float, bassDb: Float, loudnessMb: Int, dynamic: Boolean) {
+    view.setAudioEnhancer(enabled, voiceDb, bassDb, loudnessMb, dynamic)
+  }
   override fun playbackStats(): PlaybackStats = view.playbackStats()
   override fun bufferedRanges(): List<BufferedRange> = view.bufferedRanges()
 }

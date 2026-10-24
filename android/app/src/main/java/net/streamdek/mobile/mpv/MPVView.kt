@@ -57,7 +57,6 @@ class MPVView @JvmOverloads constructor(
         private const val MPV_LOG_LEVEL_WARN = 3
         private const val DEFAULT_SUBTITLE_COLOR = "#FFFFFFFF"
         private const val DEFAULT_SUBTITLE_OUTLINE_COLOR = "#FF000000"
-        private const val DIALOGUE_ENHANCER_AF = "lavfi=[dynaudnorm=f=150:g=15:m=3.5:p=0.85,equalizer=f=2500:t=q:w=1.2:g=5.0]"
     }
 
     private val callbackHandler = android.os.Handler(android.os.Looper.getMainLooper())
@@ -162,6 +161,10 @@ class MPVView @JvmOverloads constructor(
     }
 
     private var dialogueEnhancerEnabled: Boolean = false
+    private var audioEnhancerVoiceDb: Float = 5.0f
+    private var audioEnhancerBassDb: Float = 0.0f
+    private var audioEnhancerLoudnessMb: Int = 350
+    private var audioEnhancerDynamic: Boolean = true
 
     override fun onSurfaceTextureAvailable(surfaceTexture: SurfaceTexture, width: Int, height: Int) {
         try {
@@ -209,9 +212,7 @@ class MPVView @JvmOverloads constructor(
             // Likewise the two timing offsets, which an engine switch mid-video sets straight away.
             MPVLib.setPropertyDouble("sub-delay", subtitleDelaySeconds)
             MPVLib.setPropertyDouble("audio-delay", audioDelaySeconds)
-            if (dialogueEnhancerEnabled) {
-                MPVLib.setPropertyString("af", DIALOGUE_ENHANCER_AF)
-            }
+            applyAudioEnhancer()
 
             pendingSource?.let { source ->
                 if (BuildConfig.DEBUG) Log.i(TAG, "Applying pending source after surface ready")
@@ -765,13 +766,33 @@ class MPVView @JvmOverloads constructor(
     /**
      * Boost vocal/speech frequencies and quiet background music/explosions.
      */
-    fun setDialogueEnhancer(enabled: Boolean) {
+    fun setAudioEnhancer(enabled: Boolean, voiceDb: Float, bassDb: Float, loudnessMb: Int, dynamic: Boolean = true) {
         dialogueEnhancerEnabled = enabled
+        audioEnhancerVoiceDb = voiceDb
+        audioEnhancerBassDb = bassDb
+        audioEnhancerLoudnessMb = loudnessMb
+        audioEnhancerDynamic = dynamic
+        applyAudioEnhancer()
+    }
+
+    /**
+     * Boost vocal/speech frequencies and quiet background music/explosions.
+     */
+    fun setDialogueEnhancer(enabled: Boolean) {
+        setAudioEnhancer(enabled, audioEnhancerVoiceDb, audioEnhancerBassDb, audioEnhancerLoudnessMb, audioEnhancerDynamic)
+    }
+
+    private fun applyAudioEnhancer() {
         if (!initialized || isDestroyed) return
-        if (BuildConfig.DEBUG) Log.i(TAG, "setDialogueEnhancer: $enabled")
-        if (enabled) {
-            MPVLib.setPropertyString("af", DIALOGUE_ENHANCER_AF)
+        if (dialogueEnhancerEnabled) {
+            val dynFilter = if (audioEnhancerDynamic) "dynaudnorm=f=150:g=15:m=3.5:p=0.85" else "dynaudnorm=f=150:g=15:m=1.5:p=0.85"
+            val bassFilter = if (audioEnhancerBassDb > 0.05f) ",equalizer=f=90:t=q:w=1.2:g=${String.format(java.util.Locale.US, "%.1f", audioEnhancerBassDb)}" else ""
+            val voiceFilter = if (audioEnhancerVoiceDb > 0.05f) ",equalizer=f=2500:t=q:w=1.2:g=${String.format(java.util.Locale.US, "%.1f", audioEnhancerVoiceDb)}" else ""
+            val afString = "lavfi=[${dynFilter}${bassFilter}${voiceFilter}]"
+            if (BuildConfig.DEBUG) Log.i(TAG, "applyAudioEnhancer: $afString")
+            MPVLib.setPropertyString("af", afString)
         } else {
+            if (BuildConfig.DEBUG) Log.i(TAG, "applyAudioEnhancer: disabled")
             MPVLib.setPropertyString("af", "")
         }
     }
@@ -1046,9 +1067,7 @@ class MPVView @JvmOverloads constructor(
                 lastMpvErrorMessage = null
                 ensureSubtitleVisibility()
                 logSubtitleState("FILE_LOADED")
-                if (dialogueEnhancerEnabled) {
-                    MPVLib.setPropertyString("af", DIALOGUE_ENHANCER_AF)
-                }
+                applyAudioEnhancer()
                 dispatchTracksChanged()
                 dispatchUi { keepScreenOn = !paused }
                 if (!paused) {
