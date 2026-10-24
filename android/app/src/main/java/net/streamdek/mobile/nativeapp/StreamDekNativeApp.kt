@@ -22084,67 +22084,35 @@ internal fun LiquidGlassCard(
   content: @Composable ColumnScope.() -> Unit,
 ) {
   val lightSurface = MaterialTheme.colorScheme.background.luminance() > 0.5f
-  val baseColor = if (lightSurface) Color(0xFFFFFFFF) else Color(0xFF0D1017)
-  val baseAlpha = if (lightSurface) 0.84f else 0.72f
+  val baseColor = if (lightSurface) Color(0xFFF7F8FA) else Color(0xFF0C0E14)
+  val baseAlpha = if (lightSurface) 0.68f else 0.46f
 
-  val topTint = if (lightSurface) Color(0xFFFFFFFF) else Color(0xFF1A1F2C)
-  val middleTint = if (lightSurface) Color(0xFFF6F7F9) else Color(0xFF10141D)
-  val bottomTint = if (lightSurface) Color(0xFFECEEF2) else Color(0xFF080A0E)
-  val gradientAlpha = if (lightSurface) 0.85f else 0.65f
-
-  val borderBrush = Brush.linearGradient(
-    0.0f to Color.White.copy(alpha = if (lightSurface) 0.45f else 0.22f),
-    0.28f to (if (accentTinted) accentColor else Color.White).copy(alpha = if (lightSurface) 0.35f else 0.28f),
-    0.72f to MaterialTheme.colorScheme.onSurface.copy(alpha = if (lightSurface) 0.12f else 0.08f),
-    1.0f to Color.Transparent,
-    start = Offset(0f, 0f),
-    end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
+  val borderBrush = Brush.verticalGradient(
+    colors = listOf(
+      accentColor.copy(alpha = if (lightSurface) 0.25f else 0.20f),
+      MaterialTheme.colorScheme.onSurface.copy(alpha = if (lightSurface) 0.08f else 0.05f),
+    ),
   )
 
   Box(
     modifier = modifier
       .clip(shape)
-      .background(baseColor.copy(alpha = baseAlpha)),
-  ) {
-    Box(
-      modifier = Modifier
-        .matchParentSize()
-        .background(
-          Brush.verticalGradient(
-            colors = listOf(
-              topTint.copy(alpha = gradientAlpha),
-              middleTint.copy(alpha = gradientAlpha * 0.72f),
-              bottomTint.copy(alpha = gradientAlpha),
-            ),
-          ),
-        ),
-    )
-    if (accentTinted) {
-      Box(
-        modifier = Modifier
-          .matchParentSize()
-          .background(accentColor.copy(alpha = if (lightSurface) 0.025f else 0.045f)),
+      .background(baseColor.copy(alpha = baseAlpha))
+      .then(
+        if (accentTinted) {
+          Modifier.background(accentColor.copy(alpha = if (lightSurface) 0.025f else 0.04f))
+        } else Modifier
       )
-    }
-    Box(
-      modifier = Modifier
-        .matchParentSize()
-        .background(
-          Brush.verticalGradient(
-            colorStops = arrayOf(
-              0.00f to Color.White.copy(alpha = if (lightSurface) 0.35f else 0.10f),
-              0.28f to Color.White.copy(alpha = if (lightSurface) 0.10f else 0.02f),
-              0.55f to Color.Transparent,
-              1.00f to Color.Black.copy(alpha = if (lightSurface) 0.02f else 0.08f),
-            ),
+      .background(
+        Brush.verticalGradient(
+          colors = listOf(
+            Color.Transparent,
+            Color.Black.copy(alpha = if (lightSurface) 0.02f else 0.08f),
           ),
         ),
-    )
-    Box(
-      modifier = Modifier
-        .matchParentSize()
-        .border(1.dp, borderBrush, shape),
-    )
+      )
+      .border(1.dp, borderBrush, shape),
+  ) {
     Column(
       modifier = Modifier
         .fillMaxWidth()
@@ -22162,57 +22130,23 @@ internal fun LiquidGlassSheet(
   content: @Composable ColumnScope.() -> Unit,
 ) {
   val lightSurface = MaterialTheme.colorScheme.background.luminance() > 0.5f
-  val baseColor = if (lightSurface) Color(0xFFFFFFFF) else Color(0xFF0F1219)
-  val baseAlpha = if (lightSurface) 0.88f else 0.82f
+  val baseColor = if (lightSurface) Color(0xFFFFFFFF) else Color(0xFF0D0F16)
+  val baseAlpha = if (lightSurface) 0.82f else 0.70f
 
   val borderBrush = Brush.verticalGradient(
     colors = listOf(
-      Color.White.copy(alpha = if (lightSurface) 0.40f else 0.22f),
       accentColor.copy(alpha = if (lightSurface) 0.30f else 0.22f),
-      MaterialTheme.colorScheme.onSurface.copy(alpha = if (lightSurface) 0.10f else 0.06f),
+      MaterialTheme.colorScheme.onSurface.copy(alpha = if (lightSurface) 0.08f else 0.05f),
     ),
   )
 
   Box(
     modifier = modifier
       .clip(shape)
-      .background(baseColor.copy(alpha = baseAlpha)),
+      .background(baseColor.copy(alpha = baseAlpha))
+      .background(accentColor.copy(alpha = if (lightSurface) 0.025f else 0.035f))
+      .border(1.dp, borderBrush, shape),
   ) {
-    Box(
-      modifier = Modifier
-        .matchParentSize()
-        .background(
-          Brush.verticalGradient(
-            colors = listOf(
-              (if (lightSurface) Color.White else Color(0xFF181D28)).copy(alpha = 0.85f),
-              (if (lightSurface) Color(0xFFF5F6F8) else Color(0xFF0B0D13)).copy(alpha = 0.70f),
-            ),
-          ),
-        ),
-    )
-    Box(
-      modifier = Modifier
-        .matchParentSize()
-        .background(accentColor.copy(alpha = if (lightSurface) 0.025f else 0.04f)),
-    )
-    Box(
-      modifier = Modifier
-        .matchParentSize()
-        .background(
-          Brush.verticalGradient(
-            colorStops = arrayOf(
-              0.00f to Color.White.copy(alpha = if (lightSurface) 0.36f else 0.12f),
-              0.22f to Color.White.copy(alpha = if (lightSurface) 0.08f else 0.02f),
-              0.48f to Color.Transparent,
-            ),
-          ),
-        ),
-    )
-    Box(
-      modifier = Modifier
-        .matchParentSize()
-        .border(1.dp, borderBrush, shape),
-    )
     Column(
       modifier = Modifier.fillMaxWidth(),
       content = content,
@@ -22228,58 +22162,23 @@ internal fun LiquidGlassDialog(
   content: @Composable ColumnScope.() -> Unit,
 ) {
   val lightSurface = MaterialTheme.colorScheme.background.luminance() > 0.5f
-  val baseColor = if (lightSurface) Color(0xFFFFFFFF) else Color(0xFF10131B)
-  val baseAlpha = if (lightSurface) 0.90f else 0.84f
+  val baseColor = if (lightSurface) Color(0xFFFFFFFF) else Color(0xFF0E1118)
+  val baseAlpha = if (lightSurface) 0.85f else 0.72f
 
-  val borderBrush = Brush.linearGradient(
-    0.0f to Color.White.copy(alpha = if (lightSurface) 0.42f else 0.22f),
-    0.30f to accentColor.copy(alpha = if (lightSurface) 0.30f else 0.25f),
-    0.75f to MaterialTheme.colorScheme.onSurface.copy(alpha = if (lightSurface) 0.12f else 0.08f),
-    1.0f to Color.Transparent,
-    start = Offset(0f, 0f),
-    end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
+  val borderBrush = Brush.verticalGradient(
+    colors = listOf(
+      accentColor.copy(alpha = if (lightSurface) 0.30f else 0.22f),
+      MaterialTheme.colorScheme.onSurface.copy(alpha = if (lightSurface) 0.08f else 0.05f),
+    ),
   )
 
   Box(
     modifier = modifier
       .clip(shape)
-      .background(baseColor.copy(alpha = baseAlpha)),
+      .background(baseColor.copy(alpha = baseAlpha))
+      .background(accentColor.copy(alpha = if (lightSurface) 0.025f else 0.035f))
+      .border(1.dp, borderBrush, shape),
   ) {
-    Box(
-      modifier = Modifier
-        .matchParentSize()
-        .background(
-          Brush.verticalGradient(
-            colors = listOf(
-              (if (lightSurface) Color.White else Color(0xFF191F2B)).copy(alpha = 0.85f),
-              (if (lightSurface) Color(0xFFF3F4F6) else Color(0xFF0C0E15)).copy(alpha = 0.75f),
-            ),
-          ),
-        ),
-    )
-    Box(
-      modifier = Modifier
-        .matchParentSize()
-        .background(accentColor.copy(alpha = if (lightSurface) 0.025f else 0.04f)),
-    )
-    Box(
-      modifier = Modifier
-        .matchParentSize()
-        .background(
-          Brush.verticalGradient(
-            colorStops = arrayOf(
-              0.00f to Color.White.copy(alpha = if (lightSurface) 0.35f else 0.12f),
-              0.25f to Color.White.copy(alpha = if (lightSurface) 0.08f else 0.02f),
-              0.50f to Color.Transparent,
-            ),
-          ),
-        ),
-    )
-    Box(
-      modifier = Modifier
-        .matchParentSize()
-        .border(1.dp, borderBrush, shape),
-    )
     Column(
       modifier = Modifier.fillMaxWidth(),
       content = content,
@@ -22312,21 +22211,13 @@ private fun SettingsRow(icon: String, iconColor: Color, title: String, subtitle:
       modifier = Modifier
         .size(36.dp)
         .clip(StreamDekRadius.controlShape)
-        .background(
-          Brush.linearGradient(
-            colors = listOf(
-              iconColor.copy(alpha = 0.22f),
-              iconColor.copy(alpha = 0.10f),
-            ),
-          ),
-        )
+        .background(iconColor.copy(alpha = 0.14f))
         .border(
           width = 1.dp,
           brush = Brush.verticalGradient(
             colors = listOf(
-              Color.White.copy(alpha = 0.25f),
-              iconColor.copy(alpha = 0.20f),
-              Color.Transparent,
+              iconColor.copy(alpha = 0.32f),
+              iconColor.copy(alpha = 0.12f),
             ),
           ),
           shape = StreamDekRadius.controlShape,
@@ -26198,21 +26089,13 @@ internal fun SettingsIcon(icon: String, iconColor: Color) {
     modifier = Modifier
       .size(34.dp)
       .clip(shape)
-      .background(
-        Brush.linearGradient(
-          colors = listOf(
-            iconColor.copy(alpha = 0.22f),
-            iconColor.copy(alpha = 0.10f),
-          ),
-        ),
-      )
+      .background(iconColor.copy(alpha = 0.14f))
       .border(
         width = 1.dp,
         brush = Brush.verticalGradient(
           colors = listOf(
-            Color.White.copy(alpha = 0.28f),
-            iconColor.copy(alpha = 0.20f),
-            Color.Transparent,
+            iconColor.copy(alpha = 0.32f),
+            iconColor.copy(alpha = 0.12f),
           ),
         ),
         shape = shape,
@@ -26233,32 +26116,17 @@ private fun SettingsSegment(text: String, selected: Boolean, modifier: Modifier 
       .clip(StreamDekRadius.pill)
       .background(
         if (selected) {
-          Brush.verticalGradient(
-            colors = listOf(
-              accent.copy(alpha = 0.90f),
-              accent.copy(alpha = 0.75f),
-            ),
-          )
+          accent.copy(alpha = 0.88f)
         } else {
-          Brush.verticalGradient(
-            colors = listOf(
-              MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
-              MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f),
-            ),
-          )
+          MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
         },
       )
       .border(
         1.dp,
         if (selected) {
-          Brush.verticalGradient(
-            colors = listOf(
-              Color.White.copy(alpha = 0.40f),
-              accent,
-            ),
-          )
+          accent.copy(alpha = 0.65f)
         } else {
-          SolidColor(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
+          MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
         },
         StreamDekRadius.pill,
       ),

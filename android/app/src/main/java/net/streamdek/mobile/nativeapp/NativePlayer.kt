@@ -3080,45 +3080,21 @@ private fun PlayerModalPanel(title: String, onClose: () -> Unit, trailing: @Comp
     Box(
       modifier = panelSizeModifier
         .clip(panelShape)
-        .background(
-          Brush.verticalGradient(
-            colors = listOf(
-              Color(0xF2161A24),
-              Color(0xF60D0F15),
-            ),
-          ),
-        )
+        .background(Color(0xD90C0E14))
+        .background(accentColor.copy(alpha = 0.035f))
         .border(
           width = 1.dp,
           brush = Brush.verticalGradient(
             colors = listOf(
-              Color.White.copy(alpha = 0.35f),
-              accentColor.copy(alpha = 0.28f),
-              Color.White.copy(alpha = 0.10f),
+              accentColor.copy(alpha = 0.32f),
+              Color.White.copy(alpha = 0.08f),
+              Color.Transparent,
             ),
           ),
           shape = panelShape,
         )
         .clickable(onClick = {}),
     ) {
-      Box(
-        modifier = Modifier
-          .matchParentSize()
-          .background(
-            Brush.verticalGradient(
-              colorStops = arrayOf(
-                0.00f to Color.White.copy(alpha = 0.09f),
-                0.25f to Color.White.copy(alpha = 0.02f),
-                0.55f to Color.Transparent,
-              ),
-            ),
-          ),
-      )
-      Box(
-        modifier = Modifier
-          .matchParentSize()
-          .background(accentColor.copy(alpha = 0.035f)),
-      )
       Column(
         modifier = (if (compact) Modifier.fillMaxWidth() else Modifier.fillMaxSize())
           .padding(22.dp),
@@ -4083,12 +4059,7 @@ private fun PlayerPanels(
                   if (selected) {
                     Modifier.border(
                       1.dp,
-                      Brush.verticalGradient(
-                        colors = listOf(
-                          Color.White.copy(alpha = 0.45f),
-                          LocalStreamDekThemeColors.current.accent,
-                        ),
-                      ),
+                      LocalStreamDekThemeColors.current.accent.copy(alpha = 0.65f),
                       StreamDekRadius.cardShape,
                     )
                   } else Modifier
@@ -4365,12 +4336,7 @@ private fun PlayerPanels(
                 if (selected) {
                   Modifier.border(
                     1.dp,
-                    Brush.verticalGradient(
-                      colors = listOf(
-                        Color.White.copy(alpha = 0.45f),
-                        LocalStreamDekThemeColors.current.accent,
-                      ),
-                    ),
+                    LocalStreamDekThemeColors.current.accent.copy(alpha = 0.65f),
                     StreamDekRadius.cardShape,
                   )
                 } else Modifier
