@@ -20059,8 +20059,7 @@ internal fun androidx.compose.foundation.lazy.LazyListScope.mediaGridItems(
   onRefreshHandoffDevices: () -> Unit = {},
   onActionItem: (MediaItem) -> Unit = {},
 ) {
-  val gridColumns = adaptiveMediaColumns(columns)
-  val chunks = items.chunked(gridColumns)
+  val chunks = items.chunked(columns)
   itemsIndexed(
     items = chunks,
     key = { index, row ->
@@ -20088,7 +20087,7 @@ internal fun androidx.compose.foundation.lazy.LazyListScope.mediaGridItems(
           },
         )
       }
-      repeat(gridColumns - row.size) { Spacer(modifier = Modifier.weight(1f)) }
+      repeat(columns - row.size) { Spacer(modifier = Modifier.weight(1f)) }
     }
   }
 }
@@ -20492,6 +20491,7 @@ private fun ContinueTab(
     )
   }
   var actionItem by remember { mutableStateOf<MediaItem?>(null) }
+  val gridColumns = adaptiveMediaColumns(columns)
   LibraryPage(
     title = stringResource(R.string.continue_watching),
     count = items.size,
@@ -20509,7 +20509,7 @@ private fun ContinueTab(
         mediaGridItems(
           items = items,
           onOpen = onOpen,
-          columns = columns,
+          columns = gridColumns,
           showMeta = true,
           continueWatchingActions = true,
           onRefreshHandoffDevices = onRefreshHandoffDevices,
@@ -20530,7 +20530,7 @@ private fun ContinueTab(
       onMarkEarlierEpisodesWatched = onMarkEarlierEpisodesWatched?.let { markEarlier -> { markEarlier(item) } },
       onRemoveFromContinueWatching = onRemoveFromContinueWatching?.let { remove -> { remove(item) } },
       onDismiss = { actionItem = null },
-      handoffDevices = handoffDevices,
+      handoffDevices = uiState.handoffDevices,
       onRefreshHandoffDevices = onRefreshHandoffDevices,
       onHandoffToTv = handoffForItem,
     )
@@ -20543,6 +20543,7 @@ private fun WatchlistTab(uiState: AppUiState, onOpen: (MediaItem) -> Unit, onTog
   var columns by rememberSaveable { mutableStateOf(3) }
   var showClearConfirm by rememberSaveable { mutableStateOf(false) }
   var actionItem by remember { mutableStateOf<MediaItem?>(null) }
+  val gridColumns = adaptiveMediaColumns(columns)
   val items = remember(uiState.mergedWatchlist, filter) {
     uiState.mergedWatchlist
       .filteredBy(filter)
@@ -20584,7 +20585,7 @@ private fun WatchlistTab(uiState: AppUiState, onOpen: (MediaItem) -> Unit, onTog
       mediaGridItems(
         items = items,
         onOpen = onOpen,
-        columns = columns,
+        columns = gridColumns,
         showMeta = false,
         onActionItem = { actionItem = it },
       )
@@ -20611,6 +20612,7 @@ private fun SearchTab(uiState: AppUiState, ownerKey: String, onSearch: (String) 
   var filter by rememberSaveable { mutableStateOf(MediaFilter.All) }
   var columns by rememberSaveable { mutableStateOf(3) }
   var searchActionItem by remember { mutableStateOf<MediaItem?>(null) }
+  val gridColumns = adaptiveMediaColumns(columns)
   val searchContext = LocalContext.current
   val searchPrefs = remember(searchContext) { searchContext.getSharedPreferences("streamdek_native_search", Context.MODE_PRIVATE) }
   val recentSearchesKey = remember(ownerKey) { "recent_searches:$ownerKey" }
@@ -21099,7 +21101,7 @@ private fun SearchTab(uiState: AppUiState, ownerKey: String, onSearch: (String) 
           mediaGridItems(
             items = discoverItems,
             onOpen = onOpen,
-            columns = columns,
+            columns = gridColumns,
             showMeta = true,
             onActionItem = { searchActionItem = it },
           )
@@ -21153,7 +21155,7 @@ private fun SearchTab(uiState: AppUiState, ownerKey: String, onSearch: (String) 
         mediaGridItems(
           items = section.items.take(shown),
           onOpen = onOpen,
-          columns = columns,
+          columns = gridColumns,
           showMeta = true,
           keyPrefix = "search-${section.key}",
           onActionItem = { searchActionItem = it },
@@ -21217,7 +21219,7 @@ private fun SearchTab(uiState: AppUiState, ownerKey: String, onSearch: (String) 
           mediaGridItems(
             items = visiblePlaylistLive,
             onOpen = onOpen,
-            columns = columns,
+            columns = gridColumns,
             showMeta = false,
             keyPrefix = "playlist-live",
             onActionItem = { searchActionItem = it },
@@ -21228,7 +21230,7 @@ private fun SearchTab(uiState: AppUiState, ownerKey: String, onSearch: (String) 
           mediaGridItems(
             items = visiblePlaylistVod,
             onOpen = onOpen,
-            columns = columns,
+            columns = gridColumns,
             showMeta = false,
             keyPrefix = "playlist-vod",
             onActionItem = { searchActionItem = it },
@@ -21319,6 +21321,17 @@ private fun SearchTab(uiState: AppUiState, ownerKey: String, onSearch: (String) 
       },
       options = discoverOptions,
       onDismiss = { discoverSheet = null },
+    )
+  }
+  searchActionItem?.let { item ->
+    MediaCardActionsDialog(
+      item = item,
+      inWatchlist = uiState.mergedWatchlist.containsMedia(item),
+      includeRemoveAction = false,
+      onAddToWatchlist = { onToggleWatchlist(item) },
+      onRemoveFromWatchlist = { onToggleWatchlist(item) },
+      onMarkWatched = { onMarkWatched(item) },
+      onDismiss = { searchActionItem = null },
     )
   }
 }
@@ -21530,17 +21543,6 @@ private fun PinnedSectionChrome(
         filtersPlaceable.placeRelative((shift * across).roundToInt(), filtersTop)
       }
     }
-  }
-  searchActionItem?.let { item ->
-    MediaCardActionsDialog(
-      item = item,
-      inWatchlist = uiState.mergedWatchlist.containsMedia(item),
-      includeRemoveAction = false,
-      onAddToWatchlist = { onToggleWatchlist(item) },
-      onRemoveFromWatchlist = { onToggleWatchlist(item) },
-      onMarkWatched = { onMarkWatched(item) },
-      onDismiss = { searchActionItem = null },
-    )
   }
 }
 
