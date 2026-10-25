@@ -22197,19 +22197,34 @@ internal fun LiquidGlassCard(
   content: @Composable ColumnScope.() -> Unit,
 ) {
   val lightSurface = MaterialTheme.colorScheme.background.luminance() > 0.5f
+  val baseColor = if (lightSurface) Color(0xFFF7F8FA) else Color(0xFF0C0E14)
+  val baseAlpha = if (lightSurface) 0.68f else 0.46f
+
+  val borderBrush = Brush.verticalGradient(
+    colors = listOf(
+      accentColor.copy(alpha = if (lightSurface) 0.25f else 0.20f),
+      MaterialTheme.colorScheme.onSurface.copy(alpha = if (lightSurface) 0.08f else 0.05f),
+    ),
+  )
 
   Box(
     modifier = modifier
-      .liquidGlassSurface(
-        shape = shape,
-        accentColor = accentColor,
-        lightSurface = lightSurface,
-        accentTinted = accentTinted,
-        baseAlpha = if (lightSurface) 0.65f else 0.44f,
-        borderWidth = 1.dp,
-        showLensSheen = true,
-        showCausticGlow = true,
-      ),
+      .clip(shape)
+      .background(baseColor.copy(alpha = baseAlpha))
+      .then(
+        if (accentTinted) {
+          Modifier.background(accentColor.copy(alpha = if (lightSurface) 0.025f else 0.04f))
+        } else Modifier
+      )
+      .background(
+        Brush.verticalGradient(
+          colors = listOf(
+            Color.Transparent,
+            Color.Black.copy(alpha = if (lightSurface) 0.02f else 0.08f),
+          ),
+        ),
+      )
+      .border(1.dp, borderBrush, shape),
   ) {
     Column(
       modifier = Modifier
@@ -22228,19 +22243,22 @@ internal fun LiquidGlassSheet(
   content: @Composable ColumnScope.() -> Unit,
 ) {
   val lightSurface = MaterialTheme.colorScheme.background.luminance() > 0.5f
+  val baseColor = if (lightSurface) Color(0xFFFFFFFF) else Color(0xFF0D0F16)
+  val baseAlpha = if (lightSurface) 0.82f else 0.70f
+
+  val borderBrush = Brush.verticalGradient(
+    colors = listOf(
+      accentColor.copy(alpha = if (lightSurface) 0.30f else 0.22f),
+      MaterialTheme.colorScheme.onSurface.copy(alpha = if (lightSurface) 0.08f else 0.05f),
+    ),
+  )
 
   Box(
     modifier = modifier
-      .liquidGlassSurface(
-        shape = shape,
-        accentColor = accentColor,
-        lightSurface = lightSurface,
-        accentTinted = true,
-        baseAlpha = if (lightSurface) 0.78f else 0.62f,
-        borderWidth = 1.2.dp,
-        showLensSheen = true,
-        showCausticGlow = true,
-      ),
+      .clip(shape)
+      .background(baseColor.copy(alpha = baseAlpha))
+      .background(accentColor.copy(alpha = if (lightSurface) 0.025f else 0.035f))
+      .border(1.dp, borderBrush, shape),
   ) {
     Column(
       modifier = Modifier.fillMaxWidth(),
@@ -22257,19 +22275,22 @@ internal fun LiquidGlassDialog(
   content: @Composable ColumnScope.() -> Unit,
 ) {
   val lightSurface = MaterialTheme.colorScheme.background.luminance() > 0.5f
+  val baseColor = if (lightSurface) Color(0xFFFFFFFF) else Color(0xFF0E1118)
+  val baseAlpha = if (lightSurface) 0.85f else 0.72f
+
+  val borderBrush = Brush.verticalGradient(
+    colors = listOf(
+      accentColor.copy(alpha = if (lightSurface) 0.30f else 0.22f),
+      MaterialTheme.colorScheme.onSurface.copy(alpha = if (lightSurface) 0.08f else 0.05f),
+    ),
+  )
 
   Box(
     modifier = modifier
-      .liquidGlassSurface(
-        shape = shape,
-        accentColor = accentColor,
-        lightSurface = lightSurface,
-        accentTinted = true,
-        baseAlpha = if (lightSurface) 0.82f else 0.68f,
-        borderWidth = 1.2.dp,
-        showLensSheen = true,
-        showCausticGlow = true,
-      ),
+      .clip(shape)
+      .background(baseColor.copy(alpha = baseAlpha))
+      .background(accentColor.copy(alpha = if (lightSurface) 0.025f else 0.035f))
+      .border(1.dp, borderBrush, shape),
   ) {
     Column(
       modifier = Modifier.fillMaxWidth(),
@@ -22298,39 +22319,19 @@ internal fun SettingsSection(title: String, content: @Composable ColumnScope.() 
 
 @Composable
 private fun SettingsRow(icon: String, iconColor: Color, title: String, subtitle: String, trailing: @Composable (() -> Unit)? = null) {
-  val lightSurface = MaterialTheme.colorScheme.background.luminance() > 0.5f
   Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
     Box(
       modifier = Modifier
         .size(36.dp)
         .clip(StreamDekRadius.controlShape)
-        .background(iconColor.copy(alpha = if (lightSurface) 0.12f else 0.16f))
-        .drawBehind {
-          // Kyant-style top lens curvature highlight
-          drawRect(
-            brush = Brush.verticalGradient(
-              colors = listOf(
-                Color.White.copy(alpha = if (lightSurface) 0.28f else 0.20f),
-                iconColor.copy(alpha = 0.12f),
-                Color.Transparent,
-              ),
-              startY = 0f,
-              endY = size.height * 0.45f,
-            ),
-            size = Size(size.width, size.height * 0.45f),
-          )
-        }
+        .background(iconColor.copy(alpha = 0.14f))
         .border(
           width = 1.dp,
-          brush = Brush.linearGradient(
+          brush = Brush.verticalGradient(
             colors = listOf(
-              Color.White.copy(alpha = if (lightSurface) 0.50f else 0.38f),
-              iconColor.copy(alpha = 0.35f),
+              iconColor.copy(alpha = 0.32f),
               iconColor.copy(alpha = 0.12f),
-              Color.Black.copy(alpha = if (lightSurface) 0.04f else 0.18f),
             ),
-            start = Offset(0f, 0f),
-            end = Offset.Infinite,
           ),
           shape = StreamDekRadius.controlShape,
         ),
@@ -22348,7 +22349,6 @@ private fun SettingsRow(icon: String, iconColor: Color, title: String, subtitle:
 
 @Composable
 internal fun SettingsDivider() {
-  val lightSurface = MaterialTheme.colorScheme.background.luminance() > 0.5f
   Box(
     modifier = Modifier
       .fillMaxWidth()
@@ -22357,8 +22357,8 @@ internal fun SettingsDivider() {
       .background(
         Brush.horizontalGradient(
           colors = listOf(
-            Color.White.copy(alpha = if (lightSurface) 0.20f else 0.10f),
-            MaterialTheme.colorScheme.onSurface.copy(alpha = if (lightSurface) 0.12f else 0.06f),
+            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f),
+            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
             Color.Transparent,
           ),
         ),
@@ -26198,38 +26198,18 @@ private fun settingsOptionDescription(choice: SettingsChoice?, option: String): 
 @Composable
 internal fun SettingsIcon(icon: String, iconColor: Color) {
   val shape = StreamDekRadius.controlShape
-  val lightSurface = MaterialTheme.colorScheme.background.luminance() > 0.5f
   Box(
     modifier = Modifier
       .size(34.dp)
       .clip(shape)
-      .background(iconColor.copy(alpha = if (lightSurface) 0.12f else 0.16f))
-      .drawBehind {
-        // Kyant-style top lens specular reflection
-        drawRect(
-          brush = Brush.verticalGradient(
-            colors = listOf(
-              Color.White.copy(alpha = if (lightSurface) 0.28f else 0.20f),
-              iconColor.copy(alpha = 0.12f),
-              Color.Transparent,
-            ),
-            startY = 0f,
-            endY = size.height * 0.45f,
-          ),
-          size = Size(size.width, size.height * 0.45f),
-        )
-      }
+      .background(iconColor.copy(alpha = 0.14f))
       .border(
         width = 1.dp,
-        brush = Brush.linearGradient(
+        brush = Brush.verticalGradient(
           colors = listOf(
-            Color.White.copy(alpha = if (lightSurface) 0.50f else 0.38f),
-            iconColor.copy(alpha = 0.35f),
+            iconColor.copy(alpha = 0.32f),
             iconColor.copy(alpha = 0.12f),
-            Color.Black.copy(alpha = if (lightSurface) 0.04f else 0.18f),
           ),
-          start = Offset(0f, 0f),
-          end = Offset.Infinite,
         ),
         shape = shape,
       ),
@@ -26243,59 +26223,25 @@ internal fun SettingsIcon(icon: String, iconColor: Color) {
 private fun SettingsSegment(text: String, selected: Boolean, modifier: Modifier = Modifier) {
   val accent = LocalStreamDekThemeColors.current.accent
   val onAccent = LocalStreamDekThemeColors.current.onAccent
-  val lightSurface = MaterialTheme.colorScheme.background.luminance() > 0.5f
   Box(
     modifier = modifier
       .height(34.dp)
       .clip(StreamDekRadius.pill)
       .background(
         if (selected) {
-          accent.copy(alpha = if (lightSurface) 0.90f else 0.85f)
+          accent.copy(alpha = 0.88f)
         } else {
-          MaterialTheme.colorScheme.onSurface.copy(alpha = if (lightSurface) 0.06f else 0.05f)
+          MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
         },
       )
-      .drawBehind {
-        if (selected) {
-          // Specular lens curvature across selected switch pill
-          drawRect(
-            brush = Brush.verticalGradient(
-              colors = listOf(
-                Color.White.copy(alpha = 0.35f),
-                Color.Transparent,
-              ),
-              startY = 0f,
-              endY = size.height * 0.50f,
-            ),
-            size = Size(size.width, size.height * 0.50f),
-          )
-        }
-      }
       .border(
-        width = 1.dp,
-        brush = if (selected) {
-          Brush.linearGradient(
-            colors = listOf(
-              Color.White.copy(alpha = 0.55f),
-              accent.copy(alpha = 0.70f),
-              accent.copy(alpha = 0.40f),
-              Color.Black.copy(alpha = 0.15f),
-            ),
-            start = Offset(0f, 0f),
-            end = Offset.Infinite,
-          )
+        1.dp,
+        if (selected) {
+          accent.copy(alpha = 0.65f)
         } else {
-          Brush.linearGradient(
-            colors = listOf(
-              Color.White.copy(alpha = if (lightSurface) 0.20f else 0.10f),
-              MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
-              Color.Transparent,
-            ),
-            start = Offset(0f, 0f),
-            end = Offset.Infinite,
-          )
+          MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
         },
-        shape = StreamDekRadius.pill,
+        StreamDekRadius.pill,
       ),
     contentAlignment = Alignment.Center,
   ) {
