@@ -475,7 +475,7 @@ internal fun BrowseSectionScreen(row: HomeRow, loadedItems: List<MediaItem>, ret
             BrowseSourceChips(sources = sourceNames, selected = selectedSource, onSelect = { selectedSource = it })
           }
         }
-        gridItems(categories, key = { "category-${it.name}" }) { category ->
+        gridItems(categories, key = { "category-${it.name}" }, contentType = { _ -> "category_item" }) { category ->
           BrowseCategoryTile(category = category, itemKind = itemKind, onClick = { selectedCategory = category.name })
         }
         if (canLoadMore) {
@@ -499,7 +499,7 @@ internal fun BrowseSectionScreen(row: HomeRow, loadedItems: List<MediaItem>, ret
           }
         }
       } else {
-        gridItems(filteredItems, key = ::mediaCollectionKey) { item ->
+        gridItems(filteredItems, key = ::mediaCollectionKey, contentType = { _ -> "browse_item" }) { item ->
           val disabled = isFavouritesRow && addonFor(item)?.enabled == false
           // Long-pressing anywhere on a live row opens the channel menu, so the TV list has to be
           // refreshed for every layout — not just the landscape-card one.

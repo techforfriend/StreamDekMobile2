@@ -15,6 +15,10 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
 
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.remember
+import coil.request.ImageRequest
+
 /**
  * A card's picture, placed to suit what the picture turns out to be.
  *
@@ -32,7 +36,19 @@ internal fun CardArtwork(
   contentDescription: String?,
   modifier: Modifier = Modifier,
 ) {
-  val painter = rememberAsyncImagePainter(model = model, contentScale = ContentScale.Crop)
+  val context = LocalContext.current
+  val imageRequest = remember(model) {
+    if (model.isNullOrBlank()) null
+    else {
+      ImageRequest.Builder(context)
+        .data(model)
+        .crossfade(true)
+        .memoryCacheKey(model)
+        .diskCacheKey(model)
+        .build()
+    }
+  }
+  val painter = rememberAsyncImagePainter(model = imageRequest, contentScale = ContentScale.Crop)
   BoxWithConstraints(modifier = modifier.clipToBounds()) {
     val loaded = (painter.state as? AsyncImagePainter.State.Success)
     val scaling = loaded?.let { success ->
@@ -46,7 +62,7 @@ internal fun CardArtwork(
         painter = painter,
         contentDescription = null,
         contentScale = ContentScale.Crop,
-        modifier = Modifier.fillMaxSize().blur(18.dp).alpha(0.38f),
+        modifier = Modifier.fillMaxSize().blur(12.dp).alpha(0.38f),
       )
     }
     Image(

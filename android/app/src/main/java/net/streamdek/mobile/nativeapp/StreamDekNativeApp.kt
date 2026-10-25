@@ -5818,6 +5818,7 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
             uiState.addons,
             uiState.activeProfileId,
             catalogIds = wantedIds,
+            force = force,
             // The built-in rows go on screen the moment they land, so the add-on fan-out no
             // longer holds the whole screen behind a splash. The complete set replaces them
             // below; until then the viewer has something real to look at and scroll.
@@ -13601,7 +13602,7 @@ private fun watchedOwnerKey(session: AuthSession?, activeProfileId: String?): St
       val lastWatched = ordered.lastOrNull { it.progress.watched }
       val next = inProgress
         ?: lastWatched?.let { last -> ordered.firstOrNull { !it.progress.watched && (it.seasonNumber to it.episodeNumber).let { (s, e) -> s > last.seasonNumber || (s == last.seasonNumber && e > last.episodeNumber) } } }
-      val season = preferredSeasonNumber ?: next?.seasonNumber ?: detail.seasons.firstOrNull { it.seasonNumber > 0 }?.seasonNumber ?: detail.seasons.first().seasonNumber
+      val season = preferredSeasonNumber ?: next?.seasonNumber ?: detail.seasons.firstOrNull { it.seasonNumber > 0 }?.seasonNumber ?: detail.seasons.firstOrNull()?.seasonNumber ?: 1
       val episode = if (preferredSeasonNumber != null) preferredEpisodeNumber else next?.episodeNumber
       loadSeason(detail.id, season, episode, resumeKnownSource)
     }
@@ -13694,7 +13695,7 @@ private fun watchedOwnerKey(session: AuthSession?, activeProfileId: String?): St
       val state = seriesResumeState(detail, traktWatched)
       val target = if (preferredSeasonNumber != null && preferredEpisodeNumber != null) {
         SeriesEpisodeSlot(preferredSeasonNumber, preferredEpisodeNumber)
-      } else state.target ?: SeriesEpisodeSlot(detail.seasons.first().seasonNumber, 1)
+      } else state.target ?: SeriesEpisodeSlot(detail.seasons.firstOrNull()?.seasonNumber ?: 1, 1)
       loadSeason(detail.id, target.seasonNumber, target.episodeNumber, resumeKnownSource)
     }
   }
@@ -17376,7 +17377,11 @@ private fun HomeTab(uiState: AppUiState, scrollToTopSignal: Int, onReload: () ->
           )
         }
       }
-      itemsIndexed(displayRows, key = { _, row -> row.id }) { index, row ->
+      itemsIndexed(
+        displayRows,
+        key = { _, row -> row.id },
+        contentType = { _, row -> if (row.id == MEDIA_HUB_ROW_ID) "media_hub" else "home_row" },
+      ) { index, row ->
         Column {
           if (heroItems.isNotEmpty() && index > 0) Spacer(modifier = Modifier.height(homeLayout.rowGap - homeLayout.heroToRowGap))
           if (row.id == MEDIA_HUB_ROW_ID) MediaHubUi.MediaHubPortal(row.items, onClick = { onViewAll(row) })
@@ -19377,7 +19382,7 @@ internal fun HomeStrip(rowId: String, title: String, items: List<MediaItem>, con
       contentPadding = PaddingValues(horizontal = home.rowSideInset),
       horizontalArrangement = Arrangement.spacedBy(home.cardGap),
     ) {
-      items(items, key = ::mediaCollectionKey) { item ->
+      items(items, key = ::mediaCollectionKey, contentType = { _ -> "media_card" }) { item ->
         val disabled = isFavouritesRow && addonFor(item)?.enabled == false
         if (rowId == "continue") {
           ContinueWatchingCard(item = item, style = continueWatchingStyle, onClick = { onPlayContinueWatching(item) }, onLongPress = { actionItem = item; onRefreshHandoffDevices() })
@@ -20044,6 +20049,50 @@ internal fun MediaGrid(
   }
 }
 
+internal fun androidx.compose.foundation.lazy.LazyListScope.mediaGridItems(
+  items: List<MediaItem>,
+  onOpen: (MediaItem) -> Unit,
+  columns: Int = 3,
+  showMeta: Boolean = true,
+  continueWatchingActions: Boolean = false,
+  keyPrefix: String = "",
+  onRefreshHandoffDevices: () -> Unit = {},
+  onActionItem: (MediaItem) -> Unit = {},
+) {
+  val gridColumns = adaptiveMediaColumns(columns)
+  val chunks = items.chunked(gridColumns)
+  itemsIndexed(
+    items = chunks,
+    key = { index, row ->
+      val baseKey = row.joinToString("-") { it.id.ifBlank { "item" } }
+      if (keyPrefix.isNotEmpty()) "$keyPrefix-$index-$baseKey" else "$index-$baseKey"
+    },
+    contentType = { _, _ -> "media_grid_row" },
+  ) { _, row ->
+    val gridGap = LocalStreamDekSpacing.current.gridGap
+    Row(
+      horizontalArrangement = Arrangement.spacedBy(gridGap),
+      modifier = Modifier
+        .fillMaxWidth()
+        .padding(horizontal = MediaGridSideMargin),
+    ) {
+      row.forEach { item ->
+        LibraryPosterTile(
+          item = item,
+          modifier = Modifier.weight(1f),
+          showMeta = showMeta,
+          onClick = { onOpen(item) },
+          onLongPress = {
+            onActionItem(item)
+            if (continueWatchingActions) onRefreshHandoffDevices()
+          },
+        )
+      }
+      repeat(gridColumns - row.size) { Spacer(modifier = Modifier.weight(1f)) }
+    }
+  }
+}
+
 @Composable
 private fun SearchGridSkeleton(columns: Int, rows: Int = 3) {
   // Mirrors the MediaGrid poster layout so the loading state matches the results.
@@ -20442,6 +20491,7 @@ private fun ContinueTab(
       dismissButton = { TextButton(onClick = { showClearConfirm = false }) { Text(stringResource(R.string.action_cancel)) } },
     )
   }
+  var actionItem by remember { mutableStateOf<MediaItem?>(null) }
   LibraryPage(
     title = stringResource(R.string.continue_watching),
     count = items.size,
@@ -20456,25 +20506,34 @@ private fun ContinueTab(
       if (items.isEmpty()) {
         item { LibraryEmptyState(icon = { Icon(Icons.Rounded.PlayCircleOutline, null, tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.76f), modifier = Modifier.size(54.dp)) }, title = stringResource(R.string.continue_watching_empty_title), subtitle = stringResource(R.string.continue_watching_empty_detail)) }
       } else {
-        item {
-          MediaGrid(
-            items,
-            onOpen,
-            columns = columns,
-            onToggleWatchlist = onToggleWatchlist,
-            watchlistItems = uiState.mergedWatchlist,
-            onMarkWatched = onMarkWatched,
-            onMarkEarlierEpisodesWatched = onMarkEarlierEpisodesWatched,
-            continueWatchingActions = true,
-            onRestartFromBeginning = onRestartFromBeginning,
-            onRemoveFromContinueWatching = onRemoveFromContinueWatching,
-            onOpenDetails = onOpenDetails,
-            handoffDevices = uiState.handoffDevices,
-            onRefreshHandoffDevices = onRefreshHandoffDevices,
-            onHandoffToTv = onHandoffContinueWatching,
-          )
-        }
+        mediaGridItems(
+          items = items,
+          onOpen = onOpen,
+          columns = columns,
+          showMeta = true,
+          continueWatchingActions = true,
+          onRefreshHandoffDevices = onRefreshHandoffDevices,
+          onActionItem = { actionItem = it },
+        )
       }
+  }
+  actionItem?.let { item ->
+    val handoffForItem: (suspend (LinkedTvDevice) -> Result<PlaybackHandoffReceipt>)? =
+      if (onHandoffContinueWatching == null) null else { device -> onHandoffContinueWatching(item, device) }
+    ContinueWatchingActionsDialog(
+      item = item,
+      inWatchlist = uiState.mergedWatchlist.containsMedia(item),
+      onRestartFromBeginning = { onRestartFromBeginning(item) },
+      onOpenDetails = { (onOpenDetails ?: onOpen)(item) },
+      onAddToWatchlist = { onToggleWatchlist(item) },
+      onMarkWatched = { onMarkWatched(item) },
+      onMarkEarlierEpisodesWatched = onMarkEarlierEpisodesWatched?.let { markEarlier -> { markEarlier(item) } },
+      onRemoveFromContinueWatching = onRemoveFromContinueWatching?.let { remove -> { remove(item) } },
+      onDismiss = { actionItem = null },
+      handoffDevices = handoffDevices,
+      onRefreshHandoffDevices = onRefreshHandoffDevices,
+      onHandoffToTv = handoffForItem,
+    )
   }
 }
 
@@ -20483,6 +20542,7 @@ private fun WatchlistTab(uiState: AppUiState, onOpen: (MediaItem) -> Unit, onTog
   var filter by rememberSaveable { mutableStateOf(MediaFilter.All) }
   var columns by rememberSaveable { mutableStateOf(3) }
   var showClearConfirm by rememberSaveable { mutableStateOf(false) }
+  var actionItem by remember { mutableStateOf<MediaItem?>(null) }
   val items = remember(uiState.mergedWatchlist, filter) {
     uiState.mergedWatchlist
       .filteredBy(filter)
@@ -20521,8 +20581,25 @@ private fun WatchlistTab(uiState: AppUiState, onOpen: (MediaItem) -> Unit, onTog
     if (items.isEmpty()) {
       item { LibraryEmptyState(icon = { Icon(Icons.Rounded.Bookmark, null, tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.62f), modifier = Modifier.size(54.dp)) }, title = stringResource(R.string.watchlist_empty_title), subtitle = stringResource(R.string.watchlist_empty_detail)) }
     } else {
-      item { MediaGrid(items, onOpen, columns = columns, showMeta = false, onToggleWatchlist = onToggleWatchlist, watchlistItems = uiState.mergedWatchlist, includeRemoveAction = true, onMarkWatched = onMarkWatched) }
+      mediaGridItems(
+        items = items,
+        onOpen = onOpen,
+        columns = columns,
+        showMeta = false,
+        onActionItem = { actionItem = it },
+      )
     }
+  }
+  actionItem?.let { item ->
+    MediaCardActionsDialog(
+      item = item,
+      inWatchlist = uiState.mergedWatchlist.containsMedia(item),
+      includeRemoveAction = true,
+      onAddToWatchlist = { onToggleWatchlist(item) },
+      onRemoveFromWatchlist = { onToggleWatchlist(item) },
+      onMarkWatched = { onMarkWatched(item) },
+      onDismiss = { actionItem = null },
+    )
   }
 }
 
@@ -20533,6 +20610,7 @@ private fun SearchTab(uiState: AppUiState, ownerKey: String, onSearch: (String) 
   var query by rememberSaveable { mutableStateOf("") }
   var filter by rememberSaveable { mutableStateOf(MediaFilter.All) }
   var columns by rememberSaveable { mutableStateOf(3) }
+  var searchActionItem by remember { mutableStateOf<MediaItem?>(null) }
   val searchContext = LocalContext.current
   val searchPrefs = remember(searchContext) { searchContext.getSharedPreferences("streamdek_native_search", Context.MODE_PRIVATE) }
   val recentSearchesKey = remember(ownerKey) { "recent_searches:$ownerKey" }
@@ -21018,7 +21096,13 @@ private fun SearchTab(uiState: AppUiState, ownerKey: String, onSearch: (String) 
           }
         }
         else -> {
-          item { MediaGrid(discoverItems, onOpen, columns = columns, showMeta = true, onToggleWatchlist = onToggleWatchlist, watchlistItems = uiState.mergedWatchlist, onMarkWatched = onMarkWatched) }
+          mediaGridItems(
+            items = discoverItems,
+            onOpen = onOpen,
+            columns = columns,
+            showMeta = true,
+            onActionItem = { searchActionItem = it },
+          )
           if (discoverPage < discoverTotalPages) {
             item {
               Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), contentAlignment = Alignment.Center) {
@@ -21066,9 +21150,14 @@ private fun SearchTab(uiState: AppUiState, ownerKey: String, onSearch: (String) 
             },
           )
         }
-        item(key = "search-grid-${section.key}") {
-          MediaGrid(section.items.take(shown), onOpen, columns = columns, showMeta = true, onToggleWatchlist = onToggleWatchlist, watchlistItems = uiState.mergedWatchlist, onMarkWatched = onMarkWatched)
-        }
+        mediaGridItems(
+          items = section.items.take(shown),
+          onOpen = onOpen,
+          columns = columns,
+          showMeta = true,
+          keyPrefix = "search-${section.key}",
+          onActionItem = { searchActionItem = it },
+        )
       }
       if (uiState.pluginSearch.loading && pluginMatches.isEmpty() && (searchResults.isNotEmpty() || addonMatches.isNotEmpty())) {
         item(key = "plugin-results-loading") {
@@ -21125,15 +21214,25 @@ private fun SearchTab(uiState: AppUiState, ownerKey: String, onSearch: (String) 
         }
         if (visiblePlaylistLive.isNotEmpty()) {
           item { PlaylistResultsHeader(stringResource(R.string.home_row_playlist_live), visiblePlaylistLive.size) }
-          item {
-            MediaGrid(visiblePlaylistLive, onOpen, columns = columns, showMeta = false, onToggleWatchlist = onToggleWatchlist, watchlistItems = uiState.mergedWatchlist, onMarkWatched = onMarkWatched)
-          }
+          mediaGridItems(
+            items = visiblePlaylistLive,
+            onOpen = onOpen,
+            columns = columns,
+            showMeta = false,
+            keyPrefix = "playlist-live",
+            onActionItem = { searchActionItem = it },
+          )
         }
         if (visiblePlaylistVod.isNotEmpty()) {
           item { PlaylistResultsHeader(stringResource(R.string.home_row_playlist_vod), visiblePlaylistVod.size) }
-          item {
-            MediaGrid(visiblePlaylistVod, onOpen, columns = columns, showMeta = false, onToggleWatchlist = onToggleWatchlist, watchlistItems = uiState.mergedWatchlist, onMarkWatched = onMarkWatched)
-          }
+          mediaGridItems(
+            items = visiblePlaylistVod,
+            onOpen = onOpen,
+            columns = columns,
+            showMeta = false,
+            keyPrefix = "playlist-vod",
+            onActionItem = { searchActionItem = it },
+          )
         }
       }
     }
@@ -21431,6 +21530,17 @@ private fun PinnedSectionChrome(
         filtersPlaceable.placeRelative((shift * across).roundToInt(), filtersTop)
       }
     }
+  }
+  searchActionItem?.let { item ->
+    MediaCardActionsDialog(
+      item = item,
+      inWatchlist = uiState.mergedWatchlist.containsMedia(item),
+      includeRemoveAction = false,
+      onAddToWatchlist = { onToggleWatchlist(item) },
+      onRemoveFromWatchlist = { onToggleWatchlist(item) },
+      onMarkWatched = { onMarkWatched(item) },
+      onDismiss = { searchActionItem = null },
+    )
   }
 }
 
@@ -28980,7 +29090,7 @@ private fun SyncServicesSettingsSummary(
   // language changes. Building it is a handful of allocations against a fixed set of services.
   val options = syncSourceOptions()
   val activeId = uiState.primarySyncService
-  val active = options.firstOrNull { it.id == activeId } ?: options.first()
+  val active = options.firstOrNull { it.id == activeId } ?: options.firstOrNull() ?: return
 
   Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
     // The page opens by answering the question it exists to answer: what is doing this right now,
@@ -36343,8 +36453,8 @@ fun MediaHubScreen(
       }
     }
     if (tiles.isNotEmpty()) lines += tiles
-    items(lines, key = { line -> mediaHubItemKey(line.first()) }, contentType = { line -> if (isChannelRow(line.first())) "channel" else "tiles" }) { line ->
-      val first = line.first()
+    items(lines, key = { line -> line.firstOrNull()?.let(::mediaHubItemKey) ?: "" }, contentType = { line -> if (line.firstOrNull()?.let(::isChannelRow) == true) "channel" else "tiles" }) { line ->
+      val first = line.firstOrNull() ?: return@items
       if (isChannelRow(first)) {
         LiveChannelRow(
           channel = first,

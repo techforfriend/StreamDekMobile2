@@ -755,11 +755,35 @@ class StreamDekApiClient(context: Context? = null) {
   private val apiHost: String? =
     runCatching { java.net.URI(BuildConfig.API_BASE_URL).host }.getOrNull()?.takeIf { it.isNotBlank() }
   private val client = OkHttpClient.Builder()
-    .connectionPool(ConnectionPool(32, 5, TimeUnit.MINUTES))
+    .connectionPool(ConnectionPool(64, 5, TimeUnit.MINUTES))
     .dispatcher(Dispatcher().apply {
-      maxRequests = 64
-      maxRequestsPerHost = 16
+      maxRequests = 128
+      maxRequestsPerHost = 32
     })
+    .apply {
+      appContext?.let { context ->
+        runCatching {
+          cache(Cache(File(context.cacheDir, "streamdek_api_http_cache"), 64L * 1024L * 1024L))
+        }
+      }
+    }
+    .addNetworkInterceptor { chain ->
+      val request = chain.request()
+      val response = chain.proceed(request)
+      if (request.method.equals("GET", ignoreCase = true) && response.isSuccessful) {
+        val declared = response.header("Cache-Control").orEmpty()
+        val hasPolicy = declared.contains("no-store", ignoreCase = true) ||
+          declared.contains("max-age", ignoreCase = true) ||
+          declared.contains("s-maxage", ignoreCase = true)
+        if (!hasPolicy) {
+          return@addNetworkInterceptor response.newBuilder()
+            .header("Cache-Control", "public, max-age=300")
+            .removeHeader("Pragma")
+            .build()
+        }
+      }
+      response
+    }
     .apply { appContext?.let { dns(StreamDekDns(it)) } }
     /**
      * Attaches a device-only content-service key to the requests that need one.
@@ -1092,18 +1116,28 @@ class StreamDekApiClient(context: Context? = null) {
    *   dependency between the two, so making the viewer wait for the second to see the first was
    *   costing the entire difference.
    */
+  private data class DefaultCatalogsCacheEntry(
+    val key: String,
+    val timestamp: Long,
+    val sections: List<MediaSection>,
+  ) {
+    fun isFresh(ttlMs: Long = 180_000L): Boolean = System.currentTimeMillis() - timestamp < ttlMs
+  }
+  @Volatile private var cachedDefaultCatalogs: DefaultCatalogsCacheEntry? = null
+
   suspend fun fetchHomeSections(
     session: AuthSession?,
     addons: List<InstalledAddon> = emptyList(),
     profileId: String? = null,
     catalogIds: List<String>? = null,
+    force: Boolean = false,
     onDefaults: suspend (List<MediaSection>) -> Unit = {},
   ): Result<List<MediaSection>> = withContext(Dispatchers.IO) {
     runCatching {
       val perf = Perf.span("homeSections")
       val sections = supervisorScope {
         val defaults = async {
-          fetchDefaultCatalogSections(catalogIds).also {
+          fetchDefaultCatalogSections(catalogIds, force).also {
             perf.mark("defaults", "count=${it.size}")
             // Never let a failure in the progressive hand-off take the whole load down with it:
             // the complete result below is still returned either way.
@@ -1120,14 +1154,24 @@ class StreamDekApiClient(context: Context? = null) {
     }
   }
 
-  private suspend fun fetchDefaultCatalogSections(catalogIds: List<String>?): List<MediaSection> {
+  private suspend fun fetchDefaultCatalogSections(catalogIds: List<String>?, force: Boolean = false): List<MediaSection> {
     val wanted = catalogIds?.filter { it.isNotBlank() }
     if (wanted != null && wanted.isEmpty()) return emptyList()
+    val cacheKey = "$catalogRegion:${wanted?.sorted()?.joinToString(",")}"
+    if (!force) {
+      cachedDefaultCatalogs?.takeIf { it.key == cacheKey && it.isFresh() }?.let {
+        return it.sections
+      }
+    }
     val idsParam = wanted?.let { "&ids=" + encodeQuery(it.joinToString(",")) }.orEmpty()
     val batched = runCatching {
       val response = execute(Request.Builder().url("$apiBaseUrl/tmdb/home?region=${encodeQuery(catalogRegion)}$idsParam").build())
       ensureOk(response, "Failed to load home catalogs")
-      parseCatalogHomeSections(response.json)
+      parseCatalogHomeSections(response.json).also { sections ->
+        if (sections.isNotEmpty()) {
+          cachedDefaultCatalogs = DefaultCatalogsCacheEntry(cacheKey, System.currentTimeMillis(), sections)
+        }
+      }
     }.getOrElse { error ->
       android.util.Log.w("StreamDekCatalogs", "batched home catalogs unavailable, falling back to legacy rows", error)
       emptyList()
@@ -1823,7 +1867,7 @@ class StreamDekApiClient(context: Context? = null) {
       .groupBy({ it.first }, { it.second!! })
       .mapValues { (_, values) -> values.toSet().size > 1 }
 
-    val catalogGate = Semaphore(6)
+    val catalogGate = Semaphore(14)
     val catalogResults = supervisorScope {
       enabledAddons.flatMap { addon ->
         addon.manifest.catalogs.mapIndexedNotNull { index, catalog ->
