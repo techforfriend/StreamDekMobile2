@@ -272,6 +272,7 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -32166,7 +32167,18 @@ private fun DetailActionIconPill(icon: ImageVector, label: String, selected: Boo
   OutlinedButton(
     onClick = onClick,
     shape = StreamDekRadius.pill,
-    border = null,
+    border = androidx.compose.foundation.BorderStroke(
+      1.dp,
+      Brush.linearGradient(
+        colors = listOf(
+          Color.White.copy(alpha = if (selected) 0.50f else 0.28f),
+          Color.White.copy(alpha = 0.10f),
+          Color.Black.copy(alpha = 0.15f),
+        ),
+        start = Offset(0f, 0f),
+        end = Offset.Infinite,
+      ),
+    ),
     colors = ButtonDefaults.outlinedButtonColors(
       containerColor = Color.White.copy(alpha = if (selected) DetailTone.selected else DetailTone.rest),
       contentColor = Color.White,
@@ -32231,6 +32243,35 @@ private fun DetailFactCard(label: String, value: String, modifier: Modifier = Mo
     modifier = modifier
       .clip(StreamDekRadius.cardShape)
       .background(MaterialTheme.colorScheme.onBackground.copy(alpha = DetailTone.rest))
+      .drawBehind {
+        val sheenHeight = minOf(size.height * 0.45f, 24.dp.toPx())
+        if (sheenHeight > 0f) {
+          drawRect(
+            brush = Brush.verticalGradient(
+              colors = listOf(
+                Color.White.copy(alpha = 0.16f),
+                Color.Transparent,
+              ),
+              startY = 0f,
+              endY = sheenHeight,
+            ),
+            size = Size(size.width, sheenHeight),
+          )
+        }
+      }
+      .border(
+        1.dp,
+        Brush.linearGradient(
+          colors = listOf(
+            Color.White.copy(alpha = 0.32f),
+            Color.White.copy(alpha = 0.08f),
+            Color.Black.copy(alpha = 0.15f),
+          ),
+          start = Offset(0f, 0f),
+          end = Offset.Infinite,
+        ),
+        StreamDekRadius.cardShape,
+      )
       .padding(horizontal = 14.dp, vertical = 10.dp),
     verticalArrangement = Arrangement.spacedBy(2.dp),
   ) {
@@ -32897,19 +32938,60 @@ private fun StreamResultCard(
       .padding(horizontal = horizontalPadding)
       .fillMaxWidth()
       // Was a bare gesture detector, which drew nothing at all while the finger was down - so on a
-      // slow resolve the row gave no sign it had been hit and got tapped again.
       .pressable(
         stream,
         onClick = onPlay,
         onLongPress = if (downloadable) onLongPress else null,
       )
-      .then(
-        if (isCurrentPlaybackStream) Modifier.border(2.dp, resolvingRing, StreamDekRadius.panelShape) else Modifier,
+      .border(
+        width = if (isCurrentPlaybackStream) 2.dp else 1.dp,
+        brush = if (isCurrentPlaybackStream) {
+          Brush.linearGradient(
+            colors = listOf(
+              Color.White.copy(alpha = 0.65f),
+              resolvingRing.copy(alpha = 0.85f),
+              resolvingRing.copy(alpha = 0.45f),
+              Color.Black.copy(alpha = 0.20f),
+            ),
+            start = Offset(0f, 0f),
+            end = Offset.Infinite,
+          )
+        } else {
+          Brush.linearGradient(
+            colors = listOf(
+              Color.White.copy(alpha = if (streamLightMode) 0.48f else 0.32f),
+              Color.White.copy(alpha = 0.10f),
+              Color.Black.copy(alpha = if (streamLightMode) 0.04f else 0.18f),
+            ),
+            start = Offset(0f, 0f),
+            end = Offset.Infinite,
+          )
+        },
+        shape = StreamDekRadius.panelShape,
       ),
     colors = CardDefaults.cardColors(containerColor = effectiveCardColor),
     shape = StreamDekRadius.panelShape,
   ) {
-    Box(modifier = Modifier.fillMaxWidth()) {
+    Box(
+      modifier = Modifier
+        .fillMaxWidth()
+        .drawBehind {
+          val sheenHeight = minOf(size.height * 0.40f, 36.dp.toPx())
+          if (sheenHeight > 0f) {
+            drawRect(
+              brush = Brush.verticalGradient(
+                colors = listOf(
+                  Color.White.copy(alpha = if (streamLightMode) 0.18f else 0.10f),
+                  Color.Transparent,
+                ),
+                startY = 0f,
+                endY = sheenHeight,
+              ),
+              size = Size(size.width, sheenHeight),
+            )
+          }
+        },
+    ) {
     Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 13.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
       // "Top" places the badges at the very top of the card so the setting is
       // visibly honored for every addon result, including ones without a
