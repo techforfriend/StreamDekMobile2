@@ -57,6 +57,10 @@ jobs:
             exit 1
           fi
 
+          if [[ "$tag_name" == "main" || "$tag_name" == "master" ]]; then
+            tag_name="v${version_name}"
+          fi
+
           echo "version_name=$version_name" >> "$GITHUB_OUTPUT"
           echo "version_code=$version_code" >> "$GITHUB_OUTPUT"
           echo "tag_name=$tag_name" >> "$GITHUB_OUTPUT"
@@ -190,11 +194,13 @@ jobs:
           fi
 
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.version.outputs.tag_name }}
+          name: ${{ steps.version.outputs.tag_name }}
           files: ${{ steps.apk.outputs.apk_path }}
           body_path: ${{ steps.release_notes.outputs.body_path }}
           generate_release_notes: true
           fail_on_unmatched_files: false
-          prerelease: ${{ contains(github.ref_name, '-pre') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') || contains(github.ref_name, '-alpha') }}
+          prerelease: ${{ contains(steps.version.outputs.tag_name, '-pre') || contains(steps.version.outputs.tag_name, '-beta') || contains(steps.version.outputs.tag_name, '-rc') || contains(steps.version.outputs.tag_name, '-alpha') }}
