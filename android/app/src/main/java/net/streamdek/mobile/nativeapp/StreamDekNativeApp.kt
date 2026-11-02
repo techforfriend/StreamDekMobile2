@@ -7980,7 +7980,7 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
       },
       block = {
         if (retainedUrl != null) {
-          ResolvedPlayback(retainedUrl, stream)
+          Result.success(ResolvedPlayback(retainedUrl, stream))
         } else {
           resolvePlayback(stream, detail, selectedEpisode, remembered)
         }
