@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import net.streamdek.mobile.R
 
 /**
  * Settings rows for Fast Resume (video cache and stream URL retention).
