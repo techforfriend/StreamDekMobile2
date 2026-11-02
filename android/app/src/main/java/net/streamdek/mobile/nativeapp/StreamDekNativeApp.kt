@@ -7900,13 +7900,13 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
 
   fun currentRetentionAuthFingerprint(): String {
     val owner = activeOwnerKey() ?: GUEST_OWNER_KEY
-    val enabledAddons = uiState.installedAddons.filter { it.enabled }.sortedBy { it.id }.map {
-      listOf(it.id, it.name, it.version, it.transportUrl, it.manifestUrl)
+    val enabledAddons = uiState.addons.filter { it.enabled }.sortedBy { it.id }.map {
+      listOf(it.id, it.manifest.name, it.manifest.version, it.transportUrl ?: "", it.manifestUrl ?: "")
     }
-    val accounts = authEntryStore.loadAll().filter { it.valid }.sortedBy { it.serviceId }.map {
-      listOf(it.serviceId, it.token)
+    val accounts = uiState.debridAccounts.filter { it.enabled }.sortedBy { it.provider }.map {
+      listOf(it.provider, it.username ?: "")
     }
-    val raw = "v2|$owner|${Gson().toJson(enabledAddons)}|$owner|${Gson().toJson(accounts)}|$owner|${activeOwnerKey() ?: ""}"
+    val raw = "v2|$owner|$enabledAddons|$owner|$accounts|$owner|${activeOwnerKey() ?: ""}"
     val md = MessageDigest.getInstance("SHA-256")
     return md.digest(raw.toByteArray(StandardCharsets.UTF_8)).joinToString("") { "%02x".format(it) }
   }
