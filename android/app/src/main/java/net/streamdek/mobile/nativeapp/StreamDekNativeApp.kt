@@ -1,5 +1,7 @@
 package net.streamdek.mobile.nativeapp
 
+import java.security.MessageDigest
+import java.nio.charset.StandardCharsets
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.drop
@@ -594,7 +596,7 @@ internal fun rememberDominantBackgroundColor(artworkUrl: String?, enabled: Boole
   val themeBackground = MaterialTheme.colorScheme.background
   val lightTheme = themeBackground.luminance() > 0.5f
   LaunchedEffect(artworkUrl, enabled, lightTheme) {
-    color = if (!enabled) null else DominantColor.forArtwork(context, artworkUrl, lightTheme)
+    color = if (!enabled || lightTheme) null else DominantColor.forArtwork(context, artworkUrl, lightTheme)
   }
   // Always animated, and always from the theme background — including the very first frame after
   // the colour is worked out. Returning the settled colour the instant it arrived made the page
@@ -3019,6 +3021,7 @@ private const val RESUMABLE_ENTRY_LIMIT = 250
 
 internal class PlaybackResumeStore(context: Context) {
   private val prefs = context.getSharedPreferences("streamdek_native_playback_resume", Context.MODE_PRIVATE)
+  private val retainedStreamStore = RetainedStreamStore(context)
 
   private fun storageKey(ownerKey: String): String = "resume:$ownerKey"
 
@@ -3072,10 +3075,12 @@ internal class PlaybackResumeStore(context: Context) {
   fun removeTitle(ownerKey: String, mediaId: String, mediaType: String) = synchronized(writeLock) {
     val targetType = normalizedMediaType(mediaType)
     persist(ownerKey, loadAll(ownerKey).filterNot { it.mediaId == mediaId && normalizedMediaType(it.mediaType) == targetType })
+    retainedStreamStore.remove(ownerKey, playbackMemoryKey(mediaId, targetType, null, null))
   }
   fun remove(ownerKey: String, mediaId: String, mediaType: String, seasonNumber: Int?, episodeNumber: Int?) = synchronized(writeLock) {
     val key = playbackMemoryKey(mediaId, mediaType, seasonNumber, episodeNumber)
     persist(ownerKey, loadAll(ownerKey).filterNot { playbackMemoryKey(it.mediaId, it.mediaType, it.seasonNumber, it.episodeNumber) == key })
+    retainedStreamStore.remove(ownerKey, key)
   }
 
   /**
@@ -3114,6 +3119,7 @@ internal class PlaybackResumeStore(context: Context) {
    */
   fun clearResumable(ownerKey: String) = synchronized(writeLock) {
     persist(ownerKey, loadAll(ownerKey).filter { it.isLive })
+    retainedStreamStore.clearAll()
   }
 
   private fun persist(ownerKey: String, entries: List<PlaybackMemoryEntry>) {
@@ -3584,8 +3590,10 @@ internal fun resolveCloudStreamHomeRow(
  */
 internal fun homeCatalogRowMatchKey(id: String): String {
   if (!id.startsWith("addon:")) return id
-  val parts = id.split(":")
-  return if (parts.size >= 5) parts.take(4).joinToString(":") else id
+  val lastColon = id.lastIndexOf(':')
+  if (lastColon <= "addon:".length) return id
+  val suffix = id.substring(lastColon + 1)
+  return if (suffix.all { it.isDigit() }) id.substring(0, lastColon) else id
 }
 
 /** The add-on a saved row came from, or null when the row is a built-in one. */
@@ -4044,6 +4052,7 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
   private val appSettingsStore = AppSettingsStore(application.applicationContext)
   private val nextUpHistory = NextUpHistory(application.applicationContext)
   private val playbackResumeStore = PlaybackResumeStore(application.applicationContext)
+  val retainedStreamStore = RetainedStreamStore(application.applicationContext)
   private val watchedEpisodeStore = WatchedEpisodeStore(application.applicationContext)
   private val watchedMovieStore = WatchedMovieStore(application.applicationContext)
   private val watchedTitleStore = WatchedTitleStore(application.applicationContext)
@@ -7889,6 +7898,19 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
       ?: IllegalStateException(lastFailure?.message ?: "This source could not be resolved. Enable the local peer server or try another source.")
   }
 
+  fun currentRetentionAuthFingerprint(): String {
+    val owner = activeOwnerKey() ?: GUEST_OWNER_KEY
+    val enabledAddons = uiState.installedAddons.filter { it.enabled }.sortedBy { it.id }.map {
+      listOf(it.id, it.name, it.version, it.transportUrl, it.manifestUrl)
+    }
+    val accounts = authEntryStore.loadAll().filter { it.valid }.sortedBy { it.serviceId }.map {
+      listOf(it.serviceId, it.token)
+    }
+    val raw = "v2|$owner|${Gson().toJson(enabledAddons)}|$owner|${Gson().toJson(accounts)}|$owner|${activeOwnerKey() ?: ""}"
+    val md = MessageDigest.getInstance("SHA-256")
+    return md.digest(raw.toByteArray(StandardCharsets.UTF_8)).joinToString("") { "%02x".format(it) }
+  }
+
   fun playStream(
     stream: AddonStream,
     episode: EpisodeItem? = null,
@@ -7902,6 +7924,19 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
     val detail = uiState.detail ?: return
     val selectedEpisode = episode ?: uiState.selectedEpisode
     val requestGeneration = ++playbackRequestGeneration
+
+    val ownerKey = activeOwnerKey() ?: GUEST_OWNER_KEY
+    val contentId = playbackMemoryKey(detail.id, normalizedMediaType(detail.type), selectedEpisode?.seasonNumber, selectedEpisode?.episodeNumber)
+    val auth = currentRetentionAuthFingerprint()
+    val isMediaServer = MediaServerReference.providerOfSource(stream.addonId) != null
+    val retainedUrl = if (remembered && !isMediaServer && !uiState.detailIsLive) {
+      retainedStreamStore.getSavedUrl(ownerKey, contentId, auth)
+    } else null
+
+    if (remembered && !isMediaServer && retainedUrl == null && !uiState.detailIsLive) {
+      playBestStream(selectedEpisode, resumePercentOverride, returnToEpisodeStreams)
+      return
+    }
 
     val attempt = playbackAttempt
       ?.takeIf { continuingAttempt }
@@ -7943,7 +7978,13 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
           playerReturnEpisodeId = if (returnToEpisodeStreams) selectedEpisode?.id else null,
         )
       },
-      block = { resolvePlayback(stream, detail, selectedEpisode, remembered) },
+      block = {
+        if (retainedUrl != null) {
+          ResolvedPlayback(retainedUrl, stream)
+        } else {
+          resolvePlayback(stream, detail, selectedEpisode, remembered)
+        }
+      },
       onSuccess = success@ { playback ->
         if (requestGeneration != playbackRequestGeneration || !attempt.owns(detail, selectedEpisode)) return@success
         // The loading scene stays in place here. Everything before this mark is source resolution;
@@ -7960,6 +8001,11 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
             "StreamDekPlayback",
             "[ContinueWatching] sourceResolution=success provider=${playback.stream.addonName.take(48)} resumePosition=${resumePositionSec.takeIf { it > 0.0 } ?: resumePercent}",
           )
+        }
+
+        if (!uiState.detailIsLive) {
+          retainedStreamStore.saveStream(ownerKey, contentId, playback.stream, playback.url, auth)
+          retainedStreamStore.recordResult(ownerKey, playback.stream.addonId, true)
         }
 
         // Switching channels while one is already playing: swap the session straight over.
@@ -7996,6 +8042,7 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
       },
       onFailure = failure@ { message ->
         if (requestGeneration != playbackRequestGeneration || !attempt.owns(detail, selectedEpisode)) return@failure
+        retainedStreamStore.recordResult(ownerKey, stream.addonId, false)
         // A failed resolver should not stop automatic playback at the first ranked source.
         // Preserve position for VOD and roll live channels on from zero.
         if (playNextStreamSource(stream, selectedEpisode, if (uiState.detailIsLive) 0.0 else resumePercentOverride)) return@failure
@@ -11259,6 +11306,7 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
     )
     val session = uiState.session ?: return
     val profileId = uiState.activeProfileId ?: return
+    if (detail.id.startsWith("m3u:") || detail.id.startsWith("fuse:") || detail.id.startsWith("playlist:")) return
     viewModelScope.launch {
       apiClient.putPlaybackProgress(
         session = session, profileId = profileId, entityType = "movie", entityId = detail.id,
@@ -11344,6 +11392,7 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
 
     val session = uiState.session ?: return
     val profileId = uiState.activeProfileId ?: return
+    if (detail.id.startsWith("m3u:") || detail.id.startsWith("fuse:") || detail.id.startsWith("playlist:")) return
     viewModelScope.launch {
       apiClient.putPlaybackProgress(
         session = session,
@@ -11508,6 +11557,7 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
       )
       val session = uiState.session ?: return@launch
       val profileId = uiState.activeProfileId ?: return@launch
+      if (detail.id.startsWith("m3u:") || detail.id.startsWith("fuse:") || detail.id.startsWith("playlist:")) return@launch
       if (apiClient.putPlaybackProgressBatch(session, profileId, records).isFailure) {
         uiState = uiState.copy(infoMessage = strings.getString(R.string.notice_updated_local_only))
       } else {
@@ -13060,7 +13110,7 @@ private fun watchedOwnerKey(session: AuthSession?, activeProfileId: String?): St
     // there before, under this profile, and sending it again would only re-stamp it.
     runCatching {
       val records = playbackResumeStore.loadAll(ownerKey)
-        .filter { !it.isLive && it.syncedAt == null }
+        .filter { !it.isLive && it.syncedAt == null && !it.mediaId.startsWith("m3u:") && !it.mediaId.startsWith("fuse:") && !it.mediaId.startsWith("playlist:") }
         .map(guestMigrator::playbackProgressRecordOf)
       if (records.isNotEmpty()) apiClient.putPlaybackProgressBatch(session, profileId, records)
     }
@@ -13721,7 +13771,7 @@ private fun watchedOwnerKey(session: AuthSession?, activeProfileId: String?): St
    * the server would otherwise have to guess a completion percentage from.
    */
   private fun pushPlaybackProgress(player: PlayerSession, progressPercent: Double) {
-    if (player.isLive) return
+    if (player.isLive || player.mediaId.startsWith("m3u:") || player.mediaId.startsWith("fuse:") || player.mediaId.startsWith("playlist:")) return
     val session = uiState.session ?: return
     val duration = lastPlaybackDurationSec
     if (duration <= 0.0) return
@@ -14298,7 +14348,9 @@ private fun watchedOwnerKey(session: AuthSession?, activeProfileId: String?): St
   fun refreshNextUp() {
     val owner = activeOwnerKey() ?: GUEST_OWNER_KEY
     if (uiState.nextUpOwner != owner) uiState = uiState.copy(nextUpItems = emptyList(), nextUpOwner = owner)
-    val records = nextUpHistory.merge(owner, uiState.playbackProgressRecords)
+    val records = nextUpHistory.merge(owner, uiState.playbackProgressRecords).filterNot {
+      it.entityId.startsWith("m3u:") || it.entityId.startsWith("fuse:") || it.entityId.startsWith("playlist:")
+    }
     val anchors = nextUpAnchors(records).take(80)
     val session = uiState.session
     val profile = uiState.activeProfileId
@@ -14331,7 +14383,9 @@ private fun watchedOwnerKey(session: AuthSession?, activeProfileId: String?): St
           }
         } }.awaitAll().filterNotNull()
       }
-      if (activeOwnerKey() == owner) uiState = uiState.copy(nextUpItems = items)
+      if (activeOwnerKey() == owner) uiState = uiState.copy(nextUpItems = items.filterNot {
+        it.id.startsWith("m3u:") || it.id.startsWith("fuse:") || it.id.startsWith("playlist:")
+      })
     }
   }
 
@@ -16862,7 +16916,7 @@ private fun combinedContinueWatching(uiState: AppUiState): List<MediaItem> {
   // Titles part-way through on a personal media server join in, once each, newest position winning -
   // from each server whose Continue Watching the viewer has put here.
   return reconcileContinueWatching(mergeNextUpContinueWatching(resume, next), uiState.mediaServerContinueInStreamDek)
-    .filterNot { isLiveChannelResumeItem(it, liveChannelIds) }
+    .filterNot { it.id.startsWith("m3u:") || it.id.startsWith("fuse:") || it.id.startsWith("playlist:") || isLiveChannelResumeItem(it, liveChannelIds) }
 }
 
 /**
@@ -18170,7 +18224,7 @@ private fun NetworkBrowseScreen(network: MediaItem, headerStyle: HeaderStyle, on
         { SearchDiscoverField("Year", year ?: "Year") { selectionSheet = "year" } },
       ),
     )
-    if (!modernHeaderHeldFixed(modernHeader)) ChromeStatusBarScrim(modifier = Modifier.align(Alignment.TopCenter).zIndex(2f))
+    if (!modernHeaderHeldFixed(modernHeader)) ChromeStatusBarScrim(modifier = Modifier.align(Alignment.TopCenter).zIndex(2f), hazeState = headerHazeState)
     ScrollAwareHeader(
       surface = if (modernHeader) ScrollAwareHeaderSurface.Glass(headerHazeState)
         else ScrollAwareHeaderSurface.Solid(MaterialTheme.colorScheme.background, pillAroundAnchor = true, hazeState = headerHazeState),
@@ -18862,7 +18916,7 @@ internal fun LiveChannelsBrowseScreen(
       },
       filters = filters,
     )
-    ChromeStatusBarScrim(modifier = Modifier.align(Alignment.TopCenter).zIndex(2f))
+    ChromeStatusBarScrim(modifier = Modifier.align(Alignment.TopCenter).zIndex(2f), hazeState = headerHazeState)
     ScrollAwareHeader(
       surface = if (modernHeader) ScrollAwareHeaderSurface.Glass(headerHazeState)
         else ScrollAwareHeaderSurface.Solid(MaterialTheme.colorScheme.background, pillAroundAnchor = true, hazeState = headerHazeState),
@@ -20425,7 +20479,7 @@ internal fun LibraryPage(
         }
       },
     )
-    if (!modernHeaderHeldFixed(modernHeader)) ChromeStatusBarScrim(modifier = Modifier.align(Alignment.TopCenter).zIndex(4f))
+    if (!modernHeaderHeldFixed(modernHeader)) ChromeStatusBarScrim(modifier = Modifier.align(Alignment.TopCenter).zIndex(4f), hazeState = headerHazeState)
     LibraryStreamDekHeader(
       title = title,
       subtitle = "",
@@ -21284,7 +21338,7 @@ private fun SearchTab(uiState: AppUiState, ownerKey: String, onSearch: (String) 
     },
     filters = sectionFilters,
   )
-  ChromeStatusBarScrim(modifier = Modifier.align(Alignment.TopCenter).zIndex(4f))
+  ChromeStatusBarScrim(modifier = Modifier.align(Alignment.TopCenter).zIndex(4f), hazeState = headerHazeState)
   ScrollAwareHeader(
     surface = if (modernHeader) ScrollAwareHeaderSurface.Glass(headerHazeState)
       else ScrollAwareHeaderSurface.Solid(MaterialTheme.colorScheme.background, pillAroundAnchor = true, hazeState = headerHazeState),
@@ -22301,6 +22355,7 @@ internal fun LiquidGlassDialog(
 
 @Composable
 internal fun SettingsSection(title: String, content: @Composable ColumnScope.() -> Unit) {
+  val lightTheme = MaterialTheme.colorScheme.background.luminance() > 0.5f
   Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
     Text(
       title,
@@ -22309,35 +22364,59 @@ internal fun SettingsSection(title: String, content: @Composable ColumnScope.() 
       color = MaterialTheme.colorScheme.onSurface,
       modifier = Modifier.padding(start = 4.dp),
     )
-    LiquidGlassCard(
-      shape = StreamDekRadius.panelShape,
-      contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-      content = content,
-    )
+    if (lightTheme) {
+      Surface(
+        shape = StreamDekRadius.panelShape,
+        color = Color.White,
+        shadowElevation = 0.5.dp,
+        modifier = Modifier.fillMaxWidth(),
+      ) {
+        Column(
+          modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+          content = content,
+        )
+      }
+    } else {
+      LiquidGlassCard(
+        shape = StreamDekRadius.panelShape,
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        content = content,
+      )
+    }
   }
 }
 
 @Composable
 private fun SettingsRow(icon: String, iconColor: Color, title: String, subtitle: String, trailing: @Composable (() -> Unit)? = null) {
+  val lightTheme = MaterialTheme.colorScheme.background.luminance() > 0.5f
   Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-    Box(
-      modifier = Modifier
-        .size(36.dp)
-        .clip(StreamDekRadius.controlShape)
-        .background(iconColor.copy(alpha = 0.14f))
-        .border(
-          width = 1.dp,
-          brush = Brush.verticalGradient(
-            colors = listOf(
-              iconColor.copy(alpha = 0.32f),
-              iconColor.copy(alpha = 0.12f),
+    if (lightTheme) {
+      Box(
+        modifier = Modifier.size(24.dp),
+        contentAlignment = Alignment.Center,
+      ) {
+        Text(icon, color = iconColor, fontWeight = FontWeight.Black)
+      }
+    } else {
+      Box(
+        modifier = Modifier
+          .size(36.dp)
+          .clip(StreamDekRadius.controlShape)
+          .background(iconColor.copy(alpha = 0.14f))
+          .border(
+            width = 1.dp,
+            brush = Brush.verticalGradient(
+              colors = listOf(
+                iconColor.copy(alpha = 0.32f),
+                iconColor.copy(alpha = 0.12f),
+              ),
             ),
+            shape = StreamDekRadius.controlShape,
           ),
-          shape = StreamDekRadius.controlShape,
-        ),
-      contentAlignment = Alignment.Center,
-    ) {
-      Text(icon, color = iconColor, fontWeight = FontWeight.Black)
+        contentAlignment = Alignment.Center,
+      ) {
+        Text(icon, color = iconColor, fontWeight = FontWeight.Black)
+      }
     }
     Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
       Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurface)
@@ -23176,7 +23255,9 @@ private fun SettingsTab(
         // among others -- is focused underneath it and cannot be scrolled into view. With the
         // inset applied the list ends where the keyboard begins, and the automatic scroll a text
         // field performs on focus has somewhere to put it.
-        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).imePadding(),
+        val isLight = MaterialTheme.colorScheme.background.luminance() > 0.5f
+        val settingsBgColor = if (isLight) Color(0xFFF7F8FA) else MaterialTheme.colorScheme.background
+        modifier = Modifier.fillMaxSize().background(settingsBgColor).imePadding(),
         contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = if (route == null) 64.dp else 132.dp, bottom = 104.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
       ) {
@@ -23701,8 +23782,10 @@ private fun SettingsTab(
           }
           item {
             SettingsSection(stringResource(R.string.settings_m_appearance)) {
+              val isLightMode = MaterialTheme.colorScheme.background.luminance() > 0.5f
               BackgroundModeRow(
-                subtitle = stringResource(R.string.settings_detail_backdrop_description),
+                subtitle = stringResource(R.string.settings_detail_backdrop_description) +
+                  (if (isLightMode) "\nDominant Colour is available only with dark themes. In light mode, standard backgrounds are used." else ""),
                 options = titleBackgroundModes,
                 selected = uiState.detailBackgroundMode,
                 onSelected = onDetailBackgroundModeChange,
@@ -23828,6 +23911,11 @@ private fun SettingsTab(
               SettingsSwitchRow("PIP", Color(0xFF6366F1), stringResource(R.string.settings_m_floating_player), stringResource(R.string.settings_m_keep_the_video_in_a_small_window), uiState.pictureInPictureEnabled, onPictureInPictureEnabledChange)
               SettingsDivider()
               SettingsSwitchRow("LIVE", Color(0xFFE11D48), stringResource(R.string.settings_live_badge), stringResource(R.string.settings_live_badge_description), uiState.liveBadgeEnabled, onLiveBadgeEnabledChange)
+            }
+          }
+          item {
+            SettingsSection(stringResource(R.string.resume_title)) {
+              ResumeSettingsRows(owner = settingsOwnerKey(uiState))
             }
           }
           item {
@@ -25608,7 +25696,19 @@ private fun LanguageChoiceSheet(
         shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)),
       ) {
-        Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 28.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+          Box(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 2.dp),
+            contentAlignment = Alignment.Center,
+          ) {
+            Box(
+              modifier = Modifier
+                .width(36.dp)
+                .height(4.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.28f))
+            )
+          }
           Text(title, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
           OutlinedTextField(
             value = query,
@@ -25692,7 +25792,19 @@ private fun SettingsChoiceSheet(
         modifier = Modifier.fillMaxWidth().widthIn(max = 640.dp).heightIn(max = 680.dp).clickable(enabled = false, onClick = {}),
         shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
       ) {
-        Column(modifier = Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 28.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(modifier = Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+          Box(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 2.dp),
+            contentAlignment = Alignment.Center,
+          ) {
+            Box(
+              modifier = Modifier
+                .width(36.dp)
+                .height(4.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.28f))
+            )
+          }
           Text(title, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
           if (choice == SettingsChoice.ContinueWatchingStyle || choice == SettingsChoice.TitlePageStyle || choice == SettingsChoice.StreamingNetworkCards || choice == SettingsChoice.EpisodeLayout) {
             options.chunked(2).forEach { rowOptions ->
@@ -26197,25 +26309,35 @@ private fun settingsOptionDescription(choice: SettingsChoice?, option: String): 
 
 @Composable
 internal fun SettingsIcon(icon: String, iconColor: Color) {
-  val shape = StreamDekRadius.controlShape
-  Box(
-    modifier = Modifier
-      .size(34.dp)
-      .clip(shape)
-      .background(iconColor.copy(alpha = 0.14f))
-      .border(
-        width = 1.dp,
-        brush = Brush.verticalGradient(
-          colors = listOf(
-            iconColor.copy(alpha = 0.32f),
-            iconColor.copy(alpha = 0.12f),
+  val lightTheme = MaterialTheme.colorScheme.background.luminance() > 0.5f
+  if (lightTheme) {
+    Box(
+      modifier = Modifier.size(24.dp),
+      contentAlignment = Alignment.Center,
+    ) {
+      Icon(settingsGlyph(icon), contentDescription = null, tint = iconColor, modifier = Modifier.size(24.dp))
+    }
+  } else {
+    val shape = StreamDekRadius.controlShape
+    Box(
+      modifier = Modifier
+        .size(34.dp)
+        .clip(shape)
+        .background(iconColor.copy(alpha = 0.14f))
+        .border(
+          width = 1.dp,
+          brush = Brush.verticalGradient(
+            colors = listOf(
+              iconColor.copy(alpha = 0.32f),
+              iconColor.copy(alpha = 0.12f),
+            ),
           ),
+          shape = shape,
         ),
-        shape = shape,
-      ),
-    contentAlignment = Alignment.Center,
-  ) {
-    Icon(settingsGlyph(icon), contentDescription = null, tint = iconColor, modifier = Modifier.size(20.dp))
+      contentAlignment = Alignment.Center,
+    ) {
+      Icon(settingsGlyph(icon), contentDescription = null, tint = iconColor, modifier = Modifier.size(20.dp))
+    }
   }
 }
 
@@ -33255,7 +33377,7 @@ private fun ratingLabelForProvider(provider: String, rating: Double?): String {
   val normalized = normalizedRatingProvider(provider)
   return when (normalized) {
     "Rotten Tomatoes", "Audience Score" -> "${rating.toInt()}%"
-    "TMDB", "Metacritic", "Trakt" -> if (rating > 10.0) rating.toInt().toString() else "${"%.1f".format(rating)}"
+    "TMDB", "Metacritic", "Trakt" -> if (rating <= 10.0) kotlin.math.round(rating * 10).toInt().toString() else kotlin.math.round(rating).toInt().toString()
     else -> "${"%.1f".format(rating)}"
   }
 }
@@ -36758,7 +36880,7 @@ fun MediaHubScreen(
         LiveResumeCard(channel, light, onPlay = { onOpen(channel) }, compactFraction = { resumeFraction.value })
       }
     }
-    ChromeStatusBarScrim(modifier = Modifier.align(Alignment.TopCenter).zIndex(2f))
+    ChromeStatusBarScrim(modifier = Modifier.align(Alignment.TopCenter).zIndex(2f), hazeState = headerHazeState)
     ScrollAwareHeader(
       surface = if (modernHeader) ScrollAwareHeaderSurface.Glass(headerHazeState)
         else ScrollAwareHeaderSurface.Solid(MaterialTheme.colorScheme.background, pillAroundAnchor = true, hazeState = headerHazeState),

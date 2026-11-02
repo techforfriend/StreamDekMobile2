@@ -2192,4 +2192,25 @@
   <string name="settings_section_notifications">Notifications</string>
   <string name="settings_in_app_action_notifications">In-App Action Notifications</string>
   <string name="settings_in_app_action_notifications_description">Show notifications for routine actions such as refreshing content, managing media servers, and updating settings.</string>
+  <string name="resume_12h">12 hours</string>
+  <string name="resume_1h">1 hour</string>
+  <string name="resume_24h">24 hours</string>
+  <string name="resume_3d">3 days</string>
+  <string name="resume_6h">6 hours</string>
+  <string name="resume_7d">7 days</string>
+  <string name="resume_auto">Automatic (Recommended)</string>
+  <string name="resume_clear_links">Clear saved streaming links</string>
+  <string name="resume_clear_video">Clear video resume cache</string>
+  <string name="resume_enable">Enable Fast Resume</string>
+  <string name="resume_expiry">Until URL expires</string>
+  <string name="resume_playback">Until playback ends</string>
+  <string name="resume_retention">Stream URL Retention</string>
+  <string name="resume_retention_description">StreamDek remembers previously used streaming links to help videos resume faster. Automatic mode manages link expiry and refreshes links when necessary.</string>
+  <string name="resume_title">Fast Resume</string>
+  <string name="resume_video_description">Reuse compatible video data from one disposable cache of up to 250 MB. Supports Media3 and progressive MPV/libVLC files, including verified Jellyfin direct-play files. Other media-server sessions are excluded. Targets 15 seconds near your resume position; availability varies by source.</string>
+  <string name="fuse_fetch_more_sources">Load more from sources</string>
+  <string name="fuse_next_page">Next page</string>
+  <string name="fuse_page_indicator">Page %1$d of %2$d</string>
+  <string name="fuse_page_source_count">Showing %1$d of %2$d saved items</string>
+  <string name="fuse_previous_page">Previous page</string>
 </resources>

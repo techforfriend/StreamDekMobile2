@@ -20,10 +20,12 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsTopHeight
+import dev.chrisbanes.haze.HazeState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
@@ -286,28 +288,56 @@ fun ReportGlassBackdrop(artworkUrl: String?) {
  * gradient rather than any recomposition.
  */
 @Composable
-fun ChromeStatusBarScrim(modifier: Modifier = Modifier) {
+fun ChromeStatusBarScrim(modifier: Modifier = Modifier, hazeState: HazeState? = null) {
+  AmbientStatusBarBlur(hazeState = hazeState, modifier = modifier)
+}
+
+/**
+ * Softens content scrolling beneath the status bar into a frosted blur overlay on Android 12+
+ * (or gradient scrim fallback).
+ */
+@Composable
+fun AmbientStatusBarBlur(hazeState: HazeState?, modifier: Modifier = Modifier) {
   val contrast = LocalGlassContrast.current ?: return
   val lightTheme = MaterialTheme.colorScheme.background.luminance() > 0.5f
   val ground = if (lightTheme) MaterialTheme.colorScheme.background else Color.Black
-  Box(
-    modifier = modifier
-      .fillMaxWidth()
-      .drawBehind {
-        val strength = contrast.statusBar.value
-        if (strength <= 0.01f) return@drawBehind
-        val barBottom = (size.height - 14.dp.toPx()).coerceAtLeast(1f)
-        drawRect(
-          Brush.verticalGradient(
-            0f to ground.copy(alpha = 0.86f * strength),
-            (barBottom / size.height) to ground.copy(alpha = 0.58f * strength),
-            1f to Color.Transparent,
-          ),
-        )
-      }
-      // Feathered past the bar itself so the scrim has no edge of its own to notice. Drawn outside
-      // both, so the gradient covers the bar and the feather together.
-      .padding(bottom = 14.dp)
-      .windowInsetsTopHeight(WindowInsets.statusBars),
-  )
+  val strength = contrast.statusBar.value
+  if (strength <= 0.01f) return
+
+  if (hazeState != null && android.os.Build.VERSION.SDK_INT >= 31) {
+    Box(
+      modifier = modifier
+        .fillMaxWidth()
+        .padding(bottom = 14.dp)
+        .windowInsetsTopHeight(WindowInsets.statusBars)
+    ) {
+      FrostedGlassSurface(
+        modifier = Modifier.fillMaxSize(),
+        hazeStateOverride = hazeState,
+        blurRadius = 30f,
+        tintAlpha = (if (lightTheme) 0.30f else 0.24f) * strength,
+        baseAlpha = (if (lightTheme) 0.40f else 0.30f) * strength,
+        showEdgeGradient = true,
+        contrastZone = GlassContrastZone.TopChrome,
+      ) {}
+    }
+  } else {
+    Box(
+      modifier = modifier
+        .fillMaxWidth()
+        .drawBehind {
+          val barBottom = (size.height - 14.dp.toPx()).coerceAtLeast(1f)
+          drawRect(
+            Brush.verticalGradient(
+              0f to ground.copy(alpha = 0.86f * strength),
+              (barBottom / size.height) to ground.copy(alpha = 0.58f * strength),
+              1f to Color.Transparent,
+            ),
+          )
+        }
+        .padding(bottom = 14.dp)
+        .windowInsetsTopHeight(WindowInsets.statusBars),
+    )
+  }
 }
+

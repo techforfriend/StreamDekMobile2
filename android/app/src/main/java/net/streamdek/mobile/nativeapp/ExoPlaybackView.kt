@@ -837,7 +837,8 @@ class ExoPlaybackView @JvmOverloads constructor(
     val upstreamFactory = DefaultDataSource.Factory(context, CookieJarDataSourceFactory(httpFactory, requestHeaders))
     // Transparently serves already-downloaded content from disk (see StreamDekDownloads) when
     // the URL matches - falls through to the network otherwise, same as any cache miss.
-    val dataSourceFactory = StreamDekDownloads.wrapWithDownloadCache(upstreamFactory)
+    val downloadOrUpstream = StreamDekDownloads.wrapWithDownloadCache(upstreamFactory)
+    val dataSourceFactory = FastResumeCache.wrapWithResumeCache(context, downloadOrUpstream, owner = "guest")
     val renderers = SyncAdjustableRenderersFactory(context, playbackOffsets)
       .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
       .setEnableDecoderFallback(true)

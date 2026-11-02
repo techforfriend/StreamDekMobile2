@@ -12,3 +12,9 @@ android/device-logcat.txt
 /.claude/
 /.agents/
 /_to_delete
+/official_apk/
+/official_apktool/
+/official_decompiled/
+/official_smali/
+/single_out/
+/official_2.2.6_notes.md
