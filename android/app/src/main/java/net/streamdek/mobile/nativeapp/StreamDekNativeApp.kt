@@ -23246,6 +23246,8 @@ private fun SettingsTab(
       val settingsListState = remember(settingsRouteKey) {
         settingsListStates.getOrPut(settingsRouteKey) { androidx.compose.foundation.lazy.LazyListState() }
       }
+      val isLight = MaterialTheme.colorScheme.background.luminance() > 0.5f
+      val settingsBgColor = if (isLight) Color(0xFFF7F8FA) else MaterialTheme.colorScheme.background
       LazyColumn(
         state = settingsListState,
         // The window draws behind the system bars (setDecorFitsSystemWindows(false) in
@@ -23255,8 +23257,6 @@ private fun SettingsTab(
         // among others -- is focused underneath it and cannot be scrolled into view. With the
         // inset applied the list ends where the keyboard begins, and the automatic scroll a text
         // field performs on focus has somewhere to put it.
-        val isLight = MaterialTheme.colorScheme.background.luminance() > 0.5f
-        val settingsBgColor = if (isLight) Color(0xFFF7F8FA) else MaterialTheme.colorScheme.background
         modifier = Modifier.fillMaxSize().background(settingsBgColor).imePadding(),
         contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = if (route == null) 64.dp else 132.dp, bottom = 104.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
