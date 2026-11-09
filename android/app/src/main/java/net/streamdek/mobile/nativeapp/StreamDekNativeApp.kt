@@ -22843,7 +22843,39 @@ private fun SettingsScene(
   AdaptiveSettingsPanes(
     route = settingsRoute,
   ) { paneRoute ->
-    SettingsTab(
+    SettingsTabPane(
+      uiState = uiState,
+      viewModel = viewModel,
+      profileCreateRequest = profileCreateRequest,
+      paneRoute = paneRoute,
+      setSettingsRoute = setSettingsRoute,
+      onBack = onBack,
+      onSwitchProfile = onSwitchProfile,
+      onSignIn = onSignIn,
+      onAppLanguageChange = onAppLanguageChange,
+      onEpisodeRemindersChange = onEpisodeRemindersChange,
+      onUpcomingEpisodeRemindersChange = onUpcomingEpisodeRemindersChange,
+      onOpenDownloadDetails = onOpenDownloadDetails,
+    )
+  }
+}
+
+@Composable
+private fun SettingsTabPane(
+  uiState: AppUiState,
+  viewModel: NativeAppViewModel,
+  profileCreateRequest: Int,
+  paneRoute: SettingsRoute?,
+  setSettingsRoute: (SettingsRoute?) -> Unit,
+  onBack: () -> Unit,
+  onSwitchProfile: () -> Unit,
+  onSignIn: () -> Unit,
+  onAppLanguageChange: (String) -> Unit,
+  onEpisodeRemindersChange: (Boolean) -> Unit,
+  onUpcomingEpisodeRemindersChange: (Boolean) -> Unit,
+  onOpenDownloadDetails: (DownloadEntry) -> Unit,
+) {
+  SettingsTab(
       uiState = uiState,
       playerSettingsViewModel = viewModel,
       profileCreateRequest = profileCreateRequest,
@@ -23013,7 +23045,6 @@ private fun SettingsScene(
       onStartUpdate = viewModel::startUpdate,
     )
   }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
