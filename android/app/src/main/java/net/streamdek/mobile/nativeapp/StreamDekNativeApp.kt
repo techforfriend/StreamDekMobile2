@@ -23024,7 +23024,7 @@ private fun SettingsTab(
   val onTunneledPlaybackChange = playerSettingsViewModel::setTunneledPlayback
   val onRefreshDownloads = playerSettingsViewModel::refreshDownloads
   val onRemoveDownload = playerSettingsViewModel::removeDownload
-  val onPlayDownload = playerSettingsViewModel::playDownload
+  val onPlayDownload: (DownloadEntry) -> Unit = { playerSettingsViewModel.playDownload(it) }
   val onRefreshDebrid = playerSettingsViewModel::refreshDebridAccounts
   val onAddDebrid = playerSettingsViewModel::addDebridAccount
   val onRemoveDebrid = playerSettingsViewModel::removeDebridAccount
