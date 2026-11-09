@@ -22876,175 +22876,20 @@ private fun SettingsTabPane(
   onOpenDownloadDetails: (DownloadEntry) -> Unit,
 ) {
   SettingsTab(
-      uiState = uiState,
-      playerSettingsViewModel = viewModel,
-      profileCreateRequest = profileCreateRequest,
-      route = paneRoute,
-      apiBaseUrl = viewModel.apiBaseUrl(),
-      onRouteChange = { setSettingsRoute(it) },
-      onSubmitProfilePin = viewModel::submitProfilePin,
-      onCancelProfilePin = viewModel::cancelProfilePinPrompt,
-      onBack = onBack,
-      onSwitchProfile = onSwitchProfile,
-      onSelectProfile = viewModel::selectProfile,
-      onCreateProfile = viewModel::createProfile,
-      onUpdateProfile = viewModel::updateProfile,
-      onDeleteProfile = viewModel::deleteProfile,
-      onMakeDefaultProfile = viewModel::makeDefaultProfile,
-      onRememberLastProfileAtStartupChange = viewModel::setRememberLastProfileAtStartup,
-      onUpdateProfilePin = viewModel::updateProfilePin,
-      onSignOut = viewModel::signOut,
-      onSignIn = onSignIn,
-      onAppAppearanceChange = viewModel::setAppAppearance,
-      onAnimationSpeedChange = viewModel::setAnimationSpeed,
-      onAppLanguageChange = onAppLanguageChange,
-      onThemePresetChange = viewModel::setThemePreset,
-      onHeaderStyleChange = viewModel::setHeaderStyle,
-      onPictureInPictureEnabledChange = viewModel::setPictureInPictureEnabled,
-      onDecoderModeChange = viewModel::setDecoderMode,
-      onRenderSurfaceChange = viewModel::setRenderSurface,
-      onPlayerEngineChange = viewModel::setPlayerEngine,
-      onPreferredAudioLanguageChange = viewModel::setPreferredAudioLanguage,
-      onDetailPageStyleChange = viewModel::setDetailPageStyle,
-      onSeasonTabStyleChange = viewModel::setSeasonTabStyle,
-      onEpisodeLayoutChange = viewModel::setEpisodeLayout,
-      onShowNavLabelsChange = viewModel::setShowNavLabels,
-      onNavigationAutoCollapseSecondsChange = viewModel::setNavigationAutoCollapseSeconds,
-      onSyncOnCellularChange = viewModel::setSyncOnCellular,
-      onHoldToSpeedEnabledChange = viewModel::setHoldToSpeedEnabled,
-      onHoldToSpeedMultiplierChange = viewModel::setHoldToSpeedMultiplier,
-      onSwipeToSeekEnabledChange = viewModel::setSwipeToSeekEnabled,
-      onPlayerLevelGesturesEnabledChange = viewModel::setPlayerLevelGesturesEnabled,
-      onHomeDensityChange = viewModel::setHomeDensity,
-      onHomeCardTextModeChange = viewModel::setHomeCardTextMode,
-      onSkipIntroEnabledChange = viewModel::setSkipIntroEnabled,
-      onSkipRecapEnabledChange = viewModel::setSkipRecapEnabled,
-      onSkipEndingEnabledChange = viewModel::setSkipEndingEnabled,
-      onAutoSkipIntroEnabledChange = viewModel::setAutoSkipIntroEnabled,
-      onAutoSkipRecapEnabledChange = viewModel::setAutoSkipRecapEnabled,
-      onAutoSkipEndingEnabledChange = viewModel::setAutoSkipEndingEnabled,
-      onIntrodbApiKeyChange = viewModel::setIntrodbApiKey,
-      onAutoPlayNextEpisodeChange = viewModel::setAutoPlayNextEpisode,
-      onPreferBingeGroupChange = viewModel::setPreferBingeGroup,
-      onAutoLoadSubtitlesChange = viewModel::setAutoLoadSubtitles,
-      onSubtitleTextSizeChange = viewModel::setSubtitleTextSize,
-      onSubtitleVerticalOffsetChange = viewModel::setSubtitleVerticalOffset,
-      onSubtitleBoldChange = viewModel::setSubtitleBold,
-      onSubtitleTextColorChange = viewModel::setSubtitleTextColor,
-      onSubtitleBackgroundColorChange = viewModel::setSubtitleBackgroundColor,
-      onSubtitleOutlineChange = viewModel::setSubtitleOutline,
-      onSubtitleOutlineColorChange = viewModel::setSubtitleOutlineColor,
-      onSubtitleDefaultSourceChange = viewModel::setSubtitleDefaultSource,
-      onShowStreamsListChange = viewModel::setShowStreamsList,
-      onPreferMediaServerSourceChange = viewModel::setPreferMediaServerSource,
-      onHeroTrailerAutoplayChange = viewModel::setHeroTrailerAutoplay,
-      onHeroTrailerWifiOnlyChange = viewModel::setHeroTrailerWifiOnly,
-      onHeroTrailerResolutionChange = viewModel::setHeroTrailerResolution,
-      onHeroTrailerDelaySecondsChange = viewModel::setHeroTrailerDelaySeconds,
-      onTrailerCacheClearHoursChange = viewModel::setTrailerCacheClearHours,
-      onDetailBackgroundModeChange = viewModel::setDetailBackgroundMode,
-      onHomeBackgroundModeChange = viewModel::setHomeBackgroundMode,
-      onSecondaryAudioLanguageChange = viewModel::setSecondaryAudioLanguage,
-      onPreferredSubtitleLanguageChange = viewModel::setPreferredSubtitleLanguage,
-      onSecondarySubtitleLanguageChange = viewModel::setSecondarySubtitleLanguage,
-      onUseForcedSubtitlesChange = viewModel::setUseForcedSubtitles,
-      onShowOnlyPreferredSubtitleLanguagesChange = viewModel::setShowOnlyPreferredSubtitleLanguages,
-      onAddonSubtitleLoadingChange = viewModel::setAddonSubtitleLoading,
-      onClearTrailerCacheNow = viewModel::clearTrailerCacheNow,
-      onShowHeroSynopsisChange = viewModel::setShowHeroSynopsis,
-      onContinueWatchingStyleChange = viewModel::setContinueWatchingStyle,
-      onNetworkCardStyleChange = viewModel::setNetworkCardStyle,
-      onLiveLandscapeCardsChange = viewModel::setLiveLandscapeCards,
-      onShowNewEpisodesRowChange = viewModel::setShowNewEpisodesRow,
-      onNewEpisodesLandscapeChange = viewModel::setNewEpisodesLandscape,
-      onLiveCategoriesEnabledChange = viewModel::setLiveCategoriesEnabled,
-      onLiveProgressBarEnabledChange = viewModel::setLiveProgressBarEnabled,
-      onLiveBadgeEnabledChange = viewModel::setLiveBadgeEnabled,
-      onLiveFavouriteDrawerCardsChange = viewModel::setLiveFavouriteDrawerCards,
-      onRememberLastSourceChange = viewModel::setRememberLastSource,
-      onBlurUnwatchedEpisodesChange = viewModel::setBlurUnwatchedEpisodes,
-      onRatingsEnabledChange = viewModel::setRatingsEnabled,
-      onExternalRatingsEnabledChange = viewModel::setExternalRatingsEnabled,
-      onRatingProviderEnabledChange = viewModel::setRatingProviderEnabled,
-      onVividAmbientChange = viewModel::setVividAmbient,
-      onAmbientTintPercentChange = viewModel::setAmbientTintPercent,
-      onDetailAmbientTintPercentChange = viewModel::setDetailAmbientTintPercent,
-      onFusionBadgesChange = viewModel::setFusionBadgesEnabled,
-      onStreamDekFormattingChange = viewModel::setStreamDekFormattingEnabled,
-      onShowSizeBadgesChange = viewModel::setShowSizeBadges,
-      onPreferredQualityChange = viewModel::setPreferredQuality,
-      onMaxFileSizeChange = viewModel::setMaxFileSizeGb,
-      onBadgePositionChange = viewModel::setBadgePosition,
-      onUpdatePeerStreamSettings = viewModel::updatePeerStreamSettings,
-      onClearPeerStorage = viewModel::clearPeerStorage,
-      onRefreshPeerStorage = viewModel::refreshPeerStorageUsage,
-      onAddFusionBadgeUrl = viewModel::addFusionBadgeUrl,
-      onRemoveFusionBadgeUrl = viewModel::removeFusionBadgeUrl,
-      onRefreshFusionBadgeUrl = { viewModel.refreshFusionBadgeUrl(it) },
-      onSetActiveFusionBadgeUrl = viewModel::setActiveFusionBadgeUrl,
-      homeRowsActions = remember(viewModel) { homeRowsSettingsActions(viewModel) },
-      onMigrateGuestData = viewModel::migrateGuestDataFromSettings,
-      onRefreshHome = { viewModel.loadHome(force = true) },
-      onRefreshAddons = viewModel::refreshAddons,
-      onRefreshPlugins = { viewModel.refreshProfilePlugins(manual = true) },
-      onInstallAddon = viewModel::installAddon,
-      onToggleAddon = viewModel::toggleAddon,
-      onUninstallAddon = viewModel::uninstallAddon,
-      onMoveAddon = viewModel::moveAddon,
-      onAddM3uPlaylist = viewModel::addM3uPlaylist,
-      onRemoveM3uPlaylist = viewModel::removeM3uPlaylist,
-      onSetM3uPlaylistEnabled = viewModel::setM3uPlaylistEnabled,
-      onMoveM3uPlaylist = viewModel::moveM3uPlaylist,
-      // Refresh is the way to go back to the provider - an ordinary load now reads each
-      // playlist's stored copy.
-      onRefreshM3uPlaylists = { viewModel.loadM3uPlaylists(forceRefresh = true) },
-      onDownloadsEnabledChange = viewModel::setDownloadsEnabled,
-      onEpisodeRemindersChange = onEpisodeRemindersChange,
-      onUpcomingEpisodeRemindersChange = onUpcomingEpisodeRemindersChange,
-      onUpcomingEpisodeReminderDaysChange = viewModel::setUpcomingEpisodeReminderDays,
-      onDv7HevcFallbackChange = viewModel::setDv7HevcFallback,
-      onTunneledPlaybackChange = viewModel::setTunneledPlayback,
-      onRefreshDownloads = viewModel::refreshDownloads,
-      onRemoveDownload = viewModel::removeDownload,
-      onPlayDownload = viewModel::playDownload,
-      onOpenDownloadDetails = onOpenDownloadDetails,
-      onRefreshDebrid = viewModel::refreshDebridAccounts,
-      onAddDebrid = viewModel::addDebridAccount,
-      onRemoveDebrid = viewModel::removeDebridAccount,
-      onSetDebridEnabled = viewModel::setDebridAccountEnabled,
-      onMoveDebrid = viewModel::moveDebridAccount,
-      onSetDebridCloudSync = viewModel::setDebridCloudSync,
-      contentServiceActions = ContentServiceActions(
-        onSubmitKey = viewModel::submitContentServiceKey,
-        onCopyDeviceKeyToAccount = viewModel::copyContentServiceKeyToAccount,
-        onRemove = viewModel::removeContentServiceKey,
-        onRefresh = viewModel::refreshContentServices,
-        onDismissNotice = viewModel::dismissContentServiceNotice,
-        onShowSetupGuide = viewModel::showContentServicesSetup,
-      ),
-      onPremiumizeSignIn = if (viewModel.premiumizeSignInAvailable()) {
-        { viewModel.startPremiumizeSignIn() }
-      } else null,
-      onRealDebridSignIn = { viewModel.startRealDebridSignIn() },
-      onDismissDebridSignIn = { viewModel.dismissDebridSignIn() },
-      onDismissDebridNotice = { viewModel.dismissDebridNotice() },
-      onRequestTraktDeviceCode = viewModel::requestTraktDeviceCode,
-      onRefreshSyncServices = viewModel::refreshSyncServices,
-      onPrimarySyncServiceChange = viewModel::setPrimarySyncService,
-      onRequestSyncServiceDeviceCode = viewModel::requestSyncServiceDeviceCode,
-      onPollSyncServiceAuthorization = viewModel::pollSyncServiceAuthorization,
-      onConnectSyncServiceApiKey = viewModel::connectSyncServiceApiKey,
-      onDisconnectSyncService = viewModel::disconnectSyncService,
-      onPollTraktAuthorization = viewModel::pollTraktAuthorization,
-      onDisconnectTrakt = viewModel::disconnectTrakt,
-      onRefreshTrakt = viewModel::refreshTraktData,
-      onRefreshSync = viewModel::refreshConnectedServices,
-      onAutoUpdateChecksChange = viewModel::setAutoUpdateChecks,
-      onCheckForUpdates = { viewModel.checkForUpdates(manual = true) },
-      onRefreshLinkedTvs = viewModel::refreshHandoffDevices,
-      onStartUpdate = viewModel::startUpdate,
-    )
-  }
+    uiState = uiState,
+    playerSettingsViewModel = viewModel,
+    profileCreateRequest = profileCreateRequest,
+    route = paneRoute,
+    onRouteChange = { setSettingsRoute(it) },
+    onBack = onBack,
+    onSwitchProfile = onSwitchProfile,
+    onSignIn = onSignIn,
+    onAppLanguageChange = onAppLanguageChange,
+    onEpisodeRemindersChange = onEpisodeRemindersChange,
+    onUpcomingEpisodeRemindersChange = onUpcomingEpisodeRemindersChange,
+    onOpenDownloadDetails = onOpenDownloadDetails,
+  )
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -23053,161 +22898,168 @@ private fun SettingsTab(
   playerSettingsViewModel: NativeAppViewModel,
   profileCreateRequest: Int,
   route: SettingsRoute?,
-  apiBaseUrl: String,
   onRouteChange: (SettingsRoute) -> Unit,
-  onSubmitProfilePin: (String) -> Unit,
-  onCancelProfilePin: () -> Unit,
   onBack: () -> Unit,
   onSwitchProfile: () -> Unit,
-  onSelectProfile: (String) -> Unit,
-  onCreateProfile: (String, Int) -> Unit,
-  onUpdateProfile: (String, String, Int) -> Unit,
-  onDeleteProfile: (String) -> Unit,
-  onMakeDefaultProfile: (String) -> Unit,
-  onRememberLastProfileAtStartupChange: (Boolean) -> Unit,
-  onUpdateProfilePin: (String, String?) -> Unit,
-  onSignOut: () -> Unit,
   onSignIn: () -> Unit,
-  onAppAppearanceChange: (AppAppearance) -> Unit,
-  onAnimationSpeedChange: (AnimationSpeed) -> Unit,
   onAppLanguageChange: (String) -> Unit,
-  onThemePresetChange: (AppThemePreset) -> Unit,
-  onHeaderStyleChange: (HeaderStyle) -> Unit,
-  onPictureInPictureEnabledChange: (Boolean) -> Unit,
-  onDecoderModeChange: (String) -> Unit,
-  onRenderSurfaceChange: (String) -> Unit,
-  onPlayerEngineChange: (String) -> Unit,
-  onPreferredAudioLanguageChange: (String) -> Unit,
-  onDetailPageStyleChange: (DetailPageStyle) -> Unit,
-  onSeasonTabStyleChange: (SeasonTabStyle) -> Unit,
-  onEpisodeLayoutChange: (EpisodeLayout) -> Unit,
-  onShowNavLabelsChange: (Boolean) -> Unit,
-  onNavigationAutoCollapseSecondsChange: (Int) -> Unit,
-  onSyncOnCellularChange: (Boolean) -> Unit,
-  onHoldToSpeedEnabledChange: (Boolean) -> Unit,
-  onHoldToSpeedMultiplierChange: (Float) -> Unit,
-  onSwipeToSeekEnabledChange: (Boolean) -> Unit,
-  onPlayerLevelGesturesEnabledChange: (Boolean) -> Unit,
-  onHomeDensityChange: (HomeDensity) -> Unit,
-  onHomeCardTextModeChange: (HomeCardTextMode) -> Unit,
-  onSkipIntroEnabledChange: (Boolean) -> Unit,
-  onSkipRecapEnabledChange: (Boolean) -> Unit,
-  onSkipEndingEnabledChange: (Boolean) -> Unit,
-  onAutoSkipIntroEnabledChange: (Boolean) -> Unit,
-  onAutoSkipRecapEnabledChange: (Boolean) -> Unit,
-  onAutoSkipEndingEnabledChange: (Boolean) -> Unit,
-  onIntrodbApiKeyChange: (String) -> Unit,
-  onAutoPlayNextEpisodeChange: (Boolean) -> Unit,
-  onPreferBingeGroupChange: (Boolean) -> Unit,
-  onAutoLoadSubtitlesChange: (Boolean) -> Unit,
-  onSubtitleTextSizeChange: (Int) -> Unit,
-  onSubtitleVerticalOffsetChange: (Int) -> Unit,
-  onSubtitleBoldChange: (Boolean) -> Unit,
-  onSubtitleTextColorChange: (String) -> Unit,
-  onSubtitleBackgroundColorChange: (String) -> Unit,
-  onSubtitleOutlineChange: (Boolean) -> Unit,
-  onSubtitleOutlineColorChange: (String) -> Unit,
-  onSubtitleDefaultSourceChange: (String) -> Unit,
-  onShowStreamsListChange: (Boolean) -> Unit,
-  onPreferMediaServerSourceChange: (Boolean) -> Unit,
-  onHeroTrailerAutoplayChange: (Boolean) -> Unit,
-  onHeroTrailerWifiOnlyChange: (Boolean) -> Unit = {},
-  onHeroTrailerResolutionChange: (Int) -> Unit,
-  onHeroTrailerDelaySecondsChange: (Int) -> Unit,
-  onTrailerCacheClearHoursChange: (Int) -> Unit,
-  onDetailBackgroundModeChange: (BackgroundMode) -> Unit,
-  onHomeBackgroundModeChange: (BackgroundMode) -> Unit,
-  onSecondaryAudioLanguageChange: (String) -> Unit,
-  onPreferredSubtitleLanguageChange: (String) -> Unit,
-  onSecondarySubtitleLanguageChange: (String) -> Unit,
-  onUseForcedSubtitlesChange: (Boolean) -> Unit,
-  onShowOnlyPreferredSubtitleLanguagesChange: (Boolean) -> Unit,
-  onAddonSubtitleLoadingChange: (String) -> Unit,
-  onClearTrailerCacheNow: () -> Unit,
-  onShowHeroSynopsisChange: (Boolean) -> Unit,
-  onContinueWatchingStyleChange: (ContinueWatchingStyle) -> Unit,
-  onNetworkCardStyleChange: (NetworkCardStyle) -> Unit,
-  onLiveLandscapeCardsChange: (Boolean) -> Unit,
-  onShowNewEpisodesRowChange: (Boolean) -> Unit,
-  onNewEpisodesLandscapeChange: (Boolean) -> Unit,
-  onLiveCategoriesEnabledChange: (Boolean) -> Unit,
-  onLiveProgressBarEnabledChange: (Boolean) -> Unit,
-  onLiveBadgeEnabledChange: (Boolean) -> Unit = {},
-  onLiveFavouriteDrawerCardsChange: (Boolean) -> Unit,
-  onRememberLastSourceChange: (Boolean) -> Unit,
-  onBlurUnwatchedEpisodesChange: (Boolean) -> Unit,
-  onRatingsEnabledChange: (Boolean) -> Unit,
-  onExternalRatingsEnabledChange: (Boolean) -> Unit,
-  onRatingProviderEnabledChange: (String, Boolean) -> Unit,
-  onVividAmbientChange: (Boolean) -> Unit,
-  onAmbientTintPercentChange: (Int) -> Unit,
-  onDetailAmbientTintPercentChange: (Int) -> Unit,
-  onFusionBadgesChange: (Boolean) -> Unit,
-  onStreamDekFormattingChange: (Boolean) -> Unit,
-  onShowSizeBadgesChange: (Boolean) -> Unit,
-  onPreferredQualityChange: (String) -> Unit,
-  onMaxFileSizeChange: (Int) -> Unit,
-  onBadgePositionChange: (String) -> Unit,
-  onUpdatePeerStreamSettings: ((PeerStreamSettings) -> PeerStreamSettings) -> Unit,
-  onClearPeerStorage: () -> Unit,
-  onRefreshPeerStorage: () -> Unit,
-  onAddFusionBadgeUrl: (String) -> Unit,
-  onRemoveFusionBadgeUrl: (String) -> Unit,
-  onRefreshFusionBadgeUrl: (String) -> Unit,
-  onSetActiveFusionBadgeUrl: (String) -> Unit,
-  /** Everything the Home rows page can change, as one object - see [HomeRowsSettingsActions]. */
-  homeRowsActions: HomeRowsSettingsActions,
-  onMigrateGuestData: () -> Unit,
-  onRefreshHome: () -> Unit,
-  onRefreshAddons: () -> Unit,
-  onRefreshPlugins: () -> Unit,
-  onInstallAddon: (String) -> Unit,
-  onToggleAddon: (InstalledAddon, Boolean) -> Unit,
-  onUninstallAddon: (String) -> Unit,
-  onMoveAddon: (String, Int) -> Unit,
-  onAddM3uPlaylist: (String, String) -> Unit,
-  onRemoveM3uPlaylist: (String) -> Unit,
-  onSetM3uPlaylistEnabled: (String, Boolean) -> Unit,
-  onMoveM3uPlaylist: (String, Int) -> Unit,
-  onRefreshM3uPlaylists: () -> Unit,
-  onDownloadsEnabledChange: (Boolean) -> Unit,
   onEpisodeRemindersChange: (Boolean) -> Unit,
   onUpcomingEpisodeRemindersChange: (Boolean) -> Unit,
-  onUpcomingEpisodeReminderDaysChange: (Int) -> Unit,
-  onDv7HevcFallbackChange: (Boolean) -> Unit,
-  onTunneledPlaybackChange: (Boolean) -> Unit,
-  onRefreshDownloads: () -> Unit,
-  onRemoveDownload: (String) -> Unit,
-  onPlayDownload: (DownloadEntry) -> Unit,
   onOpenDownloadDetails: (DownloadEntry) -> Unit,
-  onRefreshDebrid: () -> Unit,
-  onAddDebrid: (String, String) -> Unit,
-  onRemoveDebrid: (String) -> Unit,
-  onSetDebridEnabled: (String, Boolean) -> Unit,
-  onMoveDebrid: (String, Int) -> Unit,
-  onSetDebridCloudSync: (Boolean) -> Unit,
-  /** Everything the Content Services page can ask for; see ContentServicesUi. */
-  contentServiceActions: ContentServiceActions,
-  onPremiumizeSignIn: (() -> Unit)?,
-  onRealDebridSignIn: (() -> Unit)?,
-  onDismissDebridSignIn: (() -> Unit)?,
-  onDismissDebridNotice: () -> Unit,
-  onRequestTraktDeviceCode: () -> Unit,
-  onRefreshSyncServices: () -> Unit,
-  onPrimarySyncServiceChange: (String) -> Unit,
-  onRequestSyncServiceDeviceCode: (String) -> Unit,
-  onPollSyncServiceAuthorization: (String) -> Unit,
-  onConnectSyncServiceApiKey: (String, String) -> Unit,
-  onDisconnectSyncService: (String) -> Unit,
-  onPollTraktAuthorization: () -> Unit,
-  onDisconnectTrakt: () -> Unit,
-  onRefreshTrakt: () -> Unit,
-  onRefreshSync: () -> Unit,
-  onAutoUpdateChecksChange: (Boolean) -> Unit,
-  onCheckForUpdates: () -> Unit,
-  onRefreshLinkedTvs: () -> Unit = {},
-  onStartUpdate: () -> Unit,
 ) {
+  val apiBaseUrl = playerSettingsViewModel.apiBaseUrl()
+  val onSubmitProfilePin = playerSettingsViewModel::submitProfilePin
+  val onCancelProfilePin = playerSettingsViewModel::cancelProfilePinPrompt
+  val onSelectProfile = playerSettingsViewModel::selectProfile
+  val onCreateProfile = playerSettingsViewModel::createProfile
+  val onUpdateProfile = playerSettingsViewModel::updateProfile
+  val onDeleteProfile = playerSettingsViewModel::deleteProfile
+  val onMakeDefaultProfile = playerSettingsViewModel::makeDefaultProfile
+  val onRememberLastProfileAtStartupChange = playerSettingsViewModel::setRememberLastProfileAtStartup
+  val onUpdateProfilePin = playerSettingsViewModel::updateProfilePin
+  val onSignOut = playerSettingsViewModel::signOut
+  val onAppAppearanceChange = playerSettingsViewModel::setAppAppearance
+  val onAnimationSpeedChange = playerSettingsViewModel::setAnimationSpeed
+  val onThemePresetChange = playerSettingsViewModel::setThemePreset
+  val onHeaderStyleChange = playerSettingsViewModel::setHeaderStyle
+  val onPictureInPictureEnabledChange = playerSettingsViewModel::setPictureInPictureEnabled
+  val onDecoderModeChange = playerSettingsViewModel::setDecoderMode
+  val onRenderSurfaceChange = playerSettingsViewModel::setRenderSurface
+  val onPlayerEngineChange = playerSettingsViewModel::setPlayerEngine
+  val onPreferredAudioLanguageChange = playerSettingsViewModel::setPreferredAudioLanguage
+  val onDetailPageStyleChange = playerSettingsViewModel::setDetailPageStyle
+  val onSeasonTabStyleChange = playerSettingsViewModel::setSeasonTabStyle
+  val onEpisodeLayoutChange = playerSettingsViewModel::setEpisodeLayout
+  val onShowNavLabelsChange = playerSettingsViewModel::setShowNavLabels
+  val onNavigationAutoCollapseSecondsChange = playerSettingsViewModel::setNavigationAutoCollapseSeconds
+  val onSyncOnCellularChange = playerSettingsViewModel::setSyncOnCellular
+  val onHoldToSpeedEnabledChange = playerSettingsViewModel::setHoldToSpeedEnabled
+  val onHoldToSpeedMultiplierChange = playerSettingsViewModel::setHoldToSpeedMultiplier
+  val onSwipeToSeekEnabledChange = playerSettingsViewModel::setSwipeToSeekEnabled
+  val onPlayerLevelGesturesEnabledChange = playerSettingsViewModel::setPlayerLevelGesturesEnabled
+  val onHomeDensityChange = playerSettingsViewModel::setHomeDensity
+  val onHomeCardTextModeChange = playerSettingsViewModel::setHomeCardTextMode
+  val onSkipIntroEnabledChange = playerSettingsViewModel::setSkipIntroEnabled
+  val onSkipRecapEnabledChange = playerSettingsViewModel::setSkipRecapEnabled
+  val onSkipEndingEnabledChange = playerSettingsViewModel::setSkipEndingEnabled
+  val onAutoSkipIntroEnabledChange = playerSettingsViewModel::setAutoSkipIntroEnabled
+  val onAutoSkipRecapEnabledChange = playerSettingsViewModel::setAutoSkipRecapEnabled
+  val onAutoSkipEndingEnabledChange = playerSettingsViewModel::setAutoSkipEndingEnabled
+  val onIntrodbApiKeyChange = playerSettingsViewModel::setIntrodbApiKey
+  val onAutoPlayNextEpisodeChange = playerSettingsViewModel::setAutoPlayNextEpisode
+  val onPreferBingeGroupChange = playerSettingsViewModel::setPreferBingeGroup
+  val onAutoLoadSubtitlesChange = playerSettingsViewModel::setAutoLoadSubtitles
+  val onSubtitleTextSizeChange = playerSettingsViewModel::setSubtitleTextSize
+  val onSubtitleVerticalOffsetChange = playerSettingsViewModel::setSubtitleVerticalOffset
+  val onSubtitleBoldChange = playerSettingsViewModel::setSubtitleBold
+  val onSubtitleTextColorChange = playerSettingsViewModel::setSubtitleTextColor
+  val onSubtitleBackgroundColorChange = playerSettingsViewModel::setSubtitleBackgroundColor
+  val onSubtitleOutlineChange = playerSettingsViewModel::setSubtitleOutline
+  val onSubtitleOutlineColorChange = playerSettingsViewModel::setSubtitleOutlineColor
+  val onSubtitleDefaultSourceChange = playerSettingsViewModel::setSubtitleDefaultSource
+  val onShowStreamsListChange = playerSettingsViewModel::setShowStreamsList
+  val onPreferMediaServerSourceChange = playerSettingsViewModel::setPreferMediaServerSource
+  val onHeroTrailerAutoplayChange = playerSettingsViewModel::setHeroTrailerAutoplay
+  val onHeroTrailerWifiOnlyChange = playerSettingsViewModel::setHeroTrailerWifiOnly
+  val onHeroTrailerResolutionChange = playerSettingsViewModel::setHeroTrailerResolution
+  val onHeroTrailerDelaySecondsChange = playerSettingsViewModel::setHeroTrailerDelaySeconds
+  val onTrailerCacheClearHoursChange = playerSettingsViewModel::setTrailerCacheClearHours
+  val onDetailBackgroundModeChange = playerSettingsViewModel::setDetailBackgroundMode
+  val onHomeBackgroundModeChange = playerSettingsViewModel::setHomeBackgroundMode
+  val onSecondaryAudioLanguageChange = playerSettingsViewModel::setSecondaryAudioLanguage
+  val onPreferredSubtitleLanguageChange = playerSettingsViewModel::setPreferredSubtitleLanguage
+  val onSecondarySubtitleLanguageChange = playerSettingsViewModel::setSecondarySubtitleLanguage
+  val onUseForcedSubtitlesChange = playerSettingsViewModel::setUseForcedSubtitles
+  val onShowOnlyPreferredSubtitleLanguagesChange = playerSettingsViewModel::setShowOnlyPreferredSubtitleLanguages
+  val onAddonSubtitleLoadingChange = playerSettingsViewModel::setAddonSubtitleLoading
+  val onClearTrailerCacheNow = playerSettingsViewModel::clearTrailerCacheNow
+  val onShowHeroSynopsisChange = playerSettingsViewModel::setShowHeroSynopsis
+  val onContinueWatchingStyleChange = playerSettingsViewModel::setContinueWatchingStyle
+  val onNetworkCardStyleChange = playerSettingsViewModel::setNetworkCardStyle
+  val onLiveLandscapeCardsChange = playerSettingsViewModel::setLiveLandscapeCards
+  val onShowNewEpisodesRowChange = playerSettingsViewModel::setShowNewEpisodesRow
+  val onNewEpisodesLandscapeChange = playerSettingsViewModel::setNewEpisodesLandscape
+  val onLiveCategoriesEnabledChange = playerSettingsViewModel::setLiveCategoriesEnabled
+  val onLiveProgressBarEnabledChange = playerSettingsViewModel::setLiveProgressBarEnabled
+  val onLiveBadgeEnabledChange = playerSettingsViewModel::setLiveBadgeEnabled
+  val onLiveFavouriteDrawerCardsChange = playerSettingsViewModel::setLiveFavouriteDrawerCards
+  val onRememberLastSourceChange = playerSettingsViewModel::setRememberLastSource
+  val onBlurUnwatchedEpisodesChange = playerSettingsViewModel::setBlurUnwatchedEpisodes
+  val onRatingsEnabledChange = playerSettingsViewModel::setRatingsEnabled
+  val onExternalRatingsEnabledChange = playerSettingsViewModel::setExternalRatingsEnabled
+  val onRatingProviderEnabledChange = playerSettingsViewModel::setRatingProviderEnabled
+  val onVividAmbientChange = playerSettingsViewModel::setVividAmbient
+  val onAmbientTintPercentChange = playerSettingsViewModel::setAmbientTintPercent
+  val onDetailAmbientTintPercentChange = playerSettingsViewModel::setDetailAmbientTintPercent
+  val onFusionBadgesChange = playerSettingsViewModel::setFusionBadgesEnabled
+  val onStreamDekFormattingChange = playerSettingsViewModel::setStreamDekFormattingEnabled
+  val onShowSizeBadgesChange = playerSettingsViewModel::setShowSizeBadges
+  val onPreferredQualityChange = playerSettingsViewModel::setPreferredQuality
+  val onMaxFileSizeChange = playerSettingsViewModel::setMaxFileSizeGb
+  val onBadgePositionChange = playerSettingsViewModel::setBadgePosition
+  val onUpdatePeerStreamSettings = playerSettingsViewModel::updatePeerStreamSettings
+  val onClearPeerStorage = playerSettingsViewModel::clearPeerStorage
+  val onRefreshPeerStorage = playerSettingsViewModel::refreshPeerStorageUsage
+  val onAddFusionBadgeUrl = playerSettingsViewModel::addFusionBadgeUrl
+  val onRemoveFusionBadgeUrl = playerSettingsViewModel::removeFusionBadgeUrl
+  val onRefreshFusionBadgeUrl = { url: String -> playerSettingsViewModel.refreshFusionBadgeUrl(url) }
+  val onSetActiveFusionBadgeUrl = playerSettingsViewModel::setActiveFusionBadgeUrl
+  val homeRowsActions = remember(playerSettingsViewModel) { homeRowsSettingsActions(playerSettingsViewModel) }
+  val onMigrateGuestData = playerSettingsViewModel::migrateGuestDataFromSettings
+  val onRefreshHome = { playerSettingsViewModel.loadHome(force = true) }
+  val onRefreshAddons = playerSettingsViewModel::refreshAddons
+  val onRefreshPlugins = { playerSettingsViewModel.refreshProfilePlugins(manual = true) }
+  val onInstallAddon = playerSettingsViewModel::installAddon
+  val onToggleAddon = playerSettingsViewModel::toggleAddon
+  val onUninstallAddon = playerSettingsViewModel::uninstallAddon
+  val onMoveAddon = playerSettingsViewModel::moveAddon
+  val onAddM3uPlaylist = playerSettingsViewModel::addM3uPlaylist
+  val onRemoveM3uPlaylist = playerSettingsViewModel::removeM3uPlaylist
+  val onSetM3uPlaylistEnabled = playerSettingsViewModel::setM3uPlaylistEnabled
+  val onMoveM3uPlaylist = playerSettingsViewModel::moveM3uPlaylist
+  val onRefreshM3uPlaylists = { playerSettingsViewModel.loadM3uPlaylists(forceRefresh = true) }
+  val onDownloadsEnabledChange = playerSettingsViewModel::setDownloadsEnabled
+  val onUpcomingEpisodeReminderDaysChange = playerSettingsViewModel::setUpcomingEpisodeReminderDays
+  val onDv7HevcFallbackChange = playerSettingsViewModel::setDv7HevcFallback
+  val onTunneledPlaybackChange = playerSettingsViewModel::setTunneledPlayback
+  val onRefreshDownloads = playerSettingsViewModel::refreshDownloads
+  val onRemoveDownload = playerSettingsViewModel::removeDownload
+  val onPlayDownload = playerSettingsViewModel::playDownload
+  val onRefreshDebrid = playerSettingsViewModel::refreshDebridAccounts
+  val onAddDebrid = playerSettingsViewModel::addDebridAccount
+  val onRemoveDebrid = playerSettingsViewModel::removeDebridAccount
+  val onSetDebridEnabled = playerSettingsViewModel::setDebridAccountEnabled
+  val onMoveDebrid = playerSettingsViewModel::moveDebridAccount
+  val onSetDebridCloudSync = playerSettingsViewModel::setDebridCloudSync
+  val contentServiceActions = ContentServiceActions(
+    onSubmitKey = playerSettingsViewModel::submitContentServiceKey,
+    onCopyDeviceKeyToAccount = playerSettingsViewModel::copyContentServiceKeyToAccount,
+    onRemove = playerSettingsViewModel::removeContentServiceKey,
+    onRefresh = playerSettingsViewModel::refreshContentServices,
+    onDismissNotice = playerSettingsViewModel::dismissContentServiceNotice,
+    onShowSetupGuide = playerSettingsViewModel::showContentServicesSetup,
+  )
+  val onPremiumizeSignIn = if (playerSettingsViewModel.premiumizeSignInAvailable()) {
+    { playerSettingsViewModel.startPremiumizeSignIn() }
+  } else null
+  val onRealDebridSignIn = { playerSettingsViewModel.startRealDebridSignIn() }
+  val onDismissDebridSignIn = { playerSettingsViewModel.dismissDebridSignIn() }
+  val onDismissDebridNotice = { playerSettingsViewModel.dismissDebridNotice() }
+  val onRequestTraktDeviceCode = playerSettingsViewModel::requestTraktDeviceCode
+  val onRefreshSyncServices = playerSettingsViewModel::refreshSyncServices
+  val onPrimarySyncServiceChange = playerSettingsViewModel::setPrimarySyncService
+  val onRequestSyncServiceDeviceCode = playerSettingsViewModel::requestSyncServiceDeviceCode
+  val onPollSyncServiceAuthorization = playerSettingsViewModel::pollSyncServiceAuthorization
+  val onConnectSyncServiceApiKey = playerSettingsViewModel::connectSyncServiceApiKey
+  val onDisconnectSyncService = playerSettingsViewModel::disconnectSyncService
+  val onPollTraktAuthorization = playerSettingsViewModel::pollTraktAuthorization
+  val onDisconnectTrakt = playerSettingsViewModel::disconnectTrakt
+  val onRefreshTrakt = playerSettingsViewModel::refreshTraktData
+  val onRefreshSync = playerSettingsViewModel::refreshConnectedServices
+  val onAutoUpdateChecksChange = playerSettingsViewModel::setAutoUpdateChecks
+  val onCheckForUpdates = { playerSettingsViewModel.checkForUpdates(manual = true) }
+  val onRefreshLinkedTvs: () -> Unit = playerSettingsViewModel::refreshHandoffDevices
+  val onStartUpdate = playerSettingsViewModel::startUpdate
   val settingsContext = LocalContext.current
   // Add-ons to draw the eye to when the Add-ons page is opened from somewhere that is asking about
   // them - Live TV's channel sources. Cleared once they have been shown.
