@@ -160,7 +160,7 @@ internal object BackupSettingsRegistry {
         "hold_to_speed_enabled", "hold_to_speed_multiplier", "swipe_to_seek_enabled", "double_tap_seek_enabled",
         "double_tap_seek_seconds", "double_tap_play_pause_enabled", "show_player_control_labels", "player_control_layout",
         "fullscreen_status_bar", "player_title_display", "player_level_gestures_enabled", "dv7_hevc_fallback",
-        "tunneled_playback", "playback_buffer_seconds", "downloads_enabled", "default_audio_delay_ms",
+        "tunneled_playback", "playback_buffer_seconds", "playback_memory_buffer", "downloads_enabled", "default_audio_delay_ms",
         "torrent_enabled", "torrent_streaming_mode", "torrent_profile", "torrent_cache_size_gb", "torrent_port", "torrent_run_foreground",
       ),
     )
@@ -173,7 +173,7 @@ internal object BackupSettingsRegistry {
         BackupCategory.Appearance,
         "detail_page_style", "season_tab_style", "episode_layout", "continue_watching_style", "home_card_text_mode",
         "network_card_style", "show_hero_synopsis", "vivid_ambient", "detail_background_mode", "home_background_mode",
-        "ambient_tint_percent", "detail_ambient_tint_percent", "blur_unwatched_episodes", "hero_trailer_autoplay",
+        "ambient_tint_percent", "detail_ambient_tint_percent", "blur_unwatched_episodes", "hero_trailer_autoplay", "hero_trailer_wifi_only",
         "hero_trailer_resolution", "hero_trailer_delay_seconds", "hero_trailer_muted", "trailer_cache_clear_hours",
         "ratings_enabled", "external_ratings_enabled", "enabled_rating_providers", "show_new_episodes_row",
         "new_episodes_landscape", "default_app_catalogs_enabled", "home_catalog_rows", HOME_ROW_MODE_PREFERENCE,

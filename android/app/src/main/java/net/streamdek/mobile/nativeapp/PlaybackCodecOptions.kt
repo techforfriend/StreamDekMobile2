@@ -17,10 +17,23 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecUtil
  * gets broken from another room. They are read at the moment a player is built, so a change takes
  * effect on the next thing played rather than needing a restart.
  */
+enum class MemoryBuffer(val storageKey: String, val memoryFraction: Double) {
+  LOW("low", 0.20),
+  AUTOMATIC("automatic", 0.35),
+  HIGH("high", 0.45),
+  MAXIMUM("maximum", 0.50);
+
+  companion object {
+    fun fromStorageKey(key: String?): MemoryBuffer =
+      entries.firstOrNull { it.storageKey == key } ?: AUTOMATIC
+  }
+}
+
 object PlaybackCodecOptions {
   private const val DV7_HEVC_KEY = "dv7_hevc_fallback"
   private const val TUNNELED_KEY = "tunneled_playback"
   private const val BUFFER_KEY = "playback_buffer_seconds"
+  private const val MEMORY_BUFFER_KEY = "playback_memory_buffer"
 
   /** How far ahead of the playhead the viewer can ask the player to load, in seconds. */
   val forwardBufferOptions: List<Int> = listOf(60, 180, 300, 600)
@@ -45,12 +58,17 @@ object PlaybackCodecOptions {
   var forwardBufferSeconds: Int = DEFAULT_FORWARD_BUFFER_SECONDS
     private set
 
+  @Volatile
+  var memoryBuffer: MemoryBuffer = MemoryBuffer.AUTOMATIC
+    private set
+
   /** Seeds the in-memory copy the player reads. Safe to call more than once. */
   fun initialize(context: Context) {
     val prefs = context.durableSettingsPreferences(APP_SETTINGS_PREFERENCES)
     dv7HevcFallback = prefs.getBoolean(DV7_HEVC_KEY, true)
     tunneledPlayback = prefs.getBoolean(TUNNELED_KEY, false)
     forwardBufferSeconds = normalizeForwardBufferSeconds(prefs.getInt(BUFFER_KEY, DEFAULT_FORWARD_BUFFER_SECONDS))
+    memoryBuffer = MemoryBuffer.fromStorageKey(prefs.getString(MEMORY_BUFFER_KEY, null))
   }
 
   fun setForwardBufferSeconds(context: Context, seconds: Int) {
@@ -58,6 +76,12 @@ object PlaybackCodecOptions {
     forwardBufferSeconds = normalized
     context.durableSettingsPreferences(APP_SETTINGS_PREFERENCES)
       .edit().putInt(BUFFER_KEY, normalized).apply()
+  }
+
+  fun setMemoryBuffer(context: Context, level: MemoryBuffer) {
+    memoryBuffer = level
+    context.durableSettingsPreferences(APP_SETTINGS_PREFERENCES)
+      .edit().putString(MEMORY_BUFFER_KEY, level.storageKey).apply()
   }
 
   /** A stored value from another build, or a hand-edited backup, lands on the nearest real option. */
@@ -90,11 +114,36 @@ private const val MEDIA3_DEFAULT_BUFFER_BYTES = 144L * 1024L * 1024L
  * buffers live on that heap and a second player exists briefly during a source switch. A stream
  * fatter than the budget simply holds less time than was asked for; it never over-allocates.
  */
-internal fun forwardBufferBudgetBytes(seconds: Int, maxHeapBytes: Long): Int? {
+internal fun forwardBufferBudgetBytes(
+  seconds: Int,
+  maxHeapBytes: Long,
+  bufferLevel: MemoryBuffer = PlaybackCodecOptions.memoryBuffer,
+): Int? {
   val wanted = seconds.toLong() * 1_250_000L
-  val affordable = (maxHeapBytes * 0.35).toLong()
+  val affordable = (maxHeapBytes * bufferLevel.memoryFraction).toLong()
   val budget = minOf(wanted, affordable)
   return if (budget <= MEDIA3_DEFAULT_BUFFER_BYTES) null else budget.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+}
+
+internal fun mpvBufferBudgetBytes(context: Context, bufferLevel: MemoryBuffer = PlaybackCodecOptions.memoryBuffer): Long {
+  val actManager = context.getSystemService(Context.ACTIVITY_SERVICE) as? android.app.ActivityManager
+  val memInfo = android.app.ActivityManager.MemoryInfo()
+  actManager?.getMemoryInfo(memInfo)
+  val totalMem = memInfo.totalMem.takeIf { it > 0 } ?: (4L * 1024 * 1024 * 1024)
+  val factor = when (bufferLevel) {
+    MemoryBuffer.LOW -> 0.05
+    MemoryBuffer.AUTOMATIC -> 0.08
+    MemoryBuffer.HIGH -> 0.12
+    MemoryBuffer.MAXIMUM -> 0.16
+  }
+  val target = (totalMem * factor).toLong()
+  val maxCap = when (bufferLevel) {
+    MemoryBuffer.LOW -> 256L * 1024 * 1024
+    MemoryBuffer.AUTOMATIC -> 512L * 1024 * 1024
+    MemoryBuffer.HIGH -> 1024L * 1024 * 1024
+    MemoryBuffer.MAXIMUM -> 2048L * 1024 * 1024
+  }
+  return target.coerceIn(128L * 1024 * 1024, maxCap)
 }
 
 /**

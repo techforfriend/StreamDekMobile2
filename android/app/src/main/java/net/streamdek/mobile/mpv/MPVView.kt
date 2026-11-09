@@ -310,8 +310,9 @@ class MPVView @JvmOverloads constructor(
         )
         if (BuildConfig.DEBUG) Log.i(TAG, "protocol whitelist option result=$protocolWhitelistResult")
         MPVLib.setOptionString("demuxer-readahead-secs", "45")
-        MPVLib.setOptionString("demuxer-max-bytes", "536870912")
-        MPVLib.setOptionString("demuxer-max-back-bytes", "536870912")
+        val mpvBytes = net.streamdek.mobile.nativeapp.mpvBufferBudgetBytes(context).toString()
+        MPVLib.setOptionString("demuxer-max-bytes", mpvBytes)
+        MPVLib.setOptionString("demuxer-max-back-bytes", mpvBytes)
         MPVLib.setOptionString("network-timeout", "60")
         MPVLib.setOptionString(
             "stream-lavf-o",

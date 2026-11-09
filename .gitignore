@@ -16,5 +16,11 @@ android/device-logcat.txt
 /official_apktool/
 /official_decompiled/
 /official_smali/
+/official_2.2.7_apk/
+/official_2.2.7_apktool/
+/official_2.2.7_decompiled/
 /single_out/
 /official_2.2.6_notes.md
+/dex_extracted/
+/out_c4/
+/out_c2/

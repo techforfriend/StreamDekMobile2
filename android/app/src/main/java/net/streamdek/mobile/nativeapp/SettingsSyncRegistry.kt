@@ -33,6 +33,7 @@ internal object SettingsSyncRegistry {
     "seasonTabStyle" to setOf("season_tab_style"),
     "episodeLayout" to setOf("episode_layout"),
     "heroTrailerAutoplay" to setOf("hero_trailer_autoplay"),
+    "heroTrailerWifiOnly" to setOf("hero_trailer_wifi_only"),
     "heroTrailerResolution" to setOf("hero_trailer_resolution"),
     "heroTrailerDelaySeconds" to setOf("hero_trailer_delay_seconds"),
     "trailerCacheClearHours" to setOf("trailer_cache_clear_hours"),

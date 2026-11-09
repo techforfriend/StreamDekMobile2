@@ -3,6 +3,7 @@ package net.streamdek.mobile.nativeapp
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
@@ -77,6 +78,34 @@ internal fun LazyListScope.videoDecodingSettings(
           val seconds = value.toIntOrNull() ?: PlaybackCodecOptions.DEFAULT_FORWARD_BUFFER_SECONDS
           PlaybackCodecOptions.setForwardBufferSeconds(context.applicationContext, seconds)
           bufferSeconds = PlaybackCodecOptions.forwardBufferSeconds
+        },
+      )
+      SettingsDivider()
+      var memoryBuffer by remember { mutableStateOf(PlaybackCodecOptions.memoryBuffer) }
+      val memoryLabels = mapOf(
+        MemoryBuffer.LOW to stringResource(R.string.settings_m_memory_buffer_low),
+        MemoryBuffer.AUTOMATIC to stringResource(R.string.settings_m_memory_buffer_automatic),
+        MemoryBuffer.HIGH to stringResource(R.string.settings_m_memory_buffer_high),
+        MemoryBuffer.MAXIMUM to stringResource(R.string.settings_m_memory_buffer_maximum),
+      )
+      val maxMemory = Runtime.getRuntime().maxMemory()
+      val memoryDescriptions = MemoryBuffer.entries.associate { buffer ->
+        val exoMb = (maxMemory * buffer.memoryFraction / (1024 * 1024)).toLong()
+        val mpvMb = PlaybackCodecOptions.mpvBufferBudgetBytes(context.applicationContext, buffer) / (1024 * 1024)
+        buffer.storageKey to stringResource(R.string.settings_m_memory_buffer_option_detail, exoMb, mpvMb)
+      }
+      SettingsChoiceRow(
+        "MEM", Color(0xFF22C55E),
+        stringResource(R.string.settings_m_memory_buffer),
+        stringResource(R.string.settings_m_memory_buffer_description),
+        options = MemoryBuffer.entries.map { it.storageKey },
+        selected = memoryBuffer.storageKey,
+        optionDescriptions = memoryDescriptions,
+        optionLabel = { key -> memoryLabels[MemoryBuffer.fromStorageKey(key)] ?: key },
+        onSelected = { key ->
+          val chosen = MemoryBuffer.fromStorageKey(key)
+          PlaybackCodecOptions.setMemoryBuffer(context.applicationContext, chosen)
+          memoryBuffer = chosen
         },
       )
     }

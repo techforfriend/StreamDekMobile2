@@ -1156,6 +1156,7 @@ private data class AppearanceUiSettings(
   /** Plex, Jellyfin and Emby Direct Play, then Direct Stream, ahead of add-ons; see rankedStreams. Off by default. */
   val preferMediaServerSource: Boolean = false,
   val heroTrailerAutoplay: Boolean = false,
+  val heroTrailerWifiOnly: Boolean = false,
   // 2160p by default: the resolver gates format selection on this value, so a lower default
   // silently discards the 4K renditions YouTube publishes for some trailers. The adaptive picker
   // takes the tallest rendition at or under it, so this is a ceiling rather than a demand.
@@ -1588,6 +1589,7 @@ private data class AppUiState(
   val showStreamsList: Boolean get() = appearanceSettings.showStreamsList
   val preferMediaServerSource: Boolean get() = appearanceSettings.preferMediaServerSource
   val heroTrailerAutoplay: Boolean get() = appearanceSettings.heroTrailerAutoplay
+  val heroTrailerWifiOnly: Boolean get() = appearanceSettings.heroTrailerWifiOnly
   val heroTrailerResolution: Int get() = appearanceSettings.heroTrailerResolution
   val heroTrailerDelaySeconds: Int get() = appearanceSettings.heroTrailerDelaySeconds
   val heroTrailerMuted: Boolean get() = appearanceSettings.heroTrailerMuted
@@ -2343,6 +2345,7 @@ private class AppSettingsStore(
       showStreamsList = profilePrefs.getBoolean("show_streams_list", true),
       preferMediaServerSource = profilePrefs.getBoolean("prefer_media_server_source", false),
       heroTrailerAutoplay = profilePrefs.getBoolean("hero_trailer_autoplay", false),
+      heroTrailerWifiOnly = profilePrefs.getBoolean("hero_trailer_wifi_only", false),
       heroTrailerResolution = profilePrefs.getInt("hero_trailer_resolution", 1080).coerceIn(360, 2160),
       heroTrailerDelaySeconds = profilePrefs.getInt("hero_trailer_delay_seconds", DEFAULT_TRAILER_DELAY_SECONDS)
       .coerceIn(0, MAX_TRAILER_DELAY_SECONDS),
@@ -2451,6 +2454,7 @@ private class AppSettingsStore(
   fun saveShowStreamsList(value: Boolean) { profilePrefs.edit().putBoolean("show_streams_list", value).apply() }
   fun savePreferMediaServerSource(value: Boolean) { profilePrefs.edit().putBoolean("prefer_media_server_source", value).apply() }
   fun saveHeroTrailerAutoplay(value: Boolean) { profilePrefs.edit().putBoolean("hero_trailer_autoplay", value).apply() }
+  fun saveHeroTrailerWifiOnly(value: Boolean) { profilePrefs.edit().putBoolean("hero_trailer_wifi_only", value).apply() }
   fun saveHeroTrailerResolution(value: Int) { profilePrefs.edit().putInt("hero_trailer_resolution", value.coerceIn(360, 2160)).apply() }
   fun saveHeroTrailerDelaySeconds(value: Int) { profilePrefs.edit().putInt("hero_trailer_delay_seconds", value.coerceIn(0, MAX_TRAILER_DELAY_SECONDS)).apply() }
   fun saveHeroTrailerMuted(value: Boolean) { profilePrefs.edit().putBoolean("hero_trailer_muted", value).apply() }
@@ -6178,6 +6182,22 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
         it.seasonNumber == item.resumeSeasonNumber && it.episodeNumber == item.resumeEpisodeNumber
     } ?: candidates.maxByOrNull { it.updatedAt }
       ?: return false
+    if (!isMediaServerId(item.id)) {
+      val season = entry.seasonNumber ?: item.resumeSeasonNumber
+      val episode = entry.episodeNumber ?: item.resumeEpisodeNumber
+      val matchingDownload = findMatchingCompletedDownload(
+        mediaIds = listOf(item.id),
+        mediaType = item.type,
+        seasonNumber = season,
+        episodeNumber = episode,
+      )
+      if (matchingDownload != null) {
+        Log.i("StreamDekPlayback", "[ContinueWatching] source=download id=${matchingDownload.id}")
+        val progress = entry.progressPercent.coerceIn(0.0, 95.0)
+        playDownload(matchingDownload, progress)
+        return true
+      }
+    }
     Log.i(
       "StreamDekPlayback",
       "[ContinueWatching] contentId=${entry.mediaId} contentType=${entry.mediaType} season=${entry.seasonNumber} episode=${entry.episodeNumber} originDevice=${entry.lastPlatform ?: "mobile"} destinationDevice=mobile resumePosition=${entry.positionSeconds ?: 0.0}",
@@ -6283,6 +6303,23 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
       runtime = null,
     )
   }
+
+  fun findMatchingCompletedDownload(
+    mediaIds: Collection<String>,
+    mediaType: String,
+    seasonNumber: Int?,
+    episodeNumber: Int?,
+  ): DownloadEntry? {
+    if (mediaIds.isEmpty()) return null
+    refreshDownloads()
+    val isMovie = normalizedMediaType(mediaType) == "movie"
+    return uiState.downloads.firstOrNull { download ->
+      download.state == DownloadState.COMPLETED &&
+        download.media.mediaId in mediaIds &&
+        (isMovie || (download.media.seasonNumber == seasonNumber && download.media.episodeNumber == episodeNumber))
+    }
+  }
+
   /**
    * Plays a download by its download id, resuming where it was left off. Returns false when no
    * completed download matches, and reports it — the id cannot be looked up anywhere else.
@@ -10478,6 +10515,7 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
     seasonTabStyle?.let(appSettingsStore::saveSeasonTabStyle)
     episodeLayout?.let(appSettingsStore::saveEpisodeLayout)
     preferences.heroTrailerAutoplay?.let(appSettingsStore::saveHeroTrailerAutoplay)
+    preferences.heroTrailerWifiOnly?.let(appSettingsStore::saveHeroTrailerWifiOnly)
     preferences.heroTrailerResolution?.let(appSettingsStore::saveHeroTrailerResolution)
     preferences.heroTrailerDelaySeconds?.let(appSettingsStore::saveHeroTrailerDelaySeconds)
     preferences.trailerCacheClearHours?.let(appSettingsStore::saveTrailerCacheClearHours)
@@ -10611,6 +10649,7 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
         seasonTabStyle = seasonTabStyle ?: uiState.seasonTabStyle,
         episodeLayout = episodeLayout ?: uiState.episodeLayout,
         heroTrailerAutoplay = preferences.heroTrailerAutoplay ?: uiState.heroTrailerAutoplay,
+        heroTrailerWifiOnly = preferences.heroTrailerWifiOnly ?: uiState.heroTrailerWifiOnly,
         heroTrailerResolution = preferences.heroTrailerResolution?.coerceIn(360, 2160) ?: uiState.heroTrailerResolution,
         detailBackgroundMode = preferences.detailBackgroundMode?.let { mode -> runCatching { BackgroundMode.valueOf(mode) }.getOrNull() } ?: uiState.detailBackgroundMode,
         homeBackgroundMode = preferences.homeBackgroundMode?.let { mode -> runCatching { BackgroundMode.valueOf(mode) }.getOrNull() }?.takeIf { it in homeBackgroundModes } ?: uiState.homeBackgroundMode,
@@ -11797,6 +11836,13 @@ private class NativeAppViewModel(application: Application) : AndroidViewModel(ap
     val capabilities = manager.getNetworkCapabilities(network) ?: return true
     return !capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR)
   }
+
+  fun isWifiConnected(): Boolean {
+    val manager = getApplication<Application>().getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager ?: return true
+    val network = manager.activeNetwork ?: return false
+    val capabilities = manager.getNetworkCapabilities(network) ?: return true
+    return !capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR)
+  }
 private fun watchedOwnerKey(session: AuthSession?, activeProfileId: String?): String {
   val userId = session?.user?.uid
   return when {
@@ -11922,6 +11968,7 @@ private fun watchedOwnerKey(session: AuthSession?, activeProfileId: String?): St
       seasonTabStyle = uiState.seasonTabStyle.name,
       episodeLayout = uiState.episodeLayout.name,
       heroTrailerAutoplay = uiState.heroTrailerAutoplay,
+      heroTrailerWifiOnly = uiState.heroTrailerWifiOnly,
       heroTrailerResolution = uiState.heroTrailerResolution,
       heroTrailerDelaySeconds = uiState.heroTrailerDelaySeconds,
       trailerCacheClearHours = uiState.trailerCacheClearHours,
@@ -12125,6 +12172,7 @@ private fun watchedOwnerKey(session: AuthSession?, activeProfileId: String?): St
     syncCloudPreferences()
   }
   fun setHeroTrailerAutoplay(value: Boolean) { appSettingsStore.saveHeroTrailerAutoplay(value); uiState = uiState.copy(appearanceSettings = uiState.appearanceSettings.copy(heroTrailerAutoplay = value)); syncCloudPreferences() }
+  fun setHeroTrailerWifiOnly(value: Boolean) { appSettingsStore.saveHeroTrailerWifiOnly(value); uiState = uiState.copy(appearanceSettings = uiState.appearanceSettings.copy(heroTrailerWifiOnly = value)); syncCloudPreferences() }
   fun setHeroTrailerResolution(value: Int) { appSettingsStore.saveHeroTrailerResolution(value); uiState = uiState.copy(appearanceSettings = uiState.appearanceSettings.copy(heroTrailerResolution = value)); syncCloudPreferences() }
   fun setHeroTrailerDelaySeconds(value: Int) {
     val clamped = value.coerceIn(0, MAX_TRAILER_DELAY_SECONDS)
@@ -16697,6 +16745,7 @@ private fun MainScene(
             viewModel.downloadStream(stream, title)
           },
           isStreamDownloadEligible = { stream -> viewModel.isDownloadEligible(stream, uiState.detailIsLive) },
+          onPlayDownload = { entry, pos -> viewModel.playDownload(entry, pos) },
           onManageSources = {
             // Detail pages can sit over a catalog or network browse screen. Those layers render
             // ahead of the selected main tab, so leaving them in place makes this shortcut appear
@@ -22857,6 +22906,7 @@ private fun SettingsScene(
       onShowStreamsListChange = viewModel::setShowStreamsList,
       onPreferMediaServerSourceChange = viewModel::setPreferMediaServerSource,
       onHeroTrailerAutoplayChange = viewModel::setHeroTrailerAutoplay,
+      onHeroTrailerWifiOnlyChange = viewModel::setHeroTrailerWifiOnly,
       onHeroTrailerResolutionChange = viewModel::setHeroTrailerResolution,
       onHeroTrailerDelaySecondsChange = viewModel::setHeroTrailerDelaySeconds,
       onTrailerCacheClearHoursChange = viewModel::setTrailerCacheClearHours,
@@ -23030,6 +23080,7 @@ private fun SettingsTab(
   onShowStreamsListChange: (Boolean) -> Unit,
   onPreferMediaServerSourceChange: (Boolean) -> Unit,
   onHeroTrailerAutoplayChange: (Boolean) -> Unit,
+  onHeroTrailerWifiOnlyChange: (Boolean) -> Unit = {},
   onHeroTrailerResolutionChange: (Int) -> Unit,
   onHeroTrailerDelaySecondsChange: (Int) -> Unit,
   onTrailerCacheClearHoursChange: (Int) -> Unit,
@@ -23802,6 +23853,15 @@ private fun SettingsTab(
           item {
             SettingsSection(stringResource(R.string.settings_m_trailers)) {
               SettingsSwitchRow("TRL", Color(0xFF22C55E), stringResource(R.string.settings_m_play_trailers_automatically), stringResource(R.string.settings_m_play_a_trailer_at_the_top_of), uiState.heroTrailerAutoplay, onHeroTrailerAutoplayChange)
+              SettingsDivider()
+              SettingsSwitchRow(
+                "WIFI",
+                Color(0xFF38BDF8),
+                stringResource(R.string.settings_trailer_wifi_only),
+                stringResource(R.string.settings_trailer_wifi_only_description),
+                uiState.heroTrailerWifiOnly,
+                onHeroTrailerWifiOnlyChange,
+              )
               SettingsDivider()
               SettingsChoiceRow("HD", Color(0xFF38BDF8), stringResource(R.string.settings_row_trailer_quality), stringResource(R.string.settings_m_choose_the_best_video_quality_trailers_may), listOf("360p", "720p", "1080p", "2160p"), stringResource(R.string.settings_value_resolution, uiState.heroTrailerResolution)) { selected -> onHeroTrailerResolutionChange(selected.removeSuffix("p").toInt()) }
               // The wait belongs to the viewer rather than to the page. Same value the television
@@ -29681,6 +29741,7 @@ private fun DetailScreen(
   onOpenRelated: (MediaItem) -> Unit,
   onDownloadStream: (AddonStream, String) -> Unit = { _, _ -> },
   isStreamDownloadEligible: (AddonStream) -> Boolean = { false },
+  onPlayDownload: (DownloadEntry, Double) -> Unit = { _, _ -> },
   onTrailerMutedChange: (Boolean) -> Unit = {},
   /**
    * Sends the viewer to the add-on and plugin settings.
@@ -29857,6 +29918,7 @@ private fun DetailScreen(
   // How long the wait is belongs to the viewer now, and to the account rather than to this device.
   // Measuring it from content still matters at every setting: at zero the trailer starts as soon as
   // there is a page, which is the earliest that is not simply competing with the page being built.
+  val trailerNetworkAllowed = rememberTitleTrailerNetworkAllowed(uiState.heroTrailerWifiOnly)
   var trailerReleased by remember(detail.id) { mutableStateOf(false) }
   LaunchedEffect(detail.id, uiState.detailLoading) {
     if (uiState.detailLoading) {
@@ -29954,12 +30016,12 @@ private fun DetailScreen(
           metadataLine = metadataLine,
           style = uiState.detailPageStyle,
           scrollOffset = { if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset else 0 },
-          autoPlayTrailer = uiState.heroTrailerAutoplay && trailerReleased && episodePage == null && !uiState.detailIsLive,
+          autoPlayTrailer = uiState.heroTrailerAutoplay && trailerNetworkAllowed && trailerReleased && episodePage == null && !uiState.detailIsLive,
           trailerResolution = uiState.heroTrailerResolution,
           trailerMuted = uiState.heroTrailerMuted,
           onTrailerMutedChange = onTrailerMutedChange,
           // Same condition as autoPlayTrailer above, minus the delay having elapsed.
-          trailerAutoplayPending = uiState.heroTrailerAutoplay && !trailerReleased && episodePage == null && !uiState.detailIsLive,
+          trailerAutoplayPending = uiState.heroTrailerAutoplay && trailerNetworkAllowed && !trailerReleased && episodePage == null && !uiState.detailIsLive,
           hazeState = detailHazeState,
           streamCount = streamCount,
           streamLoading = uiState.streamLoading,
@@ -30310,6 +30372,8 @@ private fun DetailScreen(
                       totalCount = uiState.availableStreams.size,
                       selectedProvider = streamProviderFilter,
                       onProviderSelected = { streamProviderFilter = it },
+                      onReload = { onLoadStreams(selectedEpisode) },
+                      refreshing = searching && uiState.streamRefreshing,
                       filterRowState = streamsFilterRowState,
                       foreground = streamsForeground,
                       accent = streamsAccent,
@@ -30444,6 +30508,7 @@ private fun DetailScreen(
         episode = episode,
         uiState = uiState,
         watched = watchedKey in watchedEpisodeIds,
+        watchedEpisodeIds = watchedEpisodeIds,
         restartAvailable = episodeCanRestart(episode),
         onBack = {
           episodePageId = null
@@ -30459,6 +30524,8 @@ private fun DetailScreen(
         onDownloadStream = onDownloadStream,
         isStreamDownloadEligible = isStreamDownloadEligible,
         onManageSources = onManageSources,
+        onPlayBestStream = onPlayBestStream,
+        onPlayDownload = onPlayDownload,
       )
     }
     episodeAction?.let { episode ->
@@ -34772,6 +34839,7 @@ private fun EpisodeStreamsPage(
   episode: EpisodeItem,
   uiState: AppUiState,
   watched: Boolean,
+  watchedEpisodeIds: List<String> = emptyList(),
   restartAvailable: Boolean,
   onBack: () -> Unit,
   onReload: () -> Unit,
@@ -34783,6 +34851,8 @@ private fun EpisodeStreamsPage(
   isStreamDownloadEligible: (AddonStream) -> Boolean = { false },
   /** Opens the add-on and plugin settings. Null when the caller has nowhere to send the viewer. */
   onManageSources: (() -> Unit)? = null,
+  onPlayBestStream: ((EpisodeItem) -> Unit)? = null,
+  onPlayDownload: ((DownloadEntry, Double) -> Unit)? = null,
 ) {
   val heroImage = episode.still ?: detail.backdrop ?: detail.poster
   val reducedMotion = LocalReducedMotion.current
@@ -34885,6 +34955,101 @@ private fun EpisodeStreamsPage(
   // the very first episode, so the action is offered exactly when it has something to do.
   val hasEarlierEpisodes = episode.seasonNumber >= 1 && (episode.seasonNumber > 1 || episode.episodeNumber > 1)
 
+  val matchingDownload = remember(detail.id, episode.seasonNumber, episode.episodeNumber, uiState.downloads) {
+    uiState.downloads.firstOrNull { download ->
+      download.state == DownloadState.COMPLETED &&
+        download.media.mediaId == detail.id &&
+        download.media.seasonNumber == episode.seasonNumber &&
+        download.media.episodeNumber == episode.episodeNumber
+    }
+  }
+  val resumeProgress = remember(detail.id, episode.seasonNumber, episode.episodeNumber, uiState.localResumeEntries, uiState.playbackProgressRecords) {
+    val fromLocal = uiState.localResumeEntries.firstOrNull {
+      it.mediaId == detail.id && normalizedMediaType(it.mediaType) == "tv" &&
+        it.seasonNumber == episode.seasonNumber && it.episodeNumber == episode.episodeNumber
+    }?.progressPercent
+    if (fromLocal != null && fromLocal > 0.0) {
+      fromLocal
+    } else {
+      val record = uiState.playbackProgressRecords.firstOrNull {
+        it.entityType.equals("tv", true) && it.entityId == detail.id &&
+          it.seasonNumber == episode.seasonNumber && it.episodeNumber == episode.episodeNumber &&
+          !it.unwatched && !it.dismissed && it.positionSec > 0.0
+      }
+      if (record != null && record.durationSec > 0) (record.positionSec / record.durationSec * 100.0) else 0.0
+    }
+  }
+  val hasProgress = resumeProgress in 3.0..94.9
+  val hasDownload = matchingDownload != null
+  val playbackKind = when {
+    hasProgress && hasDownload -> EpisodePlaybackKind.ResumeDownloaded
+    hasProgress -> EpisodePlaybackKind.Resume
+    watched -> EpisodePlaybackKind.PlayAgain
+    hasDownload -> EpisodePlaybackKind.PlayDownloaded
+    else -> EpisodePlaybackKind.Play
+  }
+  val playbackSession = EpisodePlaybackSession(
+    kind = playbackKind,
+    onPlay = {
+      if (matchingDownload != null && onPlayDownload != null) {
+        onPlayDownload(matchingDownload, if (hasProgress) resumeProgress else 0.0)
+      } else if (onPlayBestStream != null) {
+        onPlayBestStream(episode)
+      } else {
+        onRestart()
+      }
+    },
+    onRestart = if (hasProgress) {
+      {
+        if (matchingDownload != null && onPlayDownload != null) {
+          onPlayDownload(matchingDownload, 0.0)
+        } else {
+          onRestart()
+        }
+      }
+    } else null,
+    isDownloaded = hasDownload,
+  )
+
+  val episodeKey = remember(detail.id, episode.seasonNumber, episode.episodeNumber) {
+    watchedEpisodeKey(detail.id, episode.seasonNumber, episode.episodeNumber)
+  }
+  val previousStatus = remember(detail.id, detail.seasons, episode.seasonNumber, episode.episodeNumber, watchedEpisodeIds, uiState.selectedSeasonEpisodes) {
+    if (!hasEarlierEpisodes) {
+      PreviousEpisodesWatchedStatus.None
+    } else {
+      var allWatched = true
+      var totalEarlier = 0
+      val earlierSeasons = detail.seasons.filter { it.seasonNumber in 1 until episode.seasonNumber }
+      for (s in earlierSeasons) {
+        if (s.episodeCount > 0) {
+          for (epNum in 1..s.episodeCount) {
+            totalEarlier++
+            if (watchedEpisodeKey(detail.id, s.seasonNumber, epNum) !in watchedEpisodeIds) {
+              allWatched = false
+              break
+            }
+          }
+        }
+        if (!allWatched) break
+      }
+      if (allWatched && episode.episodeNumber > 1) {
+        for (epNum in 1 until episode.episodeNumber) {
+          totalEarlier++
+          if (watchedEpisodeKey(detail.id, episode.seasonNumber, epNum) !in watchedEpisodeIds) {
+            allWatched = false
+            break
+          }
+        }
+      }
+      if (totalEarlier > 0 && allWatched) {
+        PreviousEpisodesWatchedStatus.AllWatched
+      } else {
+        PreviousEpisodesWatchedStatus.Available
+      }
+    }
+  }
+
   Surface(modifier = Modifier.fillMaxSize(), color = episodeBackground) {
     Box(modifier = Modifier.fillMaxSize().background(episodeBackground)) {
       if (uiState.detailBackgroundMode == BackgroundMode.Cinematic) {
@@ -34920,6 +35085,7 @@ private fun EpisodeStreamsPage(
           heroImage = heroImage,
           height = heroHeight,
           watched = watched,
+          playback = playbackSession,
           restartAvailable = restartAvailable,
           pageColor = episodeBackground,
           scrimColor = heroScrim,
@@ -34954,10 +35120,10 @@ private fun EpisodeStreamsPage(
               ),
             ),
         ) {
-        EpisodeActionRow(
+        EpisodeWatchedSlider(
+          episodeKey = episodeKey,
           watched = watched,
-          showPreviousAction = hasEarlierEpisodes,
-          markingPrevious = markingPrevious,
+          previous = previousStatus,
           foreground = streamsPageForeground,
           accent = ambientAccent,
           onToggleWatched = onToggleWatched,
@@ -34992,6 +35158,7 @@ private fun EpisodeStreamsPage(
           failedSources = failedSources,
           reducedMotion = reducedMotion,
           onRetry = onReload,
+          onReload = onReload,
         )
         Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
           LazyColumn(
@@ -35082,12 +35249,13 @@ private fun EpisodeStreamsHeader(
   heroImage: String?,
   height: Dp,
   watched: Boolean,
-  restartAvailable: Boolean,
+  playback: EpisodePlaybackSession? = null,
+  restartAvailable: Boolean = false,
   pageColor: Color,
   scrimColor: Color,
   ink: Color,
   hazeState: HazeState,
-  onRestart: () -> Unit,
+  onRestart: () -> Unit = {},
 ) {
   Box(modifier = Modifier.fillMaxWidth().height(height).clip(RectangleShape).hazeSource(hazeState)) {
     AsyncImage(
@@ -35173,7 +35341,7 @@ private fun EpisodeStreamsHeader(
           overflow = TextOverflow.Ellipsis,
           modifier = Modifier.weight(1f),
         )
-        if (restartAvailable) {
+        if (playback == null && restartAvailable) {
           TextButton(
             onClick = onRestart,
             contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
@@ -35206,6 +35374,13 @@ private fun EpisodeStreamsHeader(
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
       )
+      if (playback != null) {
+        EpisodePlaybackPill(
+          playback = playback,
+          foreground = ink,
+          modifier = Modifier.padding(top = 6.dp),
+        )
+      }
     }
   }
 }
@@ -35338,6 +35513,7 @@ private fun StreamSourceToolbar(
   failedSources: List<String>,
   reducedMotion: Boolean,
   onRetry: () -> Unit,
+  onReload: (() -> Unit)? = null,
 ) {
   Box(modifier = modifier) {
     Column(modifier = Modifier.fillMaxSize()) {
@@ -35349,6 +35525,8 @@ private fun StreamSourceToolbar(
             totalCount = totalCount,
             selectedProvider = selectedProvider,
             onProviderSelected = onProviderSelected,
+            onReload = onReload,
+            refreshing = refreshing,
             filterRowState = filterRowState,
             foreground = foreground,
             accent = accent,
@@ -35391,6 +35569,8 @@ private fun StreamSourceFilterRow(
   totalCount: Int,
   selectedProvider: String,
   onProviderSelected: (String) -> Unit,
+  onReload: (() -> Unit)? = null,
+  refreshing: Boolean = false,
   filterRowState: androidx.compose.foundation.lazy.LazyListState,
   foreground: Color,
   accent: Color,
@@ -35417,6 +35597,8 @@ private fun StreamSourceFilterRow(
         accent = accent,
         onAccent = onAccent,
         onClick = { onProviderSelected("All") },
+        onReload = onReload,
+        refreshing = refreshing,
       )
     }
     items(providers, key = { it }) { provider ->
@@ -35451,37 +35633,95 @@ private fun StreamProviderChip(
   accent: Color,
   onAccent: Color,
   onClick: () -> Unit,
+  onReload: (() -> Unit)? = null,
+  refreshing: Boolean = false,
 ) {
   val contentColor = if (selected) onAccent else foreground.copy(alpha = 0.88f)
+  val reducedMotion = LocalReducedMotion.current
+  val rotation = if (refreshing && !reducedMotion) {
+    val infiniteTransition = rememberInfiniteTransition(label = "sources_refresh")
+    infiniteTransition.animateFloat(
+      initialValue = 0f,
+      targetValue = 360f,
+      animationSpec = infiniteRepeatable(
+        animation = tween(900, easing = LinearEasing),
+        repeatMode = RepeatMode.Restart,
+      ),
+      label = "sources_refresh_rotation",
+    ).value
+  } else 0f
+
+  val refreshDescription = stringResource(if (refreshing) R.string.action_refreshing else R.string.action_refresh)
+
   Row(
     modifier = Modifier
       .heightIn(min = 44.dp)
-      .widthIn(max = 210.dp)
+      .widthIn(max = if (onReload != null) 250.dp else 210.dp)
       .clip(StreamDekRadius.pill)
-      .background(if (selected) accent else foreground.copy(alpha = 0.08f))
-      .clickable(onClick = onClick)
-      .padding(horizontal = 14.dp, vertical = 8.dp)
-      .semantics { this.selected = selected },
-    horizontalArrangement = Arrangement.spacedBy(7.dp),
+      .background(if (selected) accent else foreground.copy(alpha = 0.08f)),
     verticalAlignment = Alignment.CenterVertically,
   ) {
-    Text(
-      label,
-      color = contentColor,
-      style = MaterialTheme.typography.labelMedium,
-      fontWeight = FontWeight.Black,
-      maxLines = 1,
-      overflow = TextOverflow.Ellipsis,
-      modifier = Modifier.weight(1f, fill = false),
-    )
-    count?.let {
+    Row(
+      modifier = Modifier
+        .heightIn(min = 44.dp)
+        .clickable(onClick = onClick)
+        .padding(
+          start = 14.dp,
+          top = 8.dp,
+          end = if (onReload != null) 10.dp else 14.dp,
+          bottom = 8.dp,
+        )
+        .semantics { this.selected = selected },
+      horizontalArrangement = Arrangement.spacedBy(7.dp),
+      verticalAlignment = Alignment.CenterVertically,
+    ) {
+      Text(
+        label,
+        color = contentColor,
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.Black,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.weight(1f, fill = false),
+      )
+      count?.let {
+        Box(
+          modifier = Modifier
+            .clip(StreamDekRadius.pill)
+            .background(contentColor.copy(alpha = 0.16f))
+            .padding(horizontal = 6.dp, vertical = 1.dp),
+        ) {
+          Text(it.toString(), color = contentColor, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black, maxLines = 1)
+        }
+      }
+    }
+
+    if (onReload != null) {
       Box(
         modifier = Modifier
-          .clip(StreamDekRadius.pill)
-          .background(contentColor.copy(alpha = 0.16f))
-          .padding(horizontal = 6.dp, vertical = 1.dp),
+          .width(1.dp)
+          .height(18.dp)
+          .background(contentColor.copy(alpha = 0.24f)),
+      )
+      Box(
+        modifier = Modifier
+          .size(44.dp)
+          .clickable(
+            enabled = !refreshing,
+            role = androidx.compose.ui.semantics.Role.Button,
+            onClick = onReload,
+          )
+          .semantics { contentDescription = refreshDescription },
+        contentAlignment = Alignment.Center,
       ) {
-        Text(it.toString(), color = contentColor, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black, maxLines = 1)
+        Icon(
+          Icons.Rounded.Refresh,
+          contentDescription = null,
+          modifier = Modifier
+            .size(16.dp)
+            .graphicsLayer { rotationZ = rotation },
+          tint = contentColor,
+        )
       }
     }
   }

@@ -342,6 +342,7 @@ data class CloudPlaybackPreferences(
   val seasonTabStyle: String? = null,
   val episodeLayout: String? = null,
   val heroTrailerAutoplay: Boolean? = null,
+  val heroTrailerWifiOnly: Boolean? = null,
   val heroTrailerResolution: Int? = null,
   val heroTrailerDelaySeconds: Int? = null,
   /**
