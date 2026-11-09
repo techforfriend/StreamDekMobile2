@@ -119,7 +119,7 @@ fun FuseRecentChannels(
         tint = ink.copy(alpha = 0.70f),
       )
       Text(
-        stringResource(R.string.fuse_recent),
+        stringResource(R.string.fuse_recently_watched),
         color = ink,
         style = MaterialTheme.typography.titleMedium,
         fontWeight = FontWeight.Bold,
@@ -199,7 +199,7 @@ fun FuseSourcePicker(
         Row(
           modifier = Modifier
             .fillMaxWidth()
-            .clip(StreamDekRadius.card)
+            .clip(StreamDekRadius.cardShape)
             .background(if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else ink.copy(alpha = 0.06f))
             .clickable {
               onSelect(key)

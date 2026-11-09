@@ -7,7 +7,6 @@ import android.net.NetworkCapabilities
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.platform.LocalContext
-import kotlinx.coroutines.channels.awaitClose
 
 /**
  * Monitors active network connectivity to enforce Wi-Fi only restriction on hero trailer playback.
@@ -43,7 +42,7 @@ fun rememberTitleTrailerNetworkAllowed(wifiOnly: Boolean): Boolean {
       connectivityManager.registerDefaultNetworkCallback(callback)
     }.isSuccess
     update()
-    awaitClose {
+    awaitDispose {
       if (registered) {
         runCatching { connectivityManager.unregisterNetworkCallback(callback) }
       }

@@ -84,6 +84,9 @@ object PlaybackCodecOptions {
       .edit().putString(MEMORY_BUFFER_KEY, level.storageKey).apply()
   }
 
+  fun mpvBufferBudgetBytes(context: Context, bufferLevel: MemoryBuffer = memoryBuffer): Long =
+    net.streamdek.mobile.nativeapp.mpvBufferBudgetBytes(context, bufferLevel)
+
   /** A stored value from another build, or a hand-edited backup, lands on the nearest real option. */
   internal fun normalizeForwardBufferSeconds(seconds: Int): Int =
     forwardBufferOptions.minByOrNull { kotlin.math.abs(it - seconds) } ?: DEFAULT_FORWARD_BUFFER_SECONDS
